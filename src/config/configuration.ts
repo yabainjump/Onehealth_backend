@@ -5,8 +5,19 @@ export default () => ({
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
   corsOrigin: process.env.CORS_ORIGIN,
+  publicBaseUrl: process.env.PUBLIC_BASE_URL ?? '',
+  frontendPublicUrl: process.env.FRONTEND_PUBLIC_URL ?? '',
+  siteName: process.env.SITE_NAME ?? 'One Health Network',
+  siteDefaultDescription:
+    process.env.SITE_DEFAULT_DESCRIPTION ??
+    'A global collaboration network for human, animal, and environmental health.',
+  defaultShareImage: process.env.DEFAULT_SHARE_IMAGE ?? '',
+  twitterSiteHandle: process.env.TWITTER_SITE_HANDLE ?? '',
   frontendResetPasswordUrl: process.env.FRONTEND_RESET_PASSWORD_URL ?? '',
   resetPasswordTokenTtlMinutes: Number(
     process.env.RESET_PASSWORD_TOKEN_TTL_MINUTES ?? 30,
   ),
+  exposeResetTokenForDebug:
+    (process.env.EXPOSE_RESET_TOKEN_FOR_DEBUG ?? 'false').toLowerCase() ===
+    'true',
 });

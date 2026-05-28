@@ -1,4 +1,9 @@
-import { Module } from '@nestjs/common';
+import {
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+  RequestMethod,
+} from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
@@ -6,6 +11,7 @@ import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersModule } from '../users/users.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { AuthRateLimitMiddleware } from './middleware/auth-rate-limit.middleware';
 
 function parseJwtExpiresInToSeconds(rawValue?: string): number {
   if (!rawValue) {
@@ -51,4 +57,13 @@ function parseJwtExpiresInToSeconds(rawValue?: string): number {
   providers: [AuthService, JwtStrategy],
   exports: [AuthService],
 })
-export class AuthModule {}
+export class AuthModule implements NestModule {
+  configure(consumer: MiddlewareConsumer): void {
+    consumer.apply(AuthRateLimitMiddleware).forRoutes(
+      { path: 'auth/login', method: RequestMethod.POST },
+      { path: 'auth/register', method: RequestMethod.POST },
+      { path: 'auth/forgot-password', method: RequestMethod.POST },
+      { path: 'auth/reset-password', method: RequestMethod.POST },
+    );
+  }
+}

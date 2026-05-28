@@ -8,8 +8,9 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { extname, join } from 'path';
+import { randomUUID } from 'crypto';
 import { mkdirSync } from 'fs';
+import { join } from 'path';
 import type { Request } from 'express';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UploadService } from './upload.service';
@@ -64,10 +65,8 @@ function storageFor(folder: string) {
     destination: (_req: any, _file: any, cb: any) => {
       cb(null, ensureDir(join(process.cwd(), 'uploads', folder)));
     },
-    filename: (_req: any, file: any, cb: any) => {
-      const extension = extname(file.originalname || '').toLowerCase();
-      const filename = `${Date.now()}-${Math.round(Math.random() * 1e9)}${extension}`;
-      cb(null, filename);
+    filename: (_req: any, _file: any, cb: any) => {
+      cb(null, `${Date.now()}-${randomUUID().replace(/-/g, '')}.uploadtmp`);
     },
   });
 }
@@ -77,7 +76,7 @@ function imageFileFilter(
   file: any,
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
-  if (!imageMimeTypes.has(file.mimetype)) {
+  if (!imageMimeTypes.has((file.mimetype || '').toLowerCase())) {
     cb(new BadRequestException('Only image files are allowed') as unknown as Error, false);
     return;
   }
@@ -89,7 +88,7 @@ function messageFileFilter(
   file: any,
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
-  if (!messageAttachmentMimeTypes.has(file.mimetype)) {
+  if (!messageAttachmentMimeTypes.has((file.mimetype || '').toLowerCase())) {
     cb(
       new BadRequestException(
         'Unsupported file type. Allowed: images, pdf, doc, docx, ppt, pptx, xls, xlsx, txt.',
@@ -106,7 +105,7 @@ function postFileFilter(
   file: any,
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
-  if (!postAttachmentMimeTypes.has(file.mimetype)) {
+  if (!postAttachmentMimeTypes.has((file.mimetype || '').toLowerCase())) {
     cb(
       new BadRequestException(
         'Unsupported file type. Allowed: images, videos, pdf, doc, docx, ppt, pptx.',
@@ -131,15 +130,20 @@ export class UploadController {
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
-  uploadProfile(@UploadedFile() file: any, @Req() req: Request) {
+  async uploadProfile(@UploadedFile() file: any, @Req() _req: Request) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
 
-    const relativePath = `/uploads/profile/${file.filename}`;
+    const uploaded = await this.uploadService.finalizeUploadedFile(
+      file,
+      'profile',
+      'profile',
+    );
+
     return {
-      url: this.uploadService.buildFileUrl(req as any, relativePath),
-      filename: file.filename,
+      url: uploaded.url,
+      filename: uploaded.filename,
     };
   }
 
@@ -151,18 +155,19 @@ export class UploadController {
       limits: { fileSize: 50 * 1024 * 1024 },
     }),
   )
-  uploadPost(@UploadedFile() file: any, @Req() req: Request) {
+  async uploadPost(@UploadedFile() file: any, @Req() _req: Request) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
 
-    const relativePath = `/uploads/post/${file.filename}`;
+    const uploaded = await this.uploadService.finalizeUploadedFile(file, 'post', 'post');
+
     return {
-      url: this.uploadService.buildFileUrl(req as any, relativePath),
-      filename: file.filename,
-      originalName: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size,
+      url: uploaded.url,
+      filename: uploaded.filename,
+      originalName: uploaded.originalName,
+      mimetype: uploaded.mimetype,
+      size: uploaded.size,
     };
   }
 
@@ -174,18 +179,23 @@ export class UploadController {
       limits: { fileSize: 50 * 1024 * 1024 },
     }),
   )
-  uploadMessage(@UploadedFile() file: any, @Req() req: Request) {
+  async uploadMessage(@UploadedFile() file: any, @Req() _req: Request) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
 
-    const relativePath = `/uploads/message/${file.filename}`;
+    const uploaded = await this.uploadService.finalizeUploadedFile(
+      file,
+      'message',
+      'message',
+    );
+
     return {
-      url: this.uploadService.buildFileUrl(req as any, relativePath),
-      filename: file.filename,
-      originalName: file.originalname,
-      mimetype: file.mimetype,
-      size: file.size,
+      url: uploaded.url,
+      filename: uploaded.filename,
+      originalName: uploaded.originalName,
+      mimetype: uploaded.mimetype,
+      size: uploaded.size,
     };
   }
 }

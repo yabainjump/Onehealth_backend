@@ -119,7 +119,10 @@ export class AuthService {
       (this.configService.get<string>('NODE_ENV') ?? 'development') ===
       'production';
 
-    if (!isProduction) {
+    const exposeResetTokenForDebug =
+      this.configService.get<boolean>('EXPOSE_RESET_TOKEN_FOR_DEBUG') ?? false;
+
+    if (!isProduction && exposeResetTokenForDebug) {
       const resetUrl = this.buildResetUrl(resetToken);
       this.logger.log(
         `Password reset link generated for ${user.email}: ${resetUrl}`,
@@ -133,9 +136,15 @@ export class AuthService {
       };
     }
 
-    this.logger.log(
-      `Password reset requested for user ${user._id.toString()} (${user.email}).`,
-    );
+    if (!isProduction) {
+      this.logger.log(
+        `Password reset requested for ${user.email}. Debug token exposure is disabled.`,
+      );
+    } else {
+      this.logger.log(
+        `Password reset requested for user ${user._id.toString()} (${user.email}).`,
+      );
+    }
 
     return { message };
   }
@@ -224,5 +233,3 @@ export class AuthService {
     return `${origin.replace(/\/+$/, '')}/reset-password`;
   }
 }
-
-
