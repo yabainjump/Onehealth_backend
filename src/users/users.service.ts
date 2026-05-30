@@ -16,7 +16,7 @@ export interface CreateUserInput {
   username: string;
   firstName: string;
   lastName: string;
-  institution: string;
+  institution?: string;
   typeMedecin?: string;
   country?: string;
   city?: string;

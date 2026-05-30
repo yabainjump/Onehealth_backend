@@ -36,7 +36,7 @@ export class User {
   @Prop({ required: true, trim: true })
   lastName: string;
 
-  @Prop({ required: true, trim: true })
+  @Prop({ default: '', trim: true })
   institution: string;
 
   @Prop({ default: '' })

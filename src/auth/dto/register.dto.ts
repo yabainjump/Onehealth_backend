@@ -31,10 +31,10 @@ export class RegisterDto {
   @MaxLength(100)
   lastName: string;
 
+  @IsOptional()
   @IsString()
-  @MinLength(1)
   @MaxLength(150)
-  institution: string;
+  institution?: string;
 
   @IsOptional()
   @IsString()
