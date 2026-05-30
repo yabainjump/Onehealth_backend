@@ -33,12 +33,12 @@ else
   git remote add origin "$REPO_URL"
 fi
 
-# Keep local deployment script clean to avoid merge conflicts on pull.
-git restore deploy-onehealth-backend.sh >/dev/null 2>&1 || true
-
+# Force the working tree to match origin exactly. This deploy target should
+# never carry local edits, so we discard any to avoid "local changes would be
+# overwritten by merge" failures on pull.
 git fetch origin "$BRANCH"
-git checkout "$BRANCH"
-git pull --ff-only origin "$BRANCH"
+git checkout -f "$BRANCH"
+git reset --hard "origin/$BRANCH"
 
 if [ -f package-lock.json ]; then
   "$NPM_BIN" ci
