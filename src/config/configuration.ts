@@ -13,6 +13,12 @@ export default () => ({
     'A global collaboration network for human, animal, and environmental health.',
   defaultShareImage: process.env.DEFAULT_SHARE_IMAGE ?? '',
   twitterSiteHandle: process.env.TWITTER_SITE_HANDLE ?? '',
+  swaggerEnabled:
+    (process.env.SWAGGER_ENABLED ?? 'true').toLowerCase() === 'true',
+  swaggerPath: process.env.SWAGGER_PATH ?? 'api/docs',
+  swaggerTitle: process.env.SWAGGER_TITLE ?? '',
+  swaggerDescription: process.env.SWAGGER_DESCRIPTION ?? '',
+  swaggerVersion: process.env.SWAGGER_VERSION ?? '1.0.0',
   frontendResetPasswordUrl: process.env.FRONTEND_RESET_PASSWORD_URL ?? '',
   resetPasswordTokenTtlMinutes: Number(
     process.env.RESET_PASSWORD_TOKEN_TTL_MINUTES ?? 30,

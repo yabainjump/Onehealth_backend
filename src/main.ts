@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { extname, join } from 'path';
 import { AppModule } from './app.module';
+import { setupSwagger } from './config/swagger';
 
 const DEFAULT_DEV_CORS_ORIGINS = [
   'http://localhost:8100',
@@ -118,6 +119,8 @@ async function bootstrap() {
       'X-Requested-With',
     ],
   });
+
+  setupSwagger(app, configService);
 
   await app.listen(configService.get<number>('PORT') ?? 3000);
 }

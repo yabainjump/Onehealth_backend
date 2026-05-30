@@ -29,6 +29,14 @@ import configuration from './configuration';
         TWITTER_SITE_HANDLE: Joi.string()
           .pattern(/^@?[A-Za-z0-9_]{1,15}$/)
           .optional(),
+        SWAGGER_ENABLED: Joi.boolean()
+          .truthy('true')
+          .falsy('false')
+          .default(true),
+        SWAGGER_PATH: Joi.string().trim().min(1).default('api/docs'),
+        SWAGGER_TITLE: Joi.string().min(2).max(120).optional(),
+        SWAGGER_DESCRIPTION: Joi.string().min(10).max(400).optional(),
+        SWAGGER_VERSION: Joi.string().trim().min(1).default('1.0.0'),
         FRONTEND_RESET_PASSWORD_URL: Joi.string().uri().optional(),
         RESET_PASSWORD_TOKEN_TTL_MINUTES: Joi.number()
           .integer()
