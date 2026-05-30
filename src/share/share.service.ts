@@ -77,7 +77,7 @@ export class ShareService {
     const defaultImage = this.resolveDefaultShareImage(frontendBaseUrl);
     const imageUrl = this.resolvePostImageUrl(
       post.imageUrls || [],
-      frontendBaseUrl,
+      apiBaseUrl,
       defaultImage,
     );
     const authorName = this.resolveAuthorName(author);
@@ -134,8 +134,8 @@ export class ShareService {
     );
     const defaultImage = this.resolveDefaultShareImage(frontendBaseUrl);
     const imageUrl = toAbsoluteUrl(
-      (user.photoURL || '').trim(),
-      frontendBaseUrl,
+      this.rebaseUploadUrl((user.photoURL || '').trim(), apiBaseUrl),
+      apiBaseUrl,
       defaultImage,
     );
     const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
@@ -166,14 +166,31 @@ export class ShareService {
 
   private resolvePostImageUrl(
     imageUrls: string[],
-    baseUrl: string,
+    apiBaseUrl: string,
     fallbackImage: string,
   ): string {
     const firstImage = (imageUrls || []).find((value) => `${value || ''}`.trim().length > 0);
     if (!firstImage) {
       return fallbackImage;
     }
-    return toAbsoluteUrl(firstImage, baseUrl, fallbackImage);
+    return toAbsoluteUrl(
+      this.rebaseUploadUrl(firstImage, apiBaseUrl),
+      apiBaseUrl,
+      fallbackImage,
+    );
+  }
+
+  // Les images uploadees sont servies par le backend sous /uploads. Certaines
+  // valeurs historiques sont stockees en absolu (ex: http://localhost:3000/uploads/...).
+  // On rebase tout chemin /uploads sur l'origine publique du backend afin que les
+  // robots sociaux puissent reellement charger l'image (og:image).
+  private rebaseUploadUrl(rawUrl: string, apiBaseUrl: string): string {
+    const value = `${rawUrl || ''}`.trim();
+    const uploadsIndex = value.indexOf('/uploads/');
+    if (uploadsIndex === -1) {
+      return value;
+    }
+    return `${apiBaseUrl.replace(/\/+$/, '')}${value.substring(uploadsIndex)}`;
   }
 
   private resolveAuthorName(author: User | null): string {
