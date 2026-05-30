@@ -9,6 +9,7 @@ import { PostsModule } from './posts/posts.module';
 import { ChatModule } from './chat/chat.module';
 import { UploadModule } from './upload/upload.module';
 import { ShareModule } from './share/share.module';
+import { MediaModule } from './media/media.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { ShareModule } from './share/share.module';
     ChatModule,
     UploadModule,
     ShareModule,
+    MediaModule,
   ],
 })
 export class AppModule {}

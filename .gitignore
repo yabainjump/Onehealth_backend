@@ -11,6 +11,7 @@ coverage/
 
 # Runtime data
 # uploads/
+.media-cache/
 exports/
 tmp/
 temp/
