@@ -6,9 +6,14 @@ export function setupSwagger(
   app: INestApplication,
   configService: ConfigService,
 ): void {
+  const swaggerEnabledRaw =
+    configService.get<boolean | string>('SWAGGER_ENABLED') ??
+    configService.get<boolean | string>('swaggerEnabled') ??
+    true;
   const swaggerEnabled =
-    (configService.get<string>('SWAGGER_ENABLED') ?? 'true').toLowerCase() ===
-    'true';
+    typeof swaggerEnabledRaw === 'boolean'
+      ? swaggerEnabledRaw
+      : `${swaggerEnabledRaw}`.toLowerCase() === 'true';
 
   if (!swaggerEnabled) {
     return;
@@ -55,4 +60,3 @@ export function setupSwagger(
     },
   });
 }
-
