@@ -15,7 +15,7 @@ import {
 export class ShareService {
   private static readonly DEFAULT_SITE_NAME = 'One Health Network';
   private static readonly DEFAULT_SITE_DESCRIPTION =
-    'A global collaboration network for human, animal, and environmental health.';
+    'One Health Network connecte les experts de la santé humaine, animale et environnementale pour prévenir les zoonoses et coordonner la réponse aux crises sanitaires : profils vérifiés, cartographie des acteurs, appels à projets, messagerie et l\'assistant Rudolf AI.';
   private static readonly DEFAULT_LOCALE = 'fr_FR';
   private static readonly DEFAULT_FRONTEND_URL = 'http://localhost:8100';
   private static readonly DEFAULT_IMAGE_PATH =
