@@ -37,6 +37,7 @@ export interface UpdateUserProfileInput {
   phone?: string;
   bio?: string;
   photoURL?: string;
+  coverPhotoURL?: string;
 }
 
 @Injectable()
@@ -327,6 +328,7 @@ export class UsersService {
       phone: user.phone ?? '',
       bio: user.bio ?? '',
       photoURL: user.photoURL ?? '',
+      coverPhotoURL: user.coverPhotoURL ?? '',
       followersCount: followers.length,
       followingCount: following.length,
       isFollowing,

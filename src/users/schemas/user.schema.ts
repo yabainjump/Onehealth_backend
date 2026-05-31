@@ -57,6 +57,9 @@ export class User {
   @Prop({ default: '' })
   photoURL: string;
 
+  @Prop({ default: '' })
+  coverPhotoURL: string;
+
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
   followers: Types.ObjectId[];
 

@@ -13,6 +13,7 @@ export interface PublicUser {
   phone: string;
   bio: string;
   photoURL: string;
+  coverPhotoURL: string;
   followersCount: number;
   followingCount: number;
   isFollowing: boolean;
