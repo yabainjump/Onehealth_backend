@@ -10,6 +10,7 @@ import { ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { UsersModule } from '../users/users.module';
+import { MailModule } from '../mail/mail.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthRateLimitMiddleware } from './middleware/auth-rate-limit.middleware';
 
@@ -36,6 +37,7 @@ function parseJwtExpiresInToSeconds(rawValue?: string): number {
 @Module({
   imports: [
     UsersModule,
+    MailModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],

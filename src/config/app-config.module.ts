@@ -47,6 +47,12 @@ import configuration from './configuration';
           .truthy('true')
           .falsy('false')
           .default(false),
+        SMTP_HOST: Joi.string().optional(),
+        SMTP_PORT: Joi.number().port().optional(),
+        SMTP_SECURE: Joi.boolean().truthy('true').falsy('false').optional(),
+        SMTP_USER: Joi.string().optional(),
+        SMTP_PASS: Joi.string().optional(),
+        MAIL_FROM: Joi.string().optional(),
       }),
     }),
   ],

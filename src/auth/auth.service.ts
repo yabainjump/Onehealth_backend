@@ -14,6 +14,7 @@ import { RegisterDto } from './dto/register.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 import { PublicUser } from '../users/interfaces/public-user.interface';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
 import { UserDocument } from '../users/schemas/user.schema';
@@ -41,6 +42,7 @@ export class AuthService {
     private readonly usersService: UsersService,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly mailService: MailService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponse> {
@@ -115,6 +117,15 @@ export class AuthService {
       return { message };
     }
 
+    const resetUrl = this.buildResetUrl(resetToken);
+
+    // Envoi de l'email de reinitialisation (best-effort : ne bloque jamais le flux).
+    const emailSent = await this.mailService.sendPasswordReset(
+      user.email,
+      resetUrl,
+      tokenTtlMinutes,
+    );
+
     const isProduction =
       (this.configService.get<string>('NODE_ENV') ?? 'development') ===
       'production';
@@ -123,7 +134,6 @@ export class AuthService {
       this.configService.get<boolean>('EXPOSE_RESET_TOKEN_FOR_DEBUG') ?? false;
 
     if (!isProduction && exposeResetTokenForDebug) {
-      const resetUrl = this.buildResetUrl(resetToken);
       this.logger.log(
         `Password reset link generated for ${user.email}: ${resetUrl}`,
       );
@@ -136,13 +146,15 @@ export class AuthService {
       };
     }
 
-    if (!isProduction) {
-      this.logger.log(
-        `Password reset requested for ${user.email}. Debug token exposure is disabled.`,
+    if (!emailSent) {
+      this.logger.warn(
+        `Password reset requested for ${user.email} but no email was sent (SMTP not configured or send failed).`,
       );
+    } else if (!isProduction) {
+      this.logger.log(`Password reset email sent to ${user.email}.`);
     } else {
       this.logger.log(
-        `Password reset requested for user ${user._id.toString()} (${user.email}).`,
+        `Password reset email sent to user ${user._id.toString()}.`,
       );
     }
 

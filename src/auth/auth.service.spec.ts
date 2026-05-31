@@ -5,6 +5,7 @@ import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 import { UserRole } from '../users/schemas/user.schema';
 
 jest.mock('bcrypt', () => ({
@@ -18,6 +19,8 @@ describe('AuthService', () => {
   const usersServiceMock = {
     findByEmail: jest.fn(),
     toPublicUser: jest.fn(),
+    markOnline: jest.fn().mockResolvedValue(null),
+    markOffline: jest.fn().mockResolvedValue(undefined),
   };
 
   const jwtServiceMock = {
@@ -26,6 +29,10 @@ describe('AuthService', () => {
 
   const configServiceMock = {
     get: jest.fn().mockReturnValue('1h'),
+  };
+
+  const mailServiceMock = {
+    sendPasswordReset: jest.fn().mockResolvedValue(true),
   };
 
   beforeEach(async () => {
@@ -37,6 +44,7 @@ describe('AuthService', () => {
         { provide: UsersService, useValue: usersServiceMock },
         { provide: JwtService, useValue: jwtServiceMock },
         { provide: ConfigService, useValue: configServiceMock },
+        { provide: MailService, useValue: mailServiceMock },
       ],
     }).compile();
 
