@@ -8,12 +8,6 @@ import { createHash } from 'crypto';
 import { existsSync, promises as fs } from 'fs';
 import { extname, join, normalize, sep } from 'path';
 import sharp from 'sharp';
-import ffmpeg from 'fluent-ffmpeg';
-import ffmpegStatic from 'ffmpeg-static';
-
-if (ffmpegStatic) {
-  ffmpeg.setFfmpegPath(ffmpegStatic);
-}
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.webm', '.mkv']);
@@ -37,6 +31,9 @@ export class MediaService {
   private readonly logger = new Logger(MediaService.name);
   private readonly uploadsRoot = join(process.cwd(), 'uploads');
   private readonly cacheRoot = join(process.cwd(), '.media-cache');
+  // ffmpeg est une dependance OPTIONNELLE : chargee paresseusement, l'app
+  // demarre meme si elle est absente (les posters video sont alors desactives).
+  private ffmpegLib: unknown | null | undefined = undefined;
 
   async getThumbnail(rawPath: string, requestedWidth: number): Promise<ResolvedMedia> {
     const sourcePath = this.resolveSourcePath(rawPath);
@@ -93,6 +90,11 @@ export class MediaService {
       return { filePath: cacheFile, contentType: 'image/jpeg' };
     }
 
+    const ffmpeg = await this.loadFfmpeg();
+    if (!ffmpeg) {
+      throw new NotFoundException('Poster generation unavailable on this server');
+    }
+
     await fs.mkdir(cacheDir, { recursive: true });
 
     try {
@@ -119,6 +121,30 @@ export class MediaService {
     }
 
     return { filePath: cacheFile, contentType: 'image/jpeg' };
+  }
+
+  private async loadFfmpeg(): Promise<((input: string) => any) | null> {
+    if (this.ffmpegLib !== undefined) {
+      return this.ffmpegLib as ((input: string) => any) | null;
+    }
+
+    try {
+      const ffmpegModule: any = await import('fluent-ffmpeg');
+      const ffmpeg = ffmpegModule.default ?? ffmpegModule;
+      const ffmpegStaticModule: any = await import('ffmpeg-static');
+      const ffmpegStatic = ffmpegStaticModule.default ?? ffmpegStaticModule;
+      if (ffmpegStatic && typeof ffmpeg.setFfmpegPath === 'function') {
+        ffmpeg.setFfmpegPath(ffmpegStatic);
+      }
+      this.ffmpegLib = ffmpeg;
+    } catch {
+      this.logger.warn(
+        'ffmpeg indisponible — generation des posters video desactivee.',
+      );
+      this.ffmpegLib = null;
+    }
+
+    return this.ffmpegLib as ((input: string) => any) | null;
   }
 
   private resolveSourcePath(rawPath: string): string {
