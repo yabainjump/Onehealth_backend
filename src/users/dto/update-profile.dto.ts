@@ -49,7 +49,7 @@ export class UpdateProfileDto {
   @IsOptional()
   @IsString()
   @MaxLength(25)
-  @Matches(/^\+?[0-9\s().-]{7,20}$/, {
+  @Matches(/^(\+?[0-9\s().-]{7,20})?$/, {
     message: 'phone must be a valid phone number',
   })
   phone?: string;
