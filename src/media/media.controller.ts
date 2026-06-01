@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Get,
+  HttpException,
   Query,
   Res,
 } from '@nestjs/common';
@@ -18,12 +19,15 @@ export class MediaController {
     @Query('w') width: string,
     @Res() res: Response,
   ): Promise<void> {
-    if (!path) {
-      throw new BadRequestException('Missing path');
+    try {
+      if (!path) {
+        throw new BadRequestException('Missing path');
+      }
+      const resolved = await this.mediaService.getThumbnail(path, Number(width));
+      this.sendFile(res, resolved.filePath, resolved.contentType);
+    } catch (error) {
+      this.sendError(res, error);
     }
-
-    const resolved = await this.mediaService.getThumbnail(path, Number(width));
-    this.sendFile(res, resolved.filePath, resolved.contentType);
   }
 
   @Get('poster')
@@ -31,18 +35,43 @@ export class MediaController {
     @Query('path') path: string,
     @Res() res: Response,
   ): Promise<void> {
-    if (!path) {
-      throw new BadRequestException('Missing path');
+    try {
+      if (!path) {
+        throw new BadRequestException('Missing path');
+      }
+      const resolved = await this.mediaService.getPoster(path);
+      this.sendFile(res, resolved.filePath, resolved.contentType);
+    } catch (error) {
+      this.sendError(res, error);
     }
-
-    const resolved = await this.mediaService.getPoster(path);
-    this.sendFile(res, resolved.filePath, resolved.contentType);
   }
 
   private sendFile(res: Response, filePath: string, contentType: string): void {
-    res.setHeader('Content-Type', contentType);
-    res.setHeader('Cache-Control', 'public, max-age=2592000, immutable');
-    res.setHeader('X-Content-Type-Options', 'nosniff');
-    res.sendFile(filePath);
+    res.sendFile(
+      filePath,
+      {
+        headers: {
+          'Content-Type': contentType,
+          'Cache-Control': 'public, max-age=2592000, immutable',
+          'X-Content-Type-Options': 'nosniff',
+        },
+      },
+      (error) => {
+        if (error && !res.headersSent) {
+          this.sendError(res, error);
+        }
+      },
+    );
+  }
+
+  // Les erreurs ne doivent JAMAIS etre mises en cache (sinon un 404 transitoire
+  // reste fige cote proxy/CDN). On force donc no-store.
+  private sendError(res: Response, error: unknown): void {
+    if (res.headersSent) {
+      return;
+    }
+    const status = error instanceof HttpException ? error.getStatus() : 404;
+    res.setHeader('Cache-Control', 'no-store, no-cache, must-revalidate');
+    res.status(status).json({ statusCode: status, message: 'Media not found' });
   }
 }
