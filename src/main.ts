@@ -65,6 +65,11 @@ async function bootstrap() {
       'camera=(), microphone=(), geolocation=(), fullscreen=(self)',
     );
 
+    // API dynamique : ne JAMAIS laisser un proxy/CDN (LiteSpeed) la mettre en
+    // cache (sinon fil/likes/medias servis perimes). Les endpoints qui veulent
+    // du cache (media images, share) reecrivent ce header ensuite.
+    res.setHeader('Cache-Control', 'no-store');
+
     if (nodeEnv === 'production') {
       res.setHeader(
         'Strict-Transport-Security',

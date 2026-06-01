@@ -50,6 +50,9 @@ export class MediaController {
     res.sendFile(
       filePath,
       {
+        // Le cache est dans `.media-cache` (dossier commencant par un point) :
+        // sans cette option, Express/`send` renvoie 404 sur les "dotfiles".
+        dotfiles: 'allow',
         headers: {
           'Content-Type': contentType,
           'Cache-Control': 'public, max-age=2592000, immutable',
