@@ -3,8 +3,14 @@ import { ConfigService } from '@nestjs/config';
 import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import { extname, join } from 'path';
+import sharp from 'sharp';
 
 export type UploadKind = 'profile' | 'post' | 'message';
+
+// Bornes de conversion WebP a l'upload.
+const WEBP_MAX_DIMENSION = 1920;
+const WEBP_QUALITY = 80;
+const IMAGE_SIGNATURES = ['jpeg', 'png', 'webp', 'gif'];
 
 interface UploadedFileLike {
   path: string;
@@ -161,9 +167,38 @@ export class UploadService {
         throw new BadRequestException('File content does not match extension/type.');
       }
 
-      const finalFilename = `${Date.now()}-${randomUUID().replace(/-/g, '')}${originalExtension}`;
-      const finalDiskPath = join(process.cwd(), 'uploads', folder, finalFilename);
-      await fs.rename(file.path, finalDiskPath);
+      const baseName = `${Date.now()}-${randomUUID().replace(/-/g, '')}`;
+      const isImage = IMAGE_SIGNATURES.includes(matchedRule.signature);
+      // On convertit toutes les images (sauf le WebP deja optimise) en WebP :
+      // gain d'espace + chargement plus rapide. Videos/documents inchanges.
+      const convertToWebp = isImage && matchedRule.signature !== 'webp';
+
+      let finalFilename: string;
+      let finalDiskPath: string;
+      let outputMime = normalizedMime;
+      let outputSize = file.size;
+
+      if (convertToWebp) {
+        finalFilename = `${baseName}.webp`;
+        finalDiskPath = join(process.cwd(), 'uploads', folder, finalFilename);
+        await sharp(file.path, { animated: matchedRule.signature === 'gif' })
+          .rotate()
+          .resize({
+            width: WEBP_MAX_DIMENSION,
+            height: WEBP_MAX_DIMENSION,
+            fit: 'inside',
+            withoutEnlargement: true,
+          })
+          .webp({ quality: WEBP_QUALITY })
+          .toFile(finalDiskPath);
+        await this.removeIfExists(file.path);
+        outputMime = 'image/webp';
+        outputSize = (await fs.stat(finalDiskPath)).size;
+      } else {
+        finalFilename = `${baseName}${originalExtension}`;
+        finalDiskPath = join(process.cwd(), 'uploads', folder, finalFilename);
+        await fs.rename(file.path, finalDiskPath);
+      }
 
       const relativePath = `/uploads/${folder}/${finalFilename}`;
 
@@ -172,8 +207,8 @@ export class UploadService {
         relativePath,
         url: this.buildFileUrl(relativePath),
         originalName: file.originalname,
-        mimetype: normalizedMime,
-        size: file.size,
+        mimetype: outputMime,
+        size: outputSize,
       };
     } catch (error) {
       await this.removeIfExists(file.path);
