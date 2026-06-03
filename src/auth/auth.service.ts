@@ -69,6 +69,10 @@ export class AuthService {
       photoURL: registerDto.photoURL ?? '',
     });
 
+    // E-mail de bienvenue (best-effort : ne bloque ni ne ralentit l'inscription).
+    const welcomeName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+    void this.mailService.sendWelcome(user.email, welcomeName);
+
     return this.buildAuthResponse(user);
   }
 
