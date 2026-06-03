@@ -15,6 +15,7 @@
     "start:prod": "node dist/main.js",
     "migrate:webp": "node -r ts-node/register/transpile-only scripts/convert-images-to-webp.ts",
     "test:mail": "node -r ts-node/register/transpile-only scripts/test-mail.ts",
+    "campaign:reset": "node -r ts-node/register/transpile-only scripts/send-password-reset-campaign.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",
     "test:watch": "jest --watch",
