@@ -40,15 +40,8 @@ export class MailService {
         from: `"${siteName}" <${from}>`,
         to,
         subject: `Réinitialisation de votre mot de passe — ${siteName}`,
-        text:
-          `Vous avez demandé la réinitialisation de votre mot de passe sur ${siteName}.\n\n` +
-          `Ouvrez ce lien (valide ${ttlMinutes} minutes) pour choisir un nouveau mot de passe :\n${resetUrl}\n\n` +
-          `Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet email.`,
-        html:
-          `<p>Vous avez demandé la réinitialisation de votre mot de passe sur <strong>${siteName}</strong>.</p>` +
-          `<p><a href="${resetUrl}" style="display:inline-block;padding:10px 18px;background:#0b4ed6;color:#fff;border-radius:8px;text-decoration:none;font-weight:600">Réinitialiser mon mot de passe</a></p>` +
-          `<p style="color:#555;font-size:13px">Ce lien est valable ${ttlMinutes} minutes. Si le bouton ne fonctionne pas, copiez ce lien :<br>${resetUrl}</p>` +
-          `<p style="color:#777;font-size:12px">Si vous n'êtes pas à l'origine de cette demande, ignorez cet email.</p>`,
+        text: this.buildResetEmailText(siteName, resetUrl, ttlMinutes),
+        html: this.buildResetEmailHtml(siteName, resetUrl, ttlMinutes),
       });
       return true;
     } catch (error) {
@@ -59,6 +52,87 @@ export class MailService {
       );
       return false;
     }
+  }
+
+  private buildResetEmailText(
+    siteName: string,
+    resetUrl: string,
+    ttlMinutes: number,
+  ): string {
+    return (
+      `Vous avez demandé la réinitialisation de votre mot de passe sur ${siteName}.\n\n` +
+      `Ouvrez ce lien (valable ${ttlMinutes} minutes) pour choisir un nouveau mot de passe :\n${resetUrl}\n\n` +
+      `Si vous n'êtes pas à l'origine de cette demande, ignorez simplement cet e-mail : votre mot de passe restera inchangé.\n\n` +
+      `— L'équipe ${siteName}`
+    );
+  }
+
+  private buildResetEmailHtml(
+    siteName: string,
+    resetUrl: string,
+    ttlMinutes: number,
+  ): string {
+    const accent = '#1f9d57';
+    const year = new Date().getFullYear();
+
+    return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>${siteName}</title>
+</head>
+<body style="margin:0;padding:0;background:#eef2f6;-webkit-font-smoothing:antialiased;font-family:'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#eef2f6;padding:24px 12px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="600" cellpadding="0" cellspacing="0" style="max-width:600px;width:100%;background:#ffffff;border-radius:14px;overflow:hidden;border:1px solid #e2e8f0;">
+          <tr>
+            <td style="background:${accent};padding:26px 32px;text-align:center;">
+              <span style="color:#ffffff;font-size:20px;font-weight:700;letter-spacing:0.3px;">${siteName}</span>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:32px;">
+              <h1 style="margin:0 0 14px;font-size:20px;color:#0f2f3d;">Réinitialisation du mot de passe</h1>
+              <p style="margin:0 0 16px;font-size:15px;line-height:1.6;color:#3f4a57;">
+                Tu as demandé à réinitialiser ton mot de passe sur <strong>${siteName}</strong>.
+                Clique sur le bouton ci-dessous pour en choisir un nouveau.
+              </p>
+              <table role="presentation" cellpadding="0" cellspacing="0" style="margin:26px auto;">
+                <tr>
+                  <td align="center" style="border-radius:10px;background:${accent};">
+                    <a href="${resetUrl}" target="_blank" style="display:inline-block;padding:14px 30px;font-size:15px;font-weight:600;color:#ffffff;text-decoration:none;border-radius:10px;">
+                      Réinitialiser mon mot de passe
+                    </a>
+                  </td>
+                </tr>
+              </table>
+              <p style="margin:0 0 10px;font-size:13px;color:#6b7280;">
+                Ce lien est valable <strong>${ttlMinutes} minutes</strong>.
+              </p>
+              <p style="margin:0 0 6px;font-size:13px;color:#6b7280;">
+                Si le bouton ne fonctionne pas, copie-colle ce lien dans ton navigateur :
+              </p>
+              <p style="margin:0;font-size:13px;word-break:break-all;">
+                <a href="${resetUrl}" target="_blank" style="color:${accent};">${resetUrl}</a>
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding:20px 32px;background:#f8fafc;border-top:1px solid #eef2f6;">
+              <p style="margin:0;font-size:12px;color:#94a3b8;line-height:1.5;">
+                Si tu n'es pas à l'origine de cette demande, ignore simplement cet e-mail — ton mot de passe restera inchangé.
+              </p>
+              <p style="margin:10px 0 0;font-size:12px;color:#b6c0cc;">© ${year} ${siteName}</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>`;
   }
 
   private createTransporter(): Transporter | null {
