@@ -12,23 +12,32 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { RequestWithUser } from './interfaces/request-with-user.interface';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ListUsersDto } from './dto/list-users.dto';
 
+@ApiTags('Users')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
-  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Mon profil (utilisateur connecté)' })
   @Get('me')
   getCurrentUser(@Req() request: RequestWithUser) {
     return request.user;
   }
 
-  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Mettre à jour mon profil' })
   @Patch('me')
   async updateCurrentUser(
     @Req() request: RequestWithUser,
@@ -41,13 +50,17 @@ export class UsersController {
     return this.usersService.toPublicUser(user, request.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Lister / rechercher des utilisateurs',
+    description: 'Recherche optionnelle par nom, prénom, username ou institution.',
+  })
   @Get()
   listUsers(@Req() request: RequestWithUser, @Query() query: ListUsersDto) {
     return this.usersService.listUsers(query.search, request.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Récupérer un utilisateur par son id' })
+  @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur" })
   @Get(':id')
   async getById(@Req() request: RequestWithUser, @Param('id') id: string) {
     const user = await this.usersService.findById(id);
@@ -57,7 +70,11 @@ export class UsersController {
     return this.usersService.toPublicUser(user, request.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @ApiOperation({
+    summary: 'Mettre à jour un utilisateur',
+    description: 'Réservé au propriétaire du compte ou à un administrateur.',
+  })
+  @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur" })
   @Patch(':id')
   async updateById(
     @Req() request: RequestWithUser,
@@ -77,13 +94,15 @@ export class UsersController {
     return this.usersService.toPublicUser(user, request.user.id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Suivre un utilisateur' })
+  @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur à suivre" })
   @Post(':id/follow')
   followUser(@Req() request: RequestWithUser, @Param('id') id: string) {
     return this.usersService.followUser(request.user.id, id);
   }
 
-  @UseGuards(JwtAuthGuard)
+  @ApiOperation({ summary: 'Ne plus suivre un utilisateur' })
+  @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur à ne plus suivre" })
   @Delete(':id/follow')
   unfollowUser(@Req() request: RequestWithUser, @Param('id') id: string) {
     return this.usersService.unfollowUser(request.user.id, id);

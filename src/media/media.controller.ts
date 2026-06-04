@@ -7,12 +7,24 @@ import {
   Res,
 } from '@nestjs/common';
 import type { Response } from 'express';
+import { ApiOperation, ApiQuery, ApiTags } from '@nestjs/swagger';
 import { MediaService } from './media.service';
 
+@ApiTags('Media')
 @Controller('media')
 export class MediaController {
   constructor(private readonly mediaService: MediaService) {}
 
+  @ApiOperation({
+    summary: 'Miniature WebP générée à la volée',
+    description: 'Renvoie une image (binaire) redimensionnée et mise en cache.',
+  })
+  @ApiQuery({ name: 'path', description: "Chemin /uploads/... de l'image source" })
+  @ApiQuery({
+    name: 'w',
+    required: false,
+    description: 'Largeur cible en pixels (ex. 1000)',
+  })
   @Get('thumb')
   async getThumbnail(
     @Query('path') path: string,
@@ -30,6 +42,11 @@ export class MediaController {
     }
   }
 
+  @ApiOperation({
+    summary: 'Poster (vignette) d\'une vidéo',
+    description: 'Renvoie une image (binaire) extraite de la vidéo et mise en cache.',
+  })
+  @ApiQuery({ name: 'path', description: 'Chemin /uploads/... de la vidéo source' })
   @Get('poster')
   async getPoster(
     @Query('path') path: string,

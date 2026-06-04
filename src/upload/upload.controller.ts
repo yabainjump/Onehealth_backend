@@ -12,8 +12,24 @@ import { randomUUID } from 'crypto';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
 import type { Request } from 'express';
+import {
+  ApiBearerAuth,
+  ApiBody,
+  ApiBodyOptions,
+  ApiConsumes,
+  ApiOperation,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { UploadService } from './upload.service';
+
+const FILE_UPLOAD_BODY: ApiBodyOptions = {
+  schema: {
+    type: 'object',
+    required: ['file'],
+    properties: { file: { type: 'string', format: 'binary' } },
+  },
+};
 
 const multer = require('multer');
 const diskStorage = multer.diskStorage;
@@ -117,11 +133,19 @@ function postFileFilter(
   cb(null, true);
 }
 
+@ApiTags('Upload')
+@ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
 @Controller('upload')
 export class UploadController {
   constructor(private readonly uploadService: UploadService) {}
 
+  @ApiOperation({
+    summary: 'Téléverser une photo de profil',
+    description: 'Images uniquement (JPG, PNG, WebP, GIF). 10 Mo max. Converties en WebP.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(FILE_UPLOAD_BODY)
   @Post('profile')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -147,6 +171,12 @@ export class UploadController {
     };
   }
 
+  @ApiOperation({
+    summary: 'Téléverser un média de publication',
+    description: 'Images, vidéos ou documents (PDF, DOC, PPT…). 50 Mo max.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(FILE_UPLOAD_BODY)
   @Post('post')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -171,6 +201,12 @@ export class UploadController {
     };
   }
 
+  @ApiOperation({
+    summary: 'Téléverser un fichier de message',
+    description: 'Images, vidéos ou documents (PDF, DOC, PPT, XLS, TXT…). 50 Mo max.',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(FILE_UPLOAD_BODY)
   @Post('message')
   @UseInterceptors(
     FileInterceptor('file', {
