@@ -19,7 +19,7 @@ export class ShareService {
   private static readonly DEFAULT_LOCALE = 'fr_FR';
   private static readonly DEFAULT_FRONTEND_URL = 'http://localhost:8100';
   private static readonly DEFAULT_IMAGE_PATH =
-    '/assets/images/logo-onehealth-in-cameroon.png';
+    '/assets/images/onehealth-share.png';
 
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<Post>,
