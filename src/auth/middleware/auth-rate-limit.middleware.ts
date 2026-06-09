@@ -71,22 +71,11 @@ export class AuthRateLimitMiddleware implements NestMiddleware {
   }
 
   private resolveClientId(request: Request): string {
-    const forwarded = request.headers['x-forwarded-for'];
-
-    if (typeof forwarded === 'string' && forwarded.trim().length > 0) {
-      const [firstIp] = forwarded.split(',');
-      if (firstIp?.trim()) {
-        return firstIp.trim();
-      }
-    }
-
-    if (Array.isArray(forwarded) && forwarded.length > 0) {
-      const first = forwarded[0]?.trim();
-      if (first) {
-        return first;
-      }
-    }
-
+    // `req.ip` est resolu par Express via le proxy de confiance
+    // (`trust proxy: 1` configure dans main.ts) : c'est la vraie IP client,
+    // NON usurpable via un header `X-Forwarded-For` falsifie (contrairement a
+    // un parsing manuel de l'en-tete, qui prend la valeur la plus a gauche
+    // controlee par le client).
     return request.ip || 'unknown';
   }
 

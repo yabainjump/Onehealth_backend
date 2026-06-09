@@ -6,14 +6,21 @@ export function setupSwagger(
   app: INestApplication,
   configService: ConfigService,
 ): void {
+  const nodeEnv = configService.get<string>('NODE_ENV') ?? 'development';
   const swaggerEnabledRaw =
-    configService.get<boolean | string>('SWAGGER_ENABLED') ??
-    configService.get<boolean | string>('swaggerEnabled') ??
-    true;
+    configService.get<boolean | string>('SWAGGER_ENABLED');
+
+  // Defaut SECURISE : si SWAGGER_ENABLED n'est pas defini, la doc est active en
+  // developpement mais DESACTIVEE en production (on n'expose pas publiquement le
+  // schema complet de l'API). Pour l'activer en prod : SWAGGER_ENABLED=true.
   const swaggerEnabled =
-    typeof swaggerEnabledRaw === 'boolean'
-      ? swaggerEnabledRaw
-      : `${swaggerEnabledRaw}`.toLowerCase() === 'true';
+    swaggerEnabledRaw === undefined ||
+    swaggerEnabledRaw === null ||
+    `${swaggerEnabledRaw}`.trim() === ''
+      ? nodeEnv !== 'production'
+      : typeof swaggerEnabledRaw === 'boolean'
+        ? swaggerEnabledRaw
+        : `${swaggerEnabledRaw}`.toLowerCase() === 'true';
 
   if (!swaggerEnabled) {
     return;

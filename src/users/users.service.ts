@@ -91,6 +91,9 @@ export class UsersService {
   }
 
   async findById(id: string): Promise<UserDocument | null> {
+    if (!Types.ObjectId.isValid(id)) {
+      return null;
+    }
     return this.userModel.findById(id).exec();
   }
 
@@ -114,6 +117,9 @@ export class UsersService {
     id: string,
     updates: UpdateUserProfileInput,
   ): Promise<UserDocument | null> {
+    if (!Types.ObjectId.isValid(id)) {
+      return null;
+    }
     return this.userModel
       .findByIdAndUpdate(id, updates, {
         returnDocument: 'after',
@@ -123,13 +129,16 @@ export class UsersService {
   }
 
   async listUsers(search?: string, currentUserId?: string): Promise<PublicUser[]> {
-    const query = search
+    // On echappe les caracteres speciaux : la saisie ne peut PAS injecter de
+    // motif regex (evite un ReDoS / un matching inattendu).
+    const safeSearch = search ? this.escapeRegex(search.trim()) : '';
+    const query = safeSearch
       ? {
           $or: [
-            { username: { $regex: search, $options: 'i' } },
-            { firstName: { $regex: search, $options: 'i' } },
-            { lastName: { $regex: search, $options: 'i' } },
-            { institution: { $regex: search, $options: 'i' } },
+            { username: { $regex: safeSearch, $options: 'i' } },
+            { firstName: { $regex: safeSearch, $options: 'i' } },
+            { lastName: { $regex: safeSearch, $options: 'i' } },
+            { institution: { $regex: safeSearch, $options: 'i' } },
           ],
         }
       : {};
@@ -351,6 +360,10 @@ export class UsersService {
     if (source === target) {
       throw new BadRequestException('You cannot follow yourself');
     }
+  }
+
+  private escapeRegex(value: string): string {
+    return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }
 

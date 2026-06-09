@@ -9,6 +9,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { RequestWithUser } from '../users/interfaces/request-with-user.interface';
 import { ChatService } from './chat.service';
@@ -42,7 +43,7 @@ export class ChatController {
   @Get('rooms/:roomId/messages')
   listMessages(
     @Req() req: RequestWithUser,
-    @Param('roomId') roomId: string,
+    @Param('roomId', ParseObjectIdPipe) roomId: string,
     @Query() query: ListMessagesDto,
   ) {
     return this.chatService.listMessages(roomId, req.user.id, query);
@@ -53,7 +54,7 @@ export class ChatController {
   @Post('rooms/:roomId/messages')
   sendMessage(
     @Req() req: RequestWithUser,
-    @Param('roomId') roomId: string,
+    @Param('roomId', ParseObjectIdPipe) roomId: string,
     @Body() dto: SendMessageDto,
   ) {
     return this.chatService.sendMessage(roomId, req.user.id, dto);
@@ -62,7 +63,7 @@ export class ChatController {
   @ApiOperation({ summary: 'Marquer un salon comme lu' })
   @ApiParam({ name: 'roomId', description: 'Identifiant du salon' })
   @Post('rooms/:roomId/read')
-  markRead(@Req() req: RequestWithUser, @Param('roomId') roomId: string) {
+  markRead(@Req() req: RequestWithUser, @Param('roomId', ParseObjectIdPipe) roomId: string) {
     return this.chatService.markRead(roomId, req.user.id);
   }
 }

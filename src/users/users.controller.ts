@@ -18,6 +18,7 @@ import {
   ApiParam,
   ApiTags,
 } from '@nestjs/swagger';
+import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { RequestWithUser } from './interfaces/request-with-user.interface';
 import { UsersService } from './users.service';
@@ -62,7 +63,7 @@ export class UsersController {
   @ApiOperation({ summary: 'Récupérer un utilisateur par son id' })
   @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur" })
   @Get(':id')
-  async getById(@Req() request: RequestWithUser, @Param('id') id: string) {
+  async getById(@Req() request: RequestWithUser, @Param('id', ParseObjectIdPipe) id: string) {
     const user = await this.usersService.findById(id);
     if (!user) {
       throw new NotFoundException('User not found');
@@ -78,7 +79,7 @@ export class UsersController {
   @Patch(':id')
   async updateById(
     @Req() request: RequestWithUser,
-    @Param('id') id: string,
+    @Param('id', ParseObjectIdPipe) id: string,
     @Body() dto: UpdateProfileDto,
   ) {
     const isSelf = request.user.id === id;
@@ -97,14 +98,14 @@ export class UsersController {
   @ApiOperation({ summary: 'Suivre un utilisateur' })
   @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur à suivre" })
   @Post(':id/follow')
-  followUser(@Req() request: RequestWithUser, @Param('id') id: string) {
+  followUser(@Req() request: RequestWithUser, @Param('id', ParseObjectIdPipe) id: string) {
     return this.usersService.followUser(request.user.id, id);
   }
 
   @ApiOperation({ summary: 'Ne plus suivre un utilisateur' })
   @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur à ne plus suivre" })
   @Delete(':id/follow')
-  unfollowUser(@Req() request: RequestWithUser, @Param('id') id: string) {
+  unfollowUser(@Req() request: RequestWithUser, @Param('id', ParseObjectIdPipe) id: string) {
     return this.usersService.unfollowUser(request.user.id, id);
   }
 }

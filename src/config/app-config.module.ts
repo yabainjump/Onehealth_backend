@@ -32,7 +32,7 @@ import configuration from './configuration';
         SWAGGER_ENABLED: Joi.boolean()
           .truthy('true')
           .falsy('false')
-          .default(true),
+          .optional(),
         SWAGGER_PATH: Joi.string().trim().min(1).default('api/docs'),
         SWAGGER_TITLE: Joi.string().min(2).max(120).optional(),
         SWAGGER_DESCRIPTION: Joi.string().min(10).max(400).optional(),

@@ -11,6 +11,7 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { RequestWithUser } from '../users/interfaces/request-with-user.interface';
 import { AddCommentDto } from './dto/add-comment.dto';
@@ -43,7 +44,7 @@ export class PostsController {
   @Get('user/:userId')
   listByUser(
     @Req() req: RequestWithUser,
-    @Param('userId') userId: string,
+    @Param('userId', ParseObjectIdPipe) userId: string,
     @Query() query: ListPostsDto,
   ) {
     return this.postsService.listByUser(
@@ -57,14 +58,14 @@ export class PostsController {
   @ApiOperation({ summary: 'Récupérer une publication par son id' })
   @ApiParam({ name: 'postId', description: 'Identifiant de la publication' })
   @Get(':postId')
-  findById(@Req() req: RequestWithUser, @Param('postId') postId: string) {
+  findById(@Req() req: RequestWithUser, @Param('postId', ParseObjectIdPipe) postId: string) {
     return this.postsService.findById(postId, req.user.id);
   }
 
   @ApiOperation({ summary: 'Lister les commentaires d\'une publication' })
   @ApiParam({ name: 'postId', description: 'Identifiant de la publication' })
   @Get(':postId/comments')
-  listComments(@Req() req: RequestWithUser, @Param('postId') postId: string) {
+  listComments(@Req() req: RequestWithUser, @Param('postId', ParseObjectIdPipe) postId: string) {
     return this.postsService.listComments(postId, req.user.id);
   }
 
@@ -73,7 +74,7 @@ export class PostsController {
   @Patch(':postId')
   update(
     @Req() req: RequestWithUser,
-    @Param('postId') postId: string,
+    @Param('postId', ParseObjectIdPipe) postId: string,
     @Body() dto: UpdatePostDto,
   ) {
     return this.postsService.update(postId, req.user.id, dto);
@@ -82,14 +83,14 @@ export class PostsController {
   @ApiOperation({ summary: 'Aimer une publication' })
   @ApiParam({ name: 'postId', description: 'Identifiant de la publication' })
   @HttpPost(':postId/like')
-  like(@Req() req: RequestWithUser, @Param('postId') postId: string) {
+  like(@Req() req: RequestWithUser, @Param('postId', ParseObjectIdPipe) postId: string) {
     return this.postsService.like(postId, req.user.id);
   }
 
   @ApiOperation({ summary: 'Retirer son like d\'une publication' })
   @ApiParam({ name: 'postId', description: 'Identifiant de la publication' })
   @Delete(':postId/like')
-  unlike(@Req() req: RequestWithUser, @Param('postId') postId: string) {
+  unlike(@Req() req: RequestWithUser, @Param('postId', ParseObjectIdPipe) postId: string) {
     return this.postsService.unlike(postId, req.user.id);
   }
 
@@ -98,7 +99,7 @@ export class PostsController {
   @HttpPost(':postId/comments')
   comment(
     @Req() req: RequestWithUser,
-    @Param('postId') postId: string,
+    @Param('postId', ParseObjectIdPipe) postId: string,
     @Body() dto: AddCommentDto,
   ) {
     return this.postsService.addComment(postId, req.user.id, dto);
@@ -110,7 +111,7 @@ export class PostsController {
   @HttpPost(':postId/comments/:commentId/like')
   likeComment(
     @Req() req: RequestWithUser,
-    @Param('postId') postId: string,
+    @Param('postId', ParseObjectIdPipe) postId: string,
     @Param('commentId') commentId: string,
     @Body()
     context?: {
@@ -128,7 +129,7 @@ export class PostsController {
   @Delete(':postId/comments/:commentId/like')
   unlikeComment(
     @Req() req: RequestWithUser,
-    @Param('postId') postId: string,
+    @Param('postId', ParseObjectIdPipe) postId: string,
     @Param('commentId') commentId: string,
     @Body()
     context?: {
@@ -143,7 +144,7 @@ export class PostsController {
   @ApiOperation({ summary: 'Supprimer une publication' })
   @ApiParam({ name: 'postId', description: 'Identifiant de la publication' })
   @Delete(':postId')
-  remove(@Req() req: RequestWithUser, @Param('postId') postId: string) {
+  remove(@Req() req: RequestWithUser, @Param('postId', ParseObjectIdPipe) postId: string) {
     return this.postsService.remove(postId, req.user.id);
   }
 }
