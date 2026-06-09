@@ -12,33 +12,31 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import {
-  ApiBearerAuth,
-  ApiOperation,
-  ApiParam,
-  ApiTags,
-} from '@nestjs/swagger';
-import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
+import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
 import type { RequestWithUser } from './interfaces/request-with-user.interface';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ListUsersDto } from './dto/list-users.dto';
 
 @ApiTags('Users')
-@ApiBearerAuth('access-token')
-@UseGuards(JwtAuthGuard)
 @Controller('users')
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Mon profil (utilisateur connecté)' })
+  @UseGuards(JwtAuthGuard)
   @Get('me')
   getCurrentUser(@Req() request: RequestWithUser) {
     return request.user;
   }
 
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Mettre à jour mon profil' })
+  @UseGuards(JwtAuthGuard)
   @Patch('me')
   async updateCurrentUser(
     @Req() request: RequestWithUser,
@@ -51,31 +49,39 @@ export class UsersController {
     return this.usersService.toPublicUser(user, request.user.id);
   }
 
+  @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Lister / rechercher des utilisateurs',
     description: 'Recherche optionnelle par nom, prénom, username ou institution.',
   })
+  @UseGuards(JwtAuthGuard)
   @Get()
   listUsers(@Req() request: RequestWithUser, @Query() query: ListUsersDto) {
     return this.usersService.listUsers(query.search, request.user.id);
   }
 
-  @ApiOperation({ summary: 'Récupérer un utilisateur par son id' })
+  @ApiOperation({ summary: 'Récupérer un profil par son id — public' })
   @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur" })
+  @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
-  async getById(@Req() request: RequestWithUser, @Param('id', ParseObjectIdPipe) id: string) {
+  async getById(
+    @Req() request: RequestWithUser,
+    @Param('id', ParseObjectIdPipe) id: string,
+  ) {
     const user = await this.usersService.findById(id);
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return this.usersService.toPublicUser(user, request.user.id);
+    return this.usersService.toPublicUser(user, request.user?.id ?? '');
   }
 
+  @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Mettre à jour un utilisateur',
     description: 'Réservé au propriétaire du compte ou à un administrateur.',
   })
   @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur" })
+  @UseGuards(JwtAuthGuard)
   @Patch(':id')
   async updateById(
     @Req() request: RequestWithUser,
@@ -95,17 +101,27 @@ export class UsersController {
     return this.usersService.toPublicUser(user, request.user.id);
   }
 
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Suivre un utilisateur' })
   @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur à suivre" })
+  @UseGuards(JwtAuthGuard)
   @Post(':id/follow')
-  followUser(@Req() request: RequestWithUser, @Param('id', ParseObjectIdPipe) id: string) {
+  followUser(
+    @Req() request: RequestWithUser,
+    @Param('id', ParseObjectIdPipe) id: string,
+  ) {
     return this.usersService.followUser(request.user.id, id);
   }
 
+  @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Ne plus suivre un utilisateur' })
   @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur à ne plus suivre" })
+  @UseGuards(JwtAuthGuard)
   @Delete(':id/follow')
-  unfollowUser(@Req() request: RequestWithUser, @Param('id', ParseObjectIdPipe) id: string) {
+  unfollowUser(
+    @Req() request: RequestWithUser,
+    @Param('id', ParseObjectIdPipe) id: string,
+  ) {
     return this.usersService.unfollowUser(request.user.id, id);
   }
 }
