@@ -52,6 +52,23 @@ export class PostsController {
     );
   }
 
+  @ApiOperation({ summary: 'Lister les publications contenant un hashtag — public' })
+  @ApiParam({ name: 'tag', description: 'Hashtag recherché (sans le #)' })
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get('hashtag/:tag')
+  listByHashtag(
+    @Req() req: RequestWithUser,
+    @Param('tag') tag: string,
+    @Query() query: ListPostsDto,
+  ) {
+    return this.postsService.listByHashtag(
+      tag,
+      req.user?.id ?? '',
+      query.limit,
+      query.page,
+    );
+  }
+
   @ApiOperation({ summary: 'Récupérer une publication par son id — public' })
   @ApiParam({ name: 'postId', description: 'Identifiant de la publication' })
   @UseGuards(OptionalJwtAuthGuard)

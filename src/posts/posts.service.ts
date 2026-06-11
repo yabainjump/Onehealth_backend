@@ -43,6 +43,7 @@ export class PostsService {
       content,
       imageUrls,
       attachment,
+      hashtags: this.extractHashtags(content),
     });
 
     const saved = await post.save();
@@ -106,6 +107,57 @@ export class PostsService {
     return posts.map((post) =>
       this.toPostResponse(post, currentUserId, usersMap),
     );
+  }
+
+  async listByHashtag(
+    tag: string,
+    currentUserId: string,
+    limit = 30,
+    page = 1,
+  ) {
+    // On ne garde que des caractères de hashtag (anti-injection regex).
+    const normalized = `${tag || ''}`
+      .trim()
+      .toLowerCase()
+      .replace(/[^\p{L}\p{N}_]/gu, '');
+    if (!normalized) {
+      return [];
+    }
+
+    const skip = (page - 1) * limit;
+    // hashtags: posts récents (champ indexé) ; content: rétro-compat posts anciens
+    // créés avant l'ajout du champ hashtags (recherche par regex sur le texte).
+    const contentRegex = new RegExp(`#${normalized}(?![\\p{L}\\p{N}_])`, 'iu');
+    const posts = await this.postModel
+      .find({ $or: [{ hashtags: normalized }, { content: contentRegex }] })
+      .sort({ createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .exec();
+
+    await Promise.all(
+      posts.map(async (post) => {
+        if (this.normalizeComments(post)) {
+          await post.save();
+        }
+      }),
+    );
+
+    const usersMap = await this.buildUsersMap(posts);
+    return posts.map((post) =>
+      this.toPostResponse(post, currentUserId, usersMap),
+    );
+  }
+
+  private extractHashtags(content: string): string[] {
+    const text = `${content || ''}`;
+    const regex = /(^|\s)#([\p{L}\p{N}_]{1,50})/gu;
+    const tags = new Set<string>();
+    let match: RegExpExecArray | null;
+    while ((match = regex.exec(text)) !== null) {
+      tags.add(match[2].toLowerCase());
+    }
+    return [...tags];
   }
 
   async findById(postId: string, currentUserId: string) {
@@ -314,6 +366,7 @@ export class PostsService {
     }
     if (dto.content !== undefined) {
       post.content = dto.content.trim();
+      post.hashtags = this.extractHashtags(post.content);
     }
     if (dto.imageUrls !== undefined) {
       post.imageUrls = dto.imageUrls;

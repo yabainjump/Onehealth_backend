@@ -2,7 +2,7 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { Post } from '../posts/schemas/post.schema';
+import { Post, PostAttachment } from '../posts/schemas/post.schema';
 import { User } from '../users/schemas/user.schema';
 import {
   SharePageMetadata,
@@ -19,7 +19,7 @@ export class ShareService {
   private static readonly DEFAULT_LOCALE = 'fr_FR';
   private static readonly DEFAULT_FRONTEND_URL = 'http://localhost:8100';
   private static readonly DEFAULT_IMAGE_PATH =
-    '/assets/images/onehealth-share.png';
+    '/assets/images/logo-onehealth-in-cameroon.png';
 
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<Post>,
@@ -77,6 +77,7 @@ export class ShareService {
     const defaultImage = this.resolveDefaultShareImage(frontendBaseUrl);
     const imageUrl = this.resolvePostImageUrl(
       post.imageUrls || [],
+      post.attachment,
       apiBaseUrl,
       defaultImage,
     );
@@ -166,18 +167,46 @@ export class ShareService {
 
   private resolvePostImageUrl(
     imageUrls: string[],
+    attachment: PostAttachment | null | undefined,
     apiBaseUrl: string,
     fallbackImage: string,
   ): string {
     const firstImage = (imageUrls || []).find((value) => `${value || ''}`.trim().length > 0);
-    if (!firstImage) {
-      return fallbackImage;
+    if (firstImage) {
+      return toAbsoluteUrl(
+        this.rebaseUploadUrl(firstImage, apiBaseUrl),
+        apiBaseUrl,
+        fallbackImage,
+      );
     }
-    return toAbsoluteUrl(
-      this.rebaseUploadUrl(firstImage, apiBaseUrl),
-      apiBaseUrl,
-      fallbackImage,
-    );
+
+    // Pas d'image mais une video : on pointe og:image vers le poster genere a la
+    // volee par /api/media/poster (extrait une image de la video, avec cache).
+    const posterUrl = this.resolveVideoPosterUrl(attachment, apiBaseUrl);
+    if (posterUrl) {
+      return posterUrl;
+    }
+
+    return fallbackImage;
+  }
+
+  private resolveVideoPosterUrl(
+    attachment: PostAttachment | null | undefined,
+    apiBaseUrl: string,
+  ): string | null {
+    if (!attachment || attachment.type !== 'video') {
+      return null;
+    }
+
+    const url = `${attachment.url || ''}`.trim();
+    const uploadsIndex = url.indexOf('/uploads/');
+    if (uploadsIndex === -1) {
+      return null;
+    }
+
+    const uploadsPath = url.substring(uploadsIndex);
+    const base = apiBaseUrl.replace(/\/+$/, '');
+    return `${base}/api/media/poster?path=${encodeURIComponent(uploadsPath)}`;
   }
 
   // Les images uploadees sont servies par le backend sous /uploads. Certaines

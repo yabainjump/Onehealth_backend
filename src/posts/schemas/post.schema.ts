@@ -62,6 +62,10 @@ export class Post {
   @Prop({ type: [String], default: [] })
   imageUrls: string[];
 
+  // Hashtags extraits du contenu (minuscules), indexés pour la recherche par tag.
+  @Prop({ type: [String], default: [], index: true })
+  hashtags: string[];
+
   @Prop({ type: PostAttachmentSchema, default: null })
   attachment: PostAttachment | null;
 
