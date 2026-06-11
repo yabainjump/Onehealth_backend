@@ -60,6 +60,23 @@ export class UsersController {
     return this.usersService.listUsers(query.search, request.user.id);
   }
 
+  @ApiBearerAuth('access-token')
+  @ApiOperation({
+    summary: 'Suggestions « qui suivre »',
+    description:
+      'Comptes qui publient le plus (triés par nombre de publications), hors soi-même et comptes déjà suivis.',
+  })
+  @UseGuards(JwtAuthGuard)
+  @Get('suggestions')
+  getSuggestions(
+    @Req() request: RequestWithUser,
+    @Query('limit') limit?: string,
+  ) {
+    const parsed = parseInt(`${limit ?? ''}`, 10);
+    const safeLimit = Number.isFinite(parsed) ? parsed : 5;
+    return this.usersService.getSuggestions(request.user.id, safeLimit);
+  }
+
   @ApiOperation({ summary: 'Récupérer un profil par son id — public' })
   @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur" })
   @UseGuards(OptionalJwtAuthGuard)

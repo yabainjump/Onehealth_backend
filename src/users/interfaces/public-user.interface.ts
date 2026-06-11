@@ -16,6 +16,7 @@ export interface PublicUser {
   coverPhotoURL: string;
   followersCount: number;
   followingCount: number;
+  postsCount?: number;
   isFollowing: boolean;
   role: UserRole;
   isOnline: boolean;

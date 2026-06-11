@@ -9,6 +9,7 @@ import { MongoServerError } from 'mongodb';
 import { Model, Types } from 'mongoose';
 import { PublicUser } from './interfaces/public-user.interface';
 import { User, UserDocument, UserRole } from './schemas/user.schema';
+import { Post } from '../posts/schemas/post.schema';
 
 export interface CreateUserInput {
   email: string;
@@ -46,7 +47,57 @@ export class UsersService {
 
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
+    @InjectModel(Post.name) private readonly postModel: Model<Post>,
   ) {}
+
+  /**
+   * Suggestions « qui suivre » : les comptes qui publient le plus.
+   * On agrège le nombre de posts par auteur, on trie décroissant, puis on
+   * exclut soi-même et les comptes déjà suivis.
+   */
+  async getSuggestions(
+    currentUserId?: string,
+    limit = 5,
+  ): Promise<PublicUser[]> {
+    const safeLimit = Math.min(Math.max(limit, 1), 20);
+
+    const counts = await this.postModel
+      .aggregate<{ _id: Types.ObjectId; count: number }>([
+        { $group: { _id: '$authorId', count: { $sum: 1 } } },
+        { $sort: { count: -1 } },
+        { $limit: safeLimit + 8 }, // marge pour exclure soi-même / déjà suivis
+      ])
+      .exec();
+
+    const ids = counts
+      .map((entry) => entry._id?.toString())
+      .filter((id): id is string => !!id);
+    const users = await this.findByIds(ids);
+    const usersById = new Map(users.map((user) => [user._id.toString(), user]));
+    const viewerId = (currentUserId || '').trim();
+
+    const suggestions: PublicUser[] = [];
+    for (const entry of counts) {
+      const id = entry._id?.toString();
+      if (!id || id === viewerId) {
+        continue;
+      }
+      const user = usersById.get(id);
+      if (!user) {
+        continue;
+      }
+      const publicUser = this.toPublicUser(user, currentUserId);
+      if (publicUser.isFollowing) {
+        continue; // on ne suggère pas un compte déjà suivi
+      }
+      suggestions.push({ ...publicUser, postsCount: entry.count });
+      if (suggestions.length >= safeLimit) {
+        break;
+      }
+    }
+
+    return suggestions;
+  }
 
   async create(input: CreateUserInput): Promise<UserDocument> {
     try {
