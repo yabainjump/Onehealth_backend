@@ -133,11 +133,10 @@ export class ShareService {
       `/api/share/profile/${encodeURIComponent(userId)}`,
     );
     const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
-    const imageUrl = toAbsoluteUrl(
-      this.rebaseUploadUrl((user.photoURL || '').trim(), apiBaseUrl),
-      apiBaseUrl,
-      defaultImage,
-    );
+    // og:image = photo de profil convertie en JPEG (compatible robots sociaux),
+    // sinon image de marque par defaut.
+    const imageUrl =
+      this.toSocialImageUrl((user.photoURL || '').trim(), apiBaseUrl) ?? defaultImage;
     const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
     const displayName =
       normalizeText(fullName) || normalizeText(user.username || '') || 'User';
@@ -172,11 +171,7 @@ export class ShareService {
   ): string {
     const firstImage = (imageUrls || []).find((value) => `${value || ''}`.trim().length > 0);
     if (firstImage) {
-      return toAbsoluteUrl(
-        this.rebaseUploadUrl(firstImage, apiBaseUrl),
-        apiBaseUrl,
-        fallbackImage,
-      );
+      return this.toSocialImageUrl(firstImage, apiBaseUrl) ?? fallbackImage;
     }
 
     // Pas d'image mais une video : on pointe og:image vers le poster genere a la
@@ -208,17 +203,29 @@ export class ShareService {
     return `${base}/api/media/poster?path=${encodeURIComponent(uploadsPath)}`;
   }
 
-  // Les images uploadees sont servies par le backend sous /uploads. Certaines
-  // valeurs historiques sont stockees en absolu (ex: http://localhost:3000/uploads/...).
-  // On rebase tout chemin /uploads sur l'origine publique du backend afin que les
-  // robots sociaux puissent reellement charger l'image (og:image).
-  private rebaseUploadUrl(rawUrl: string, apiBaseUrl: string): string {
+  // Construit l'URL d'apercu social (JPEG) d'une image stockee. Les photos et
+  // images de posts sont souvent en WebP — format que les robots WhatsApp /
+  // Facebook / LinkedIn n'affichent pas en og:image. On passe donc par
+  // /api/media/social qui renvoie un JPEG (redimensionne, mis en cache).
+  // Les URLs externes (http/https, ex: avatar Google) sont utilisees telles quelles.
+  private toSocialImageUrl(rawUrl: string, apiBaseUrl: string): string | null {
     const value = `${rawUrl || ''}`.trim();
+    if (!value) {
+      return null;
+    }
+
     const uploadsIndex = value.indexOf('/uploads/');
-    if (uploadsIndex === -1) {
+    if (uploadsIndex !== -1) {
+      const uploadsPath = value.substring(uploadsIndex);
+      const base = apiBaseUrl.replace(/\/+$/, '');
+      return `${base}/api/media/social?path=${encodeURIComponent(uploadsPath)}`;
+    }
+
+    if (/^https?:\/\//i.test(value)) {
       return value;
     }
-    return `${apiBaseUrl.replace(/\/+$/, '')}${value.substring(uploadsIndex)}`;
+
+    return null;
   }
 
   private resolveAuthorName(author: User | null): string {

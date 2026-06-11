@@ -63,6 +63,28 @@ export class MediaController {
     }
   }
 
+  @ApiOperation({
+    summary: 'Image JPEG pour aperçu de partage social',
+    description:
+      'Convertit une image (souvent WebP) en JPEG carré — compatible avec les robots WhatsApp/Facebook/LinkedIn.',
+  })
+  @ApiQuery({ name: 'path', description: "Chemin /uploads/... de l'image source" })
+  @Get('social')
+  async getSocialImage(
+    @Query('path') path: string,
+    @Res() res: Response,
+  ): Promise<void> {
+    try {
+      if (!path) {
+        throw new BadRequestException('Missing path');
+      }
+      const resolved = await this.mediaService.getSocialImage(path);
+      this.sendFile(res, resolved.filePath, resolved.contentType);
+    } catch (error) {
+      this.sendError(res, error);
+    }
+  }
+
   private sendFile(res: Response, filePath: string, contentType: string): void {
     res.sendFile(
       filePath,

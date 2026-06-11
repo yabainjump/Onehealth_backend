@@ -123,6 +123,47 @@ export class MediaService {
     return { filePath: cacheFile, contentType: 'image/jpeg' };
   }
 
+  /**
+   * Produit une version JPEG (carrée, fond blanc) d'une image stockée, pour les
+   * aperçus de partage social. Les robots WhatsApp/Facebook n'affichent pas le
+   * WebP : on convertit donc en JPEG, redimensionné et mis en cache.
+   */
+  async getSocialImage(rawPath: string): Promise<ResolvedMedia> {
+    const sourcePath = this.resolveSourcePath(rawPath);
+    const extension = extname(sourcePath).toLowerCase();
+
+    if (!IMAGE_EXTENSIONS.has(extension)) {
+      throw new BadRequestException('Unsupported image type');
+    }
+    if (!existsSync(sourcePath)) {
+      throw new NotFoundException('Source image not found');
+    }
+
+    const cacheDir = join(this.cacheRoot, 'social');
+    const cacheFile = join(cacheDir, `${this.hash(sourcePath)}.jpg`);
+
+    if (existsSync(cacheFile)) {
+      return { filePath: cacheFile, contentType: 'image/jpeg' };
+    }
+
+    try {
+      await fs.mkdir(cacheDir, { recursive: true });
+      await sharp(sourcePath, { animated: false })
+        .rotate()
+        .resize(800, 800, { fit: 'cover', position: 'centre' })
+        .flatten({ background: '#ffffff' })
+        .jpeg({ quality: 82 })
+        .toFile(cacheFile);
+      return { filePath: cacheFile, contentType: 'image/jpeg' };
+    } catch (error) {
+      this.logger.warn(
+        `Social image generation failed for ${sourcePath}: ${this.errorMessage(error)}`,
+      );
+      // En cas d'echec, on sert l'original : jamais d'image cassee.
+      return { filePath: sourcePath, contentType: this.imageContentType(extension) };
+    }
+  }
+
   private async loadFfmpeg(): Promise<((input: string) => any) | null> {
     if (this.ffmpegLib !== undefined) {
       return this.ffmpegLib as ((input: string) => any) | null;
