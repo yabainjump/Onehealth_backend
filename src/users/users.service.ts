@@ -190,6 +190,7 @@ export class UsersService {
             { firstName: { $regex: safeSearch, $options: 'i' } },
             { lastName: { $regex: safeSearch, $options: 'i' } },
             { institution: { $regex: safeSearch, $options: 'i' } },
+            { email: { $regex: safeSearch, $options: 'i' } },
           ],
         }
       : {};
