@@ -56,6 +56,16 @@ async function bootstrap() {
     },
   });
 
+  // Fichiers statiques applicatifs (servis en ligne) : image de partage par
+  // defaut, etc. Heberges sur le backend pour etre toujours joignables par les
+  // robots sociaux (meme domaine que /api/share).
+  app.useStaticAssets(join(process.cwd(), 'public'), {
+    prefix: '/public/',
+    maxAge: '30d',
+    etag: true,
+    lastModified: true,
+  });
+
   app.use((req: Request, res: Response, next: NextFunction) => {
     res.setHeader('X-Content-Type-Options', 'nosniff');
     res.setHeader('X-Frame-Options', 'DENY');

@@ -18,8 +18,7 @@ export class ShareService {
     'One Health Network connecte les experts de la santé humaine, animale et environnementale pour prévenir les zoonoses et coordonner la réponse aux crises sanitaires : profils vérifiés, cartographie des acteurs, appels à projets, messagerie et l\'assistant Rudolf AI.';
   private static readonly DEFAULT_LOCALE = 'fr_FR';
   private static readonly DEFAULT_FRONTEND_URL = 'http://localhost:8100';
-  private static readonly DEFAULT_IMAGE_PATH =
-    '/assets/images/logo-onehealth-in-cameroon.png';
+  private static readonly DEFAULT_IMAGE_PATH = '/public/onehealth-share.png';
 
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<Post>,
@@ -31,7 +30,7 @@ export class ShareService {
     const siteName = this.resolveSiteName();
     const frontendBaseUrl = this.resolveFrontendBaseUrl();
     const apiBaseUrl = this.resolveApiBaseUrl();
-    const defaultImage = this.resolveDefaultShareImage(frontendBaseUrl);
+    const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
     const siteDescription = this.resolveSiteDescription();
     const welcomeUrl = this.buildAbsoluteUrl(frontendBaseUrl, '/welcome');
     const shareUrl = this.buildAbsoluteUrl(apiBaseUrl, '/api/share');
@@ -74,7 +73,7 @@ export class ShareService {
       apiBaseUrl,
       `/api/share/post/${encodeURIComponent(postId)}`,
     );
-    const defaultImage = this.resolveDefaultShareImage(frontendBaseUrl);
+    const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
     const imageUrl = this.resolvePostImageUrl(
       post.imageUrls || [],
       post.attachment,
@@ -133,7 +132,7 @@ export class ShareService {
       apiBaseUrl,
       `/api/share/profile/${encodeURIComponent(userId)}`,
     );
-    const defaultImage = this.resolveDefaultShareImage(frontendBaseUrl);
+    const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
     const imageUrl = toAbsoluteUrl(
       this.rebaseUploadUrl((user.photoURL || '').trim(), apiBaseUrl),
       apiBaseUrl,
@@ -286,17 +285,18 @@ export class ShareService {
     return `http://localhost:${port || 3000}`;
   }
 
-  private resolveDefaultShareImage(frontendBaseUrl: string): string {
+  private resolveDefaultShareImage(apiBaseUrl: string): string {
     const configuredImage = this.readConfig(
       'DEFAULT_SHARE_IMAGE',
       'defaultShareImage',
     );
+    // Image par defaut hebergee par le backend (/public) : toujours joignable.
     const fallback = this.buildAbsoluteUrl(
-      frontendBaseUrl,
+      apiBaseUrl,
       ShareService.DEFAULT_IMAGE_PATH,
     );
 
-    return toAbsoluteUrl(configuredImage, frontendBaseUrl, fallback);
+    return toAbsoluteUrl(configuredImage, apiBaseUrl, fallback);
   }
 
   private buildAbsoluteUrl(baseUrl: string, pathOrUrl: string): string {
