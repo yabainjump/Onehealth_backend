@@ -106,7 +106,7 @@ export class PostsService {
       }),
     );
 
-    const usersMap = await this.buildUsersMap(posts);
+    const usersMap = await this.buildUsersMap(posts, currentUserId);
     return posts.map((post) =>
       this.toPostResponse(post, currentUserId, usersMap),
     );
@@ -135,7 +135,7 @@ export class PostsService {
       }),
     );
 
-    const usersMap = await this.buildUsersMap(posts);
+    const usersMap = await this.buildUsersMap(posts, currentUserId);
     return posts.map((post) =>
       this.toPostResponse(post, currentUserId, usersMap),
     );
@@ -175,7 +175,7 @@ export class PostsService {
       }),
     );
 
-    const usersMap = await this.buildUsersMap(posts);
+    const usersMap = await this.buildUsersMap(posts, currentUserId);
     return posts.map((post) =>
       this.toPostResponse(post, currentUserId, usersMap),
     );
@@ -200,7 +200,7 @@ export class PostsService {
     if (this.normalizeComments(post)) {
       await post.save();
     }
-    const usersMap = await this.buildUsersMap([post]);
+    const usersMap = await this.buildUsersMap([post], currentUserId);
     return this.toPostResponse(post, currentUserId, usersMap);
   }
 
@@ -212,7 +212,7 @@ export class PostsService {
     if (this.normalizeComments(post)) {
       await post.save();
     }
-    const usersMap = await this.buildUsersMap([post]);
+    const usersMap = await this.buildUsersMap([post], currentUserId);
     const response = this.toPostResponse(post, currentUserId, usersMap);
     return response.comments;
   }
@@ -238,7 +238,7 @@ export class PostsService {
       void this.notifyPostAuthor(post, currentUserId, 'like');
     }
 
-    const usersMap = await this.buildUsersMap([post]);
+    const usersMap = await this.buildUsersMap([post], currentUserId);
     return this.toPostResponse(post, currentUserId, usersMap);
   }
 
@@ -262,7 +262,7 @@ export class PostsService {
       await post.save();
     }
 
-    const usersMap = await this.buildUsersMap([post]);
+    const usersMap = await this.buildUsersMap([post], currentUserId);
     return this.toPostResponse(post, currentUserId, usersMap);
   }
 
@@ -283,7 +283,7 @@ export class PostsService {
     await post.save();
     void this.notifyPostAuthor(post, currentUserId, 'comment');
 
-    const usersMap = await this.buildUsersMap([post]);
+    const usersMap = await this.buildUsersMap([post], currentUserId);
     return this.toPostResponse(post, currentUserId, usersMap);
   }
 
@@ -332,7 +332,7 @@ export class PostsService {
       await post.save();
     }
 
-    const usersMap = await this.buildUsersMap([post]);
+    const usersMap = await this.buildUsersMap([post], currentUserId);
     return this.toPostResponse(post, currentUserId, usersMap);
   }
 
@@ -381,7 +381,7 @@ export class PostsService {
       await post.save();
     }
 
-    const usersMap = await this.buildUsersMap([post]);
+    const usersMap = await this.buildUsersMap([post], currentUserId);
     return this.toPostResponse(post, currentUserId, usersMap);
   }
 
@@ -419,7 +419,7 @@ export class PostsService {
     }
 
     await post.save();
-    const usersMap = await this.buildUsersMap([post]);
+    const usersMap = await this.buildUsersMap([post], currentUserId);
     return this.toPostResponse(post, currentUserId, usersMap);
   }
 
@@ -437,7 +437,10 @@ export class PostsService {
     return { success: true };
   }
 
-  private async buildUsersMap(posts: PostDocument[]): Promise<Map<string, PublicUser>> {
+  private async buildUsersMap(
+    posts: PostDocument[],
+    currentUserId?: string,
+  ): Promise<Map<string, PublicUser>> {
     const userIds = new Set<string>();
 
     for (const post of posts) {
@@ -450,7 +453,11 @@ export class PostsService {
     const users = await this.usersService.findByIds(Array.from(userIds));
     const map = new Map<string, PublicUser>();
     for (const user of users) {
-      map.set(user._id.toString(), this.usersService.toPublicUser(user));
+      // On passe le lecteur pour calculer `isFollowing` (bouton « suivre »).
+      map.set(
+        user._id.toString(),
+        this.usersService.toPublicUser(user, currentUserId),
+      );
     }
 
     return map;
