@@ -10,6 +10,7 @@ import { ChatModule } from './chat/chat.module';
 import { UploadModule } from './upload/upload.module';
 import { ShareModule } from './share/share.module';
 import { MediaModule } from './media/media.module';
+import { NotificationsModule } from './notifications/notifications.module';
 
 @Module({
   imports: [
@@ -29,6 +30,7 @@ import { MediaModule } from './media/media.module';
     UploadModule,
     ShareModule,
     MediaModule,
+    NotificationsModule,
   ],
 })
 export class AppModule {}

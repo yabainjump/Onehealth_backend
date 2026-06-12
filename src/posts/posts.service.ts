@@ -13,6 +13,7 @@ import { CreatePostDto } from './dto/create-post.dto';
 import { ListPostsDto } from './dto/list-posts.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
 import { Post, PostDocument } from './schemas/post.schema';
+import { NotificationsService } from '../notifications/notifications.service';
 
 type CommentLookupContext = {
   text?: string;
@@ -25,7 +26,38 @@ export class PostsService {
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<Post>,
     private readonly usersService: UsersService,
+    private readonly notificationsService: NotificationsService,
   ) {}
+
+  /** Notifie l'auteur d'une publication (j'aime / commentaire), jamais soi-même. */
+  private async notifyPostAuthor(
+    post: PostDocument,
+    actorId: string,
+    type: 'like' | 'comment',
+  ): Promise<void> {
+    try {
+      const recipientId = post.authorId.toString();
+      if (recipientId === actorId) {
+        return;
+      }
+      const actor = await this.usersService.findById(actorId);
+      const actorName = actor
+        ? `${actor.firstName || ''} ${actor.lastName || ''}`.trim() ||
+          actor.username ||
+          ''
+        : '';
+      await this.notificationsService.create({
+        recipientId,
+        actorId,
+        actorName,
+        actorPhotoURL: actor?.photoURL || '',
+        type,
+        postId: post._id.toString(),
+      });
+    } catch {
+      // Une notification qui échoue ne doit jamais casser l'action principale.
+    }
+  }
 
   async create(authorId: string, dto: CreatePostDto) {
     const content = `${dto.content || ''}`.trim();
@@ -203,6 +235,7 @@ export class PostsService {
       post.likedBy.push(new Types.ObjectId(currentUserId));
       post.likesCount += 1;
       await post.save();
+      void this.notifyPostAuthor(post, currentUserId, 'like');
     }
 
     const usersMap = await this.buildUsersMap([post]);
@@ -248,6 +281,7 @@ export class PostsService {
       createdAt: new Date(),
     });
     await post.save();
+    void this.notifyPostAuthor(post, currentUserId, 'comment');
 
     const usersMap = await this.buildUsersMap([post]);
     return this.toPostResponse(post, currentUserId, usersMap);

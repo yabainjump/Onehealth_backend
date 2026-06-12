@@ -10,6 +10,7 @@ import { Model, Types } from 'mongoose';
 import { PublicUser } from './interfaces/public-user.interface';
 import { User, UserDocument, UserRole } from './schemas/user.schema';
 import { Post } from '../posts/schemas/post.schema';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface CreateUserInput {
   email: string;
@@ -48,6 +49,7 @@ export class UsersService {
   constructor(
     @InjectModel(User.name) private readonly userModel: Model<User>,
     @InjectModel(Post.name) private readonly postModel: Model<Post>,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   /**
@@ -218,6 +220,10 @@ export class UsersService {
       throw new NotFoundException('Target user not found');
     }
 
+    const alreadyFollowing = (targetUser.followers || []).some(
+      (follower) => follower.toString() === currentUserId,
+    );
+
     const currentObjectId = new Types.ObjectId(currentUserId);
     const targetObjectId = new Types.ObjectId(targetUserId);
 
@@ -231,6 +237,21 @@ export class UsersService {
         { $addToSet: { following: targetObjectId } },
       ),
     ]);
+
+    // Notifie la cible d'un NOUVEL abonné (pas à chaque ré-appel).
+    if (!alreadyFollowing) {
+      const actorName =
+        `${currentUser.firstName || ''} ${currentUser.lastName || ''}`.trim() ||
+        currentUser.username ||
+        '';
+      void this.notificationsService.create({
+        recipientId: targetUserId,
+        actorId: currentUserId,
+        actorName,
+        actorPhotoURL: currentUser.photoURL || '',
+        type: 'follow',
+      });
+    }
 
     const updatedTarget = await this.userModel.findById(targetObjectId).exec();
     if (!updatedTarget) {
