@@ -56,7 +56,9 @@ export class Post {
   @Prop({ default: '', trim: true, maxlength: 120 })
   title: string;
 
-  @Prop({ required: true, trim: true, minlength: 1, maxlength: 3000 })
+  // Pas `required` au niveau Mongoose : un post peut être média-seul (sans texte).
+  // La règle « texte OU image OU pièce jointe » est appliquée dans PostsService.
+  @Prop({ default: '', trim: true, maxlength: 3000 })
   content: string;
 
   @Prop({ type: [String], default: [] })
