@@ -14,6 +14,7 @@ export interface CreateNotificationInput {
   actorPhotoURL?: string;
   type: NotificationType;
   postId?: string | null;
+  alertId?: string | null;
 }
 
 @Injectable()
@@ -53,6 +54,10 @@ export class NotificationsService {
         postId:
           input.postId && Types.ObjectId.isValid(input.postId)
             ? new Types.ObjectId(input.postId)
+            : null,
+        alertId:
+          input.alertId && Types.ObjectId.isValid(input.alertId)
+            ? new Types.ObjectId(input.alertId)
             : null,
         read: false,
       });
@@ -106,6 +111,7 @@ export class NotificationsService {
       actorName: doc.actorName,
       actorPhotoURL: doc.actorPhotoURL,
       postId: doc.postId ? doc.postId.toString() : null,
+      alertId: doc.alertId ? doc.alertId.toString() : null,
       read: doc.read,
       createdAt: doc.createdAt,
     };

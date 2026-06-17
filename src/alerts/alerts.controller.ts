@@ -42,6 +42,24 @@ export class AlertsController {
     });
   }
 
+  @ApiOperation({ summary: 'Alertes les plus proches d\'un point (lat/lng) — public' })
+  @UseGuards(OptionalJwtAuthGuard)
+  @Get('near')
+  near(
+    @Query('lat') lat: string,
+    @Query('lng') lng: string,
+    @Query('radiusKm') radiusKm?: string,
+    @Query('category') category?: string,
+  ) {
+    const parsedRadius = parseInt(`${radiusKm ?? ''}`, 10);
+    return this.alertsService.near(
+      parseFloat(`${lat}`),
+      parseFloat(`${lng}`),
+      Number.isFinite(parsedRadius) ? parsedRadius : 100,
+      category,
+    );
+  }
+
   @ApiOperation({ summary: 'Détail d\'une alerte — public' })
   @ApiParam({ name: 'id', description: "Identifiant de l'alerte" })
   @UseGuards(OptionalJwtAuthGuard)

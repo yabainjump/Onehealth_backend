@@ -1,7 +1,7 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument, Types } from 'mongoose';
 
-export type NotificationType = 'like' | 'comment' | 'follow';
+export type NotificationType = 'like' | 'comment' | 'follow' | 'alert';
 
 @Schema({
   collection: 'notifications',
@@ -24,12 +24,16 @@ export class Notification {
   @Prop({ default: '' })
   actorPhotoURL: string;
 
-  @Prop({ required: true, enum: ['like', 'comment', 'follow'] })
+  @Prop({ required: true, enum: ['like', 'comment', 'follow', 'alert'] })
   type: NotificationType;
 
-  // Publication concernée (pour like / comment ; null pour follow).
+  // Publication concernée (pour like / comment ; null sinon).
   @Prop({ type: Types.ObjectId, ref: 'Post', default: null })
   postId: Types.ObjectId | null;
+
+  // Alerte concernée (pour le type 'alert' ; null sinon).
+  @Prop({ type: Types.ObjectId, ref: 'Alert', default: null })
+  alertId: Types.ObjectId | null;
 
   @Prop({ default: false })
   read: boolean;

@@ -5,6 +5,7 @@ import { UsersService } from '../users/users.service';
 import { PublicUser } from '../users/interfaces/public-user.interface';
 import { Alert, AlertDocument } from './schemas/alert.schema';
 import { CreateAlertDto } from './dto/create-alert.dto';
+import { NotificationsService } from '../notifications/notifications.service';
 
 export interface ListAlertsQuery {
   category?: string;
@@ -19,9 +20,12 @@ export class AlertsService {
   constructor(
     @InjectModel(Alert.name) private readonly alertModel: Model<Alert>,
     private readonly usersService: UsersService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async create(authorId: string, dto: CreateAlertDto) {
+    const lat = typeof dto.lat === 'number' ? dto.lat : null;
+    const lng = typeof dto.lng === 'number' ? dto.lng : null;
     const alert = new this.alertModel({
       authorId: new Types.ObjectId(authorId),
       category: dto.category,
@@ -29,15 +33,92 @@ export class AlertsService {
       description: dto.description?.trim() ?? '',
       country: dto.country?.trim() ?? '',
       city: dto.city?.trim() ?? '',
-      lat: typeof dto.lat === 'number' ? dto.lat : null,
-      lng: typeof dto.lng === 'number' ? dto.lng : null,
+      lat,
+      lng,
+      geo:
+        lat !== null && lng !== null
+          ? { type: 'Point', coordinates: [lng, lat] }
+          : undefined,
       severity: dto.severity ?? 'medium',
       imageUrls: dto.imageUrls ?? [],
     });
 
     const saved = await alert.save();
+    // Prévient (en arrière-plan) les utilisateurs du même pays.
+    void this.notifyNearbyUsers(saved, authorId);
     const authors = await this.buildAuthorsMap([saved]);
     return this.toResponse(saved, authors);
+  }
+
+  /** Alertes les plus proches d'un point (tri par distance, via index 2dsphere). */
+  async near(
+    lat: number,
+    lng: number,
+    radiusKm = 100,
+    category?: string,
+    limit = 100,
+  ) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+      return [];
+    }
+    const filter: Record<string, unknown> = {
+      geo: {
+        $near: {
+          $geometry: { type: 'Point', coordinates: [lng, lat] },
+          $maxDistance: Math.min(Math.max(radiusKm, 1), 5000) * 1000,
+        },
+      },
+    };
+    if (category && ['human', 'animal', 'environment'].includes(category)) {
+      filter.category = category;
+    }
+    const alerts = await this.alertModel
+      .find(filter)
+      .limit(Math.min(Math.max(limit, 1), 100))
+      .exec();
+    const authors = await this.buildAuthorsMap(alerts);
+    return alerts.map((alert) => this.toResponse(alert, authors));
+  }
+
+  private async notifyNearbyUsers(
+    alert: AlertDocument,
+    authorId: string,
+  ): Promise<void> {
+    try {
+      const country = `${alert.country || ''}`.trim();
+      if (!country) {
+        return;
+      }
+      const recipientIds = await this.usersService.findIdsByCountry(
+        country,
+        authorId,
+        200,
+      );
+      if (!recipientIds.length) {
+        return;
+      }
+      const author = await this.usersService.findById(authorId);
+      const actorName = author
+        ? `${author.firstName || ''} ${author.lastName || ''}`.trim() ||
+          author.username ||
+          ''
+        : '';
+      const alertId = alert._id.toString();
+      await Promise.all(
+        recipientIds.map((recipientId) =>
+          this.notificationsService.create({
+            recipientId,
+            actorId: authorId,
+            actorName,
+            actorPhotoURL: author?.photoURL || '',
+            type: 'alert',
+            alertId,
+          }),
+        ),
+      );
+    } catch {
+      // Une notification qui échoue ne doit jamais casser la création de l'alerte.
+    }
   }
 
   async list(query: ListAlertsQuery) {

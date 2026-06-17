@@ -206,6 +206,27 @@ export class UsersService {
     return users.map((user) => this.toPublicUser(user, currentUserId));
   }
 
+  /** Ids des utilisateurs d'un pays donné (pour notifier les alertes locales). */
+  async findIdsByCountry(
+    country: string,
+    excludeId = '',
+    limit = 200,
+  ): Promise<string[]> {
+    const value = `${country || ''}`.trim();
+    if (!value) {
+      return [];
+    }
+    const safe = this.escapeRegex(value);
+    const users = await this.userModel
+      .find({ country: { $regex: `^${safe}$`, $options: 'i' } })
+      .select('_id')
+      .limit(limit)
+      .exec();
+    return users
+      .map((user) => user._id.toString())
+      .filter((id) => id !== excludeId);
+  }
+
   async followUser(currentUserId: string, targetUserId: string): Promise<PublicUser> {
     this.assertDistinctUsers(currentUserId, targetUserId);
     const [currentUser, targetUser] = await Promise.all([

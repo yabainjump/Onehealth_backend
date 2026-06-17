@@ -36,6 +36,11 @@ export class Alert {
   @Prop({ type: Number, default: null })
   lng: number | null;
 
+  // GeoJSON [lng, lat] pour les requêtes de proximité ($near). Rempli depuis
+  // lat/lng à la création ; absent si aucune position (pas indexé).
+  @Prop({ type: Object })
+  geo?: { type: 'Point'; coordinates: number[] };
+
   @Prop({ required: true, enum: ['low', 'medium', 'high'], default: 'medium', index: true })
   severity: AlertSeverity;
 
@@ -51,3 +56,4 @@ export const AlertSchema = SchemaFactory.createForClass(Alert);
 
 AlertSchema.index({ createdAt: -1 });
 AlertSchema.index({ category: 1, createdAt: -1 });
+AlertSchema.index({ geo: '2dsphere' });
