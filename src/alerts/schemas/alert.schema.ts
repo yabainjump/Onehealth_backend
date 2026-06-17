@@ -4,6 +4,23 @@ import { HydratedDocument, Types } from 'mongoose';
 export type AlertCategory = 'human' | 'animal' | 'environment';
 export type AlertSeverity = 'low' | 'medium' | 'high';
 
+@Schema({ _id: false })
+export class AlertComment {
+  @Prop({ required: true, index: true })
+  commentId: string;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', required: true })
+  authorId: Types.ObjectId;
+
+  @Prop({ required: true, trim: true, minlength: 1, maxlength: 500 })
+  text: string;
+
+  @Prop({ default: Date.now })
+  createdAt: Date;
+}
+
+export const AlertCommentSchema = SchemaFactory.createForClass(AlertComment);
+
 @Schema({
   collection: 'alerts',
   timestamps: true,
@@ -46,6 +63,16 @@ export class Alert {
 
   @Prop({ type: [String], default: [] })
   imageUrls: string[];
+
+  // Réactions (j'aime) et commentaires embarqués (même modèle que les posts).
+  @Prop({ type: Number, default: 0, min: 0 })
+  likesCount: number;
+
+  @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
+  likedBy: Types.ObjectId[];
+
+  @Prop({ type: [AlertCommentSchema], default: [] })
+  comments: AlertComment[];
 
   createdAt: Date;
   updatedAt: Date;
