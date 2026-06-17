@@ -11,6 +11,7 @@ import { UploadModule } from './upload/upload.module';
 import { ShareModule } from './share/share.module';
 import { MediaModule } from './media/media.module';
 import { NotificationsModule } from './notifications/notifications.module';
+import { AlertsModule } from './alerts/alerts.module';
 
 @Module({
   imports: [
@@ -31,6 +32,7 @@ import { NotificationsModule } from './notifications/notifications.module';
     ShareModule,
     MediaModule,
     NotificationsModule,
+    AlertsModule,
   ],
 })
 export class AppModule {}
