@@ -80,6 +80,10 @@ export class Post {
   @Prop({ type: [PostCommentSchema], default: [] })
   comments: PostComment[];
 
+  // Mis « en pause » par un admin : retiré des fils publics sans suppression.
+  @Prop({ type: Boolean, default: false, index: true })
+  isHidden: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }

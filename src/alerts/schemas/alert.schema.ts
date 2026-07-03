@@ -73,6 +73,10 @@ export class Alert {
   @Prop({ type: [AlertCommentSchema], default: [] })
   comments: AlertComment[];
 
+  // Mise « en pause » par un admin : retirée des fils publics sans suppression.
+  @Prop({ type: Boolean, default: false, index: true })
+  isHidden: boolean;
+
   createdAt: Date;
   updatedAt: Date;
 }

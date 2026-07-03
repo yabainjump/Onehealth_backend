@@ -87,9 +87,11 @@ export class PostsService {
     const limit = query.limit ?? 30;
     const page = query.page ?? 1;
     const skip = (page - 1) * limit;
-    const filter = query.authorId
+    const filter: Record<string, unknown> = query.authorId
       ? { authorId: new Types.ObjectId(query.authorId) }
       : {};
+    // Les posts mis en pause par un admin sont exclus des fils publics.
+    filter.isHidden = { $ne: true };
 
     const posts = await this.postModel
       .find(filter)
@@ -121,7 +123,7 @@ export class PostsService {
     const skip = (page - 1) * limit;
 
     const posts = await this.postModel
-      .find({ authorId: new Types.ObjectId(userId) })
+      .find({ authorId: new Types.ObjectId(userId), isHidden: { $ne: true } })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)
@@ -161,7 +163,10 @@ export class PostsService {
     // créés avant l'ajout du champ hashtags (recherche par regex sur le texte).
     const contentRegex = new RegExp(`#${normalized}(?![\\p{L}\\p{N}_])`, 'iu');
     const posts = await this.postModel
-      .find({ $or: [{ hashtags: normalized }, { content: contentRegex }] })
+      .find({
+        $or: [{ hashtags: normalized }, { content: contentRegex }],
+        isHidden: { $ne: true },
+      })
       .sort({ createdAt: -1 })
       .skip(skip)
       .limit(limit)

@@ -18,6 +18,7 @@ import { AdminService } from './admin.service';
 import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { SetBannedDto } from './dto/set-banned.dto';
 import { RejectCertificationDto } from './dto/reject-certification.dto';
+import { SetHiddenDto } from './dto/set-hidden.dto';
 
 @ApiTags('Admin')
 @ApiBearerAuth('access-token')
@@ -109,6 +110,58 @@ export class AdminController {
     @Body() dto: RejectCertificationDto,
   ) {
     return this.adminService.rejectCertification(id, req.user.id, dto.reason);
+  }
+
+  @ApiOperation({ summary: 'Modération : liste paginée des posts (recherche)' })
+  @Get('posts')
+  listPosts(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedPage = parseInt(`${page ?? ''}`, 10);
+    const parsedLimit = parseInt(`${limit ?? ''}`, 10);
+    return this.adminService.listPosts(
+      search ?? '',
+      Number.isFinite(parsedPage) ? parsedPage : 1,
+      Number.isFinite(parsedLimit) ? parsedLimit : 20,
+    );
+  }
+
+  @ApiOperation({ summary: 'Modération : mettre en pause / republier un post' })
+  @ApiParam({ name: 'id', description: 'Identifiant du post' })
+  @Patch('posts/:id/visibility')
+  setPostHidden(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: SetHiddenDto,
+  ) {
+    return this.adminService.setPostHidden(id, dto.hidden);
+  }
+
+  @ApiOperation({ summary: 'Modération : liste paginée des alertes (recherche)' })
+  @Get('alerts')
+  listAlerts(
+    @Query('search') search?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedPage = parseInt(`${page ?? ''}`, 10);
+    const parsedLimit = parseInt(`${limit ?? ''}`, 10);
+    return this.adminService.listAlerts(
+      search ?? '',
+      Number.isFinite(parsedPage) ? parsedPage : 1,
+      Number.isFinite(parsedLimit) ? parsedLimit : 20,
+    );
+  }
+
+  @ApiOperation({ summary: 'Modération : mettre en pause / republier une alerte' })
+  @ApiParam({ name: 'id', description: "Identifiant de l'alerte" })
+  @Patch('alerts/:id/visibility')
+  setAlertHidden(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: SetHiddenDto,
+  ) {
+    return this.adminService.setAlertHidden(id, dto.hidden);
   }
 
   @ApiOperation({ summary: 'Modération : supprimer une publication' })

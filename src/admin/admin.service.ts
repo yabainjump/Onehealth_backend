@@ -200,6 +200,129 @@ export class AdminService {
     return this.certificationsService.toResponse(request);
   }
 
+  /** Modération : liste paginée des posts (recherche texte, masqués inclus). */
+  async listPosts(search = '', page = 1, limit = 20) {
+    const safeLimit = Math.min(Math.max(limit, 1), 100);
+    const safePage = Math.max(page, 1);
+    const filter: Record<string, unknown> = {};
+    const trimmed = `${search}`.trim();
+    if (trimmed) {
+      const regex = new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [{ content: regex }, { title: regex }];
+    }
+
+    const [posts, total] = await Promise.all([
+      this.postModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .exec(),
+      this.postModel.countDocuments(filter).exec(),
+    ]);
+
+    const authorsById = await this.buildAuthorsMap(
+      posts.map((post) => post.authorId.toString()),
+    );
+
+    return {
+      items: posts.map((post) => ({
+        id: post._id.toString(),
+        title: post.title,
+        content: post.content,
+        imageUrls: post.imageUrls || [],
+        likesCount: post.likesCount || 0,
+        commentsCount: (post.comments || []).length,
+        isHidden: !!post.isHidden,
+        createdAt: post.createdAt,
+        author: authorsById.get(post.authorId.toString()) ?? null,
+      })),
+      total,
+      page: safePage,
+      limit: safeLimit,
+    };
+  }
+
+  /** Modération : liste paginée des alertes (recherche texte, masquées incluses). */
+  async listAlerts(search = '', page = 1, limit = 20) {
+    const safeLimit = Math.min(Math.max(limit, 1), 100);
+    const safePage = Math.max(page, 1);
+    const filter: Record<string, unknown> = {};
+    const trimmed = `${search}`.trim();
+    if (trimmed) {
+      const regex = new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      filter.$or = [
+        { title: regex },
+        { description: regex },
+        { country: regex },
+        { city: regex },
+      ];
+    }
+
+    const [alerts, total] = await Promise.all([
+      this.alertModel
+        .find(filter)
+        .sort({ createdAt: -1 })
+        .skip((safePage - 1) * safeLimit)
+        .limit(safeLimit)
+        .exec(),
+      this.alertModel.countDocuments(filter).exec(),
+    ]);
+
+    const authorsById = await this.buildAuthorsMap(
+      alerts.map((alert) => alert.authorId.toString()),
+    );
+
+    return {
+      items: alerts.map((alert) => ({
+        id: alert._id.toString(),
+        category: alert.category,
+        title: alert.title,
+        description: alert.description,
+        severity: alert.severity,
+        country: alert.country,
+        city: alert.city,
+        imageUrls: alert.imageUrls || [],
+        isHidden: !!alert.isHidden,
+        createdAt: alert.createdAt,
+        author: authorsById.get(alert.authorId.toString()) ?? null,
+      })),
+      total,
+      page: safePage,
+      limit: safeLimit,
+    };
+  }
+
+  /** Met un post en pause (masqué des fils) ou le republie. */
+  async setPostHidden(postId: string, hidden: boolean) {
+    const post = await this.postModel
+      .findByIdAndUpdate(postId, { $set: { isHidden: hidden } }, { new: true })
+      .exec();
+    if (!post) {
+      throw new NotFoundException('Post not found');
+    }
+    return { id: post._id.toString(), isHidden: !!post.isHidden };
+  }
+
+  /** Met une alerte en pause ou la republie. */
+  async setAlertHidden(alertId: string, hidden: boolean) {
+    const alert = await this.alertModel
+      .findByIdAndUpdate(alertId, { $set: { isHidden: hidden } }, { new: true })
+      .exec();
+    if (!alert) {
+      throw new NotFoundException('Alert not found');
+    }
+    return { id: alert._id.toString(), isHidden: !!alert.isHidden };
+  }
+
+  private async buildAuthorsMap(authorIds: string[]) {
+    const uniqueIds = Array.from(new Set(authorIds));
+    const users = await this.usersService.findByIds(uniqueIds);
+    return new Map(
+      users.map((user) => [user._id.toString(), this.usersService.toPublicUser(user)]),
+    );
+  }
+
   /** Modération : suppression d'un post par un admin (sans vérif d'auteur). */
   async removePost(postId: string) {
     const deleted = await this.postModel.findByIdAndDelete(postId).exec();

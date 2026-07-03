@@ -76,6 +76,7 @@ export class AlertsService {
           $maxDistance: Math.min(Math.max(radiusKm, 1), 5000) * 1000,
         },
       },
+      isHidden: { $ne: true },
     };
     if (category && ['human', 'animal', 'environment'].includes(category)) {
       filter.category = category;
@@ -133,7 +134,8 @@ export class AlertsService {
     const page = Math.max(query.page ?? 1, 1);
     const skip = (page - 1) * limit;
 
-    const filter: Record<string, unknown> = {};
+    // Les alertes mises en pause par un admin sont exclues des fils publics.
+    const filter: Record<string, unknown> = { isHidden: { $ne: true } };
     if (query.category && ['human', 'animal', 'environment'].includes(query.category)) {
       filter.category = query.category;
     }
@@ -430,6 +432,7 @@ export class AlertsService {
               username: cAuthor.username,
               photoURL: cAuthor.photoURL,
               institution: cAuthor.institution,
+              isCertified: !!cAuthor.isCertified,
             }
           : null,
         text: comment.text,
@@ -455,6 +458,7 @@ export class AlertsService {
             username: author.username,
             photoURL: author.photoURL,
             institution: author.institution,
+            isCertified: !!author.isCertified,
           }
         : null,
       likesCount: (alert.likedBy || []).length,
