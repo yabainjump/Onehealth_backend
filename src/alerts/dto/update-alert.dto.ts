@@ -1,8 +1,10 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
+import { Transform } from 'class-transformer';
 import {
   ArrayMaxSize,
   IsArray,
   IsEnum,
+  IsNotEmpty,
   IsNumber,
   IsOptional,
   IsString,
@@ -14,6 +16,9 @@ import {
 const CATEGORIES = ['human', 'animal', 'environment'] as const;
 const SEVERITIES = ['low', 'medium', 'high'] as const;
 
+const trimIfString = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim() : value;
+
 /** Mise à jour d'une alerte (auteur) : tous les champs sont optionnels. */
 export class UpdateAlertDto {
   @ApiPropertyOptional({ enum: CATEGORIES })
@@ -23,7 +28,9 @@ export class UpdateAlertDto {
 
   @ApiPropertyOptional({ maxLength: 140 })
   @IsOptional()
+  @Transform(trimIfString)
   @IsString()
+  @IsNotEmpty()
   @MaxLength(140)
   title?: string;
 
@@ -45,19 +52,25 @@ export class UpdateAlertDto {
   @MaxLength(120)
   city?: string;
 
-  @ApiPropertyOptional({ description: 'Latitude' })
+  @ApiPropertyOptional({
+    description: 'Latitude (null pour effacer la position existante)',
+    nullable: true,
+  })
   @IsOptional()
   @IsNumber()
   @Min(-90)
   @Max(90)
-  lat?: number;
+  lat?: number | null;
 
-  @ApiPropertyOptional({ description: 'Longitude' })
+  @ApiPropertyOptional({
+    description: 'Longitude (null pour effacer la position existante)',
+    nullable: true,
+  })
   @IsOptional()
   @IsNumber()
   @Min(-180)
   @Max(180)
-  lng?: number;
+  lng?: number | null;
 
   @ApiPropertyOptional({ enum: SEVERITIES })
   @IsOptional()

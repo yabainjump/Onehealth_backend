@@ -1,0 +1,127 @@
+import {
+  Body,
+  Controller,
+  Delete,
+  Get,
+  Param,
+  Patch,
+  Query,
+  Req,
+  UseGuards,
+} from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { AdminGuard } from '../common/guards/admin.guard';
+import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
+import type { RequestWithUser } from '../users/interfaces/request-with-user.interface';
+import { AdminService } from './admin.service';
+import { UpdateUserRoleDto } from './dto/update-user-role.dto';
+import { SetBannedDto } from './dto/set-banned.dto';
+import { RejectCertificationDto } from './dto/reject-certification.dto';
+
+@ApiTags('Admin')
+@ApiBearerAuth('access-token')
+@UseGuards(JwtAuthGuard, AdminGuard)
+@Controller('admin')
+export class AdminController {
+  constructor(private readonly adminService: AdminService) {}
+
+  @ApiOperation({ summary: "KPIs de la vue d'ensemble" })
+  @Get('stats')
+  stats() {
+    return this.adminService.getStats();
+  }
+
+  @ApiOperation({ summary: 'Liste paginée des utilisateurs (recherche/filtres)' })
+  @Get('users')
+  listUsers(
+    @Query('search') search?: string,
+    @Query('role') role?: string,
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedPage = parseInt(`${page ?? ''}`, 10);
+    const parsedLimit = parseInt(`${limit ?? ''}`, 10);
+    return this.adminService.listUsers({
+      search,
+      role,
+      status,
+      page: Number.isFinite(parsedPage) ? parsedPage : undefined,
+      limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
+    });
+  }
+
+  @ApiOperation({ summary: "Modifier le rôle d'un utilisateur" })
+  @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur" })
+  @Patch('users/:id/role')
+  updateRole(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: UpdateUserRoleDto,
+  ) {
+    return this.adminService.updateUserRole(id, dto.role, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Suspendre / réactiver un compte' })
+  @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur" })
+  @Patch('users/:id/ban')
+  setBanned(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: SetBannedDto,
+  ) {
+    return this.adminService.setUserBanned(id, dto.banned, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Demandes de certification (pending par défaut)' })
+  @Get('certifications')
+  listCertifications(
+    @Query('status') status?: string,
+    @Query('page') page?: string,
+    @Query('limit') limit?: string,
+  ) {
+    const parsedPage = parseInt(`${page ?? ''}`, 10);
+    const parsedLimit = parseInt(`${limit ?? ''}`, 10);
+    return this.adminService.listCertificationRequests(
+      status ?? 'pending',
+      Number.isFinite(parsedPage) ? parsedPage : 1,
+      Number.isFinite(parsedLimit) ? parsedLimit : 20,
+    );
+  }
+
+  @ApiOperation({ summary: 'Approuver une demande de certification' })
+  @ApiParam({ name: 'id', description: 'Identifiant de la demande' })
+  @Patch('certifications/:id/approve')
+  approveCertification(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseObjectIdPipe) id: string,
+  ) {
+    return this.adminService.approveCertification(id, req.user.id);
+  }
+
+  @ApiOperation({ summary: 'Refuser une demande de certification (avec motif)' })
+  @ApiParam({ name: 'id', description: 'Identifiant de la demande' })
+  @Patch('certifications/:id/reject')
+  rejectCertification(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: RejectCertificationDto,
+  ) {
+    return this.adminService.rejectCertification(id, req.user.id, dto.reason);
+  }
+
+  @ApiOperation({ summary: 'Modération : supprimer une publication' })
+  @ApiParam({ name: 'id', description: 'Identifiant du post' })
+  @Delete('posts/:id')
+  removePost(@Param('id', ParseObjectIdPipe) id: string) {
+    return this.adminService.removePost(id);
+  }
+
+  @ApiOperation({ summary: 'Modération : supprimer une alerte' })
+  @ApiParam({ name: 'id', description: "Identifiant de l'alerte" })
+  @Delete('alerts/:id')
+  removeAlert(@Param('id', ParseObjectIdPipe) id: string) {
+    return this.adminService.removeAlert(id);
+  }
+}

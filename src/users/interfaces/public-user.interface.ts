@@ -1,4 +1,4 @@
-import { UserRole } from '../schemas/user.schema';
+import { CertificationStatus, UserRole } from '../schemas/user.schema';
 
 export interface PublicUser {
   id: string;
@@ -19,6 +19,9 @@ export interface PublicUser {
   postsCount?: number;
   isFollowing: boolean;
   role: UserRole;
+  isCertified: boolean;
+  certificationStatus: CertificationStatus;
+  isBanned: boolean;
   isOnline: boolean;
   lastSeenAt: Date;
   createdAt: Date;

@@ -21,6 +21,8 @@ export interface ListAlertsQuery {
   page?: number;
 }
 
+const TRIMMED_UPDATE_FIELDS = ['title', 'description', 'country', 'city'] as const;
+
 @Injectable()
 export class AlertsService {
   constructor(
@@ -52,8 +54,7 @@ export class AlertsService {
     const saved = await alert.save();
     // Prévient (en arrière-plan) les utilisateurs du même pays.
     void this.notifyNearbyUsers(saved, authorId);
-    const authors = await this.buildAuthorsMap([saved], authorId);
-    return this.toResponse(saved, authors, authorId);
+    return this.respond(saved, authorId);
   }
 
   /** Alertes les plus proches d'un point (tri par distance, via index 2dsphere). */
@@ -83,8 +84,7 @@ export class AlertsService {
       .find(filter)
       .limit(Math.min(Math.max(limit, 1), 100))
       .exec();
-    const authors = await this.buildAuthorsMap(alerts, currentUserId);
-    return alerts.map((alert) => this.toResponse(alert, authors, currentUserId));
+    return this.respondMany(alerts, currentUserId);
   }
 
   private async notifyNearbyUsers(
@@ -154,8 +154,7 @@ export class AlertsService {
       .limit(limit)
       .exec();
 
-    const authors = await this.buildAuthorsMap(alerts, currentUserId);
-    return alerts.map((alert) => this.toResponse(alert, authors, currentUserId));
+    return this.respondMany(alerts, currentUserId);
   }
 
   async findById(id: string, currentUserId = '') {
@@ -163,8 +162,7 @@ export class AlertsService {
     if (!alert) {
       throw new NotFoundException('Alert not found');
     }
-    const authors = await this.buildAuthorsMap([alert], currentUserId);
-    return this.toResponse(alert, authors, currentUserId);
+    return this.respond(alert, currentUserId);
   }
 
   /** Modifie une alerte (auteur uniquement). */
@@ -177,42 +175,59 @@ export class AlertsService {
       throw new ForbiddenException('You cannot edit this alert');
     }
 
+    const set: Record<string, unknown> = {};
+    const unset: Record<string, ''> = {};
+
+    for (const field of TRIMMED_UPDATE_FIELDS) {
+      const value = dto[field];
+      if (value !== undefined) {
+        set[field] = value.trim();
+      }
+    }
     if (dto.category !== undefined) {
-      alert.category = dto.category;
-    }
-    if (dto.title !== undefined) {
-      alert.title = dto.title.trim();
-    }
-    if (dto.description !== undefined) {
-      alert.description = dto.description.trim();
-    }
-    if (dto.country !== undefined) {
-      alert.country = dto.country.trim();
-    }
-    if (dto.city !== undefined) {
-      alert.city = dto.city.trim();
+      set.category = dto.category;
     }
     if (dto.severity !== undefined) {
-      alert.severity = dto.severity;
+      set.severity = dto.severity;
     }
     if (dto.imageUrls !== undefined) {
-      alert.imageUrls = dto.imageUrls;
-    }
-    // Re-calcule la position GeoJSON si lat/lng sont fournis.
-    if (dto.lat !== undefined || dto.lng !== undefined) {
-      const lat = typeof dto.lat === 'number' ? dto.lat : alert.lat;
-      const lng = typeof dto.lng === 'number' ? dto.lng : alert.lng;
-      alert.lat = lat;
-      alert.lng = lng;
-      alert.geo =
-        lat !== null && lng !== null
-          ? { type: 'Point', coordinates: [lng, lat] }
-          : undefined;
+      set.imageUrls = dto.imageUrls;
     }
 
-    await alert.save();
-    const authors = await this.buildAuthorsMap([alert], currentUserId);
-    return this.toResponse(alert, authors, currentUserId);
+    // Re-calcule la position GeoJSON si lat/lng sont fournis. `null` efface
+    // explicitement la position (distinct de `undefined` = champ non fourni).
+    if (dto.lat !== undefined || dto.lng !== undefined) {
+      const lat = dto.lat === undefined ? alert.lat : dto.lat;
+      const lng = dto.lng === undefined ? alert.lng : dto.lng;
+      set.lat = lat;
+      set.lng = lng;
+      if (typeof lat === 'number' && typeof lng === 'number') {
+        set.geo = { type: 'Point', coordinates: [lng, lat] };
+      } else {
+        unset.geo = '';
+      }
+    }
+
+    const updateOps: Record<string, unknown> = {};
+    if (Object.keys(set).length) {
+      updateOps.$set = set;
+    }
+    if (Object.keys(unset).length) {
+      updateOps.$unset = unset;
+    }
+
+    const updated = Object.keys(updateOps).length
+      ? await this.alertModel
+          .findOneAndUpdate({ _id: id }, updateOps, {
+            new: true,
+            runValidators: true,
+          })
+          .exec()
+      : alert;
+    if (!updated) {
+      throw new NotFoundException('Alert not found');
+    }
+    return this.respond(updated, currentUserId);
   }
 
   /** Supprime une alerte (auteur uniquement). */
@@ -228,60 +243,67 @@ export class AlertsService {
     return { success: true };
   }
 
-  /** Réaction « j'aime » (idempotent). Notifie l'auteur. */
+  /**
+   * Réaction « j'aime » (idempotente, atomique via $push filtré). Notifie
+   * l'auteur. Le filtre `likedBy: { $ne }` empêche tout doublon même en cas
+   * de requêtes concurrentes sur la même alerte.
+   */
   async like(id: string, currentUserId: string) {
-    const alert = await this.alertModel.findById(id).exec();
+    const userObjectId = new Types.ObjectId(currentUserId);
+    const updated = await this.alertModel
+      .findOneAndUpdate(
+        { _id: id, likedBy: { $ne: userObjectId } },
+        { $push: { likedBy: userObjectId } },
+        { new: true },
+      )
+      .exec();
+    if (updated) {
+      void this.notifyAlertAuthor(updated, currentUserId, 'like');
+    }
+    const alert = updated ?? (await this.alertModel.findById(id).exec());
     if (!alert) {
       throw new NotFoundException('Alert not found');
     }
-    const already = alert.likedBy.some(
-      (userId) => userId.toString() === currentUserId,
-    );
-    if (!already) {
-      alert.likedBy.push(new Types.ObjectId(currentUserId));
-      alert.likesCount += 1;
-      await alert.save();
-      void this.notifyAlertAuthor(alert, currentUserId, 'like');
-    }
-    const authors = await this.buildAuthorsMap([alert], currentUserId);
-    return this.toResponse(alert, authors, currentUserId);
+    return this.respond(alert, currentUserId);
   }
 
-  /** Retire la réaction « j'aime ». */
+  /** Retire la réaction « j'aime » (atomique via $pull). */
   async unlike(id: string, currentUserId: string) {
-    const alert = await this.alertModel.findById(id).exec();
+    const userObjectId = new Types.ObjectId(currentUserId);
+    const updated = await this.alertModel
+      .findOneAndUpdate(
+        { _id: id, likedBy: userObjectId },
+        { $pull: { likedBy: userObjectId } },
+        { new: true },
+      )
+      .exec();
+    const alert = updated ?? (await this.alertModel.findById(id).exec());
     if (!alert) {
       throw new NotFoundException('Alert not found');
     }
-    const before = alert.likedBy.length;
-    alert.likedBy = alert.likedBy.filter(
-      (userId) => userId.toString() !== currentUserId,
-    );
-    if (alert.likedBy.length !== before) {
-      alert.likesCount = Math.max(0, alert.likesCount - 1);
-      await alert.save();
-    }
-    const authors = await this.buildAuthorsMap([alert], currentUserId);
-    return this.toResponse(alert, authors, currentUserId);
+    return this.respond(alert, currentUserId);
   }
 
-  /** Ajoute un commentaire. Notifie l'auteur de l'alerte. */
+  /** Ajoute un commentaire (atomique via $push). Notifie l'auteur de l'alerte. */
   async addComment(id: string, currentUserId: string, dto: AddAlertCommentDto) {
-    const alert = await this.alertModel.findById(id).exec();
-    if (!alert) {
-      throw new NotFoundException('Alert not found');
-    }
-    alert.comments.push({
+    const comment = {
       commentId: new Types.ObjectId().toString(),
       authorId: new Types.ObjectId(currentUserId),
       text: dto.text.trim(),
       createdAt: new Date(),
-    });
-    await alert.save();
+    };
+    const alert = await this.alertModel
+      .findOneAndUpdate(
+        { _id: id },
+        { $push: { comments: comment } },
+        { new: true, runValidators: true },
+      )
+      .exec();
+    if (!alert) {
+      throw new NotFoundException('Alert not found');
+    }
     void this.notifyAlertAuthor(alert, currentUserId, 'comment');
-
-    const authors = await this.buildAuthorsMap([alert], currentUserId);
-    return this.toResponse(alert, authors, currentUserId);
+    return this.respond(alert, currentUserId);
   }
 
   /** Liste les commentaires d'une alerte. */
@@ -290,13 +312,14 @@ export class AlertsService {
     if (!alert) {
       throw new NotFoundException('Alert not found');
     }
-    const authors = await this.buildAuthorsMap([alert], currentUserId);
-    return this.toResponse(alert, authors, currentUserId).comments;
+    return (await this.respond(alert, currentUserId)).comments;
   }
 
   /**
    * Supprime un commentaire : autorisé à l'auteur du commentaire OU à
-   * l'auteur de l'alerte.
+   * l'auteur de l'alerte. La suppression elle-même est un $pull atomique
+   * ciblé par commentId : elle ne peut pas écraser un like ou un commentaire
+   * ajouté entre-temps par quelqu'un d'autre.
    */
   async deleteComment(id: string, commentId: string, currentUserId: string) {
     const alert = await this.alertModel.findById(id).exec();
@@ -314,12 +337,15 @@ export class AlertsService {
     if (!isCommentAuthor && !isAlertAuthor) {
       throw new ForbiddenException('You cannot delete this comment');
     }
-    alert.comments = alert.comments.filter(
-      (item) => `${item.commentId}` !== `${commentId}`,
-    );
-    await alert.save();
-    const authors = await this.buildAuthorsMap([alert], currentUserId);
-    return this.toResponse(alert, authors, currentUserId);
+    const updated = await this.alertModel
+      .findOneAndUpdate(
+        { _id: id },
+        { $pull: { comments: { commentId } } },
+        { new: true },
+      )
+      .exec();
+    const finalAlert = updated ?? alert;
+    return this.respond(finalAlert, currentUserId);
   }
 
   /** Notifie l'auteur de l'alerte (j'aime / commentaire), jamais soi-même. */
@@ -350,6 +376,18 @@ export class AlertsService {
     } catch {
       // Une notification qui échoue ne casse jamais l'action principale.
     }
+  }
+
+  /** Construit la réponse publique d'une seule alerte (auteurs résolus). */
+  private async respond(alert: AlertDocument, currentUserId = '') {
+    const authors = await this.buildAuthorsMap([alert], currentUserId);
+    return this.toResponse(alert, authors, currentUserId);
+  }
+
+  /** Construit la réponse publique d'une liste d'alertes (auteurs partagés). */
+  private async respondMany(alerts: AlertDocument[], currentUserId = '') {
+    const authors = await this.buildAuthorsMap(alerts, currentUserId);
+    return alerts.map((alert) => this.toResponse(alert, authors, currentUserId));
   }
 
   private async buildAuthorsMap(
@@ -419,7 +457,7 @@ export class AlertsService {
             institution: author.institution,
           }
         : null,
-      likesCount: alert.likesCount || 0,
+      likesCount: (alert.likedBy || []).length,
       userHasLiked: (alert.likedBy || []).some(
         (userId) => userId.toString() === currentUserId,
       ),

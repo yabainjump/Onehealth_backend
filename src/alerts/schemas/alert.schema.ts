@@ -65,9 +65,8 @@ export class Alert {
   imageUrls: string[];
 
   // Réactions (j'aime) et commentaires embarqués (même modèle que les posts).
-  @Prop({ type: Number, default: 0, min: 0 })
-  likesCount: number;
-
+  // likesCount n'est pas stocké : dérivé de likedBy.length en lecture (comme
+  // commentsCount), pour éviter qu'un compteur à part ne se désynchronise.
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
   likedBy: Types.ObjectId[];
 

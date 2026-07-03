@@ -6,6 +6,8 @@ export enum UserRole {
   ADMIN = 'admin',
 }
 
+export type CertificationStatus = 'none' | 'pending' | 'approved' | 'rejected';
+
 @Schema({
   collection: 'users',
   timestamps: true,
@@ -68,6 +70,24 @@ export class User {
 
   @Prop({ type: String, enum: UserRole, default: UserRole.USER })
   role: UserRole;
+
+  // ---- Certification de profil (professionnels de santé / institutions) ----
+  @Prop({ type: Boolean, default: false, index: true })
+  isCertified: boolean;
+
+  @Prop({
+    type: String,
+    enum: ['none', 'pending', 'approved', 'rejected'],
+    default: 'none',
+  })
+  certificationStatus: CertificationStatus;
+
+  @Prop({ type: Date, default: null })
+  certificationRequestedAt: Date | null;
+
+  // Compte suspendu par un administrateur : connexion refusée.
+  @Prop({ type: Boolean, default: false, index: true })
+  isBanned: boolean;
 
   @Prop({ type: Boolean, default: false })
   isOnline: boolean;
