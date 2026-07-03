@@ -26,6 +26,7 @@ export interface CreateUserInput {
   bio?: string;
   photoURL?: string;
   role?: UserRole;
+  googleId?: string;
 }
 
 export interface UpdateUserProfileInput {

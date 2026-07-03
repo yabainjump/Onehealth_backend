@@ -20,6 +20,11 @@ export class User {
   @Prop({ required: true, select: false })
   passwordHash: string;
 
+  // Identifiant Google (sub du token) pour les comptes créés/liés via
+  // « Se connecter avec Google ». Sparse : la plupart des comptes n'en ont pas.
+  @Prop({ type: String, default: null, index: { unique: true, sparse: true } })
+  googleId: string | null;
+
   @Prop({ default: '', select: false })
   passwordResetTokenHash: string;
 

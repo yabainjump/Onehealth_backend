@@ -3,14 +3,17 @@ import {
   ConflictException,
   Injectable,
   Logger,
+  NotImplementedException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { createHash, randomBytes } from 'crypto';
+import { OAuth2Client } from 'google-auth-library';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { UsersService } from '../users/users.service';
@@ -37,6 +40,7 @@ export interface ForgotPasswordResponse {
 export class AuthService {
   private static readonly DEFAULT_RESET_TOKEN_TTL_MINUTES = 30;
   private readonly logger = new Logger(AuthService.name);
+  private googleClient: OAuth2Client | null = null;
 
   constructor(
     private readonly usersService: UsersService,
@@ -93,6 +97,82 @@ export class AuthService {
     }
 
     return this.buildAuthResponse(user);
+  }
+
+  /**
+   * Connexion / inscription via Google. Vérifie l'ID token émis par Google
+   * Identity Services (audience = notre Client ID), puis relie ou crée le
+   * compte correspondant à l'e-mail Google.
+   */
+  async loginWithGoogle(dto: GoogleLoginDto): Promise<AuthResponse> {
+    const payload = await this.verifyGoogleIdToken(dto.idToken);
+
+    const email = (payload.email || '').toLowerCase().trim();
+    if (!email || !payload.email_verified) {
+      throw new UnauthorizedException('Google account email is not verified');
+    }
+
+    let user = await this.usersService.findByEmail(email);
+
+    if (!user) {
+      const passwordHash = await bcrypt.hash(randomBytes(32).toString('hex'), 12);
+      user = await this.usersService.create({
+        email,
+        passwordHash,
+        username: await this.generateUsernameFromEmail(email),
+        firstName: payload.given_name || 'Utilisateur',
+        lastName: payload.family_name || 'OneHealth',
+        photoURL: payload.picture ?? '',
+        googleId: payload.sub,
+      });
+
+      const welcomeName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+      void this.mailService.sendWelcome(user.email, welcomeName);
+    } else if (!user.googleId) {
+      // Compte existant (créé par e-mail/mot de passe) : on relie Google.
+      user.googleId = payload.sub;
+      await user.save();
+    }
+
+    return this.buildAuthResponse(user);
+  }
+
+  private async verifyGoogleIdToken(idToken: string) {
+    const clientId = this.configService.get<string>('GOOGLE_CLIENT_ID');
+    if (!clientId) {
+      throw new NotImplementedException('Google sign-in is not configured');
+    }
+    if (!this.googleClient) {
+      this.googleClient = new OAuth2Client(clientId);
+    }
+
+    try {
+      const ticket = await this.googleClient.verifyIdToken({
+        idToken,
+        audience: clientId,
+      });
+      const payload = ticket.getPayload();
+      if (!payload) {
+        throw new Error('Empty Google token payload');
+      }
+      return payload;
+    } catch (error) {
+      this.logger.warn(`Google ID token verification failed: ${(error as Error).message}`);
+      throw new UnauthorizedException('Invalid Google token');
+    }
+  }
+
+  /** Génère un pseudo lisible et raisonnablement unique à partir de l'e-mail. */
+  private async generateUsernameFromEmail(email: string): Promise<string> {
+    const base =
+      email
+        .split('@')[0]
+        .toLowerCase()
+        .replace(/[^a-z0-9_]/g, '')
+        .slice(0, 30) || 'user';
+    const suffix = randomBytes(2).toString('hex');
+    const candidate = `${base}${suffix}`.slice(0, 40);
+    return candidate.length >= 3 ? candidate : `user${suffix}`;
   }
 
   async logout(userId: string): Promise<{ success: boolean }> {

@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
+import { GoogleLoginDto } from './dto/google-login.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import type { RequestWithUser } from '../users/interfaces/request-with-user.interface';
@@ -35,6 +36,16 @@ export class AuthController {
   @Post('login')
   login(@Body() loginDto: LoginDto) {
     return this.authService.login(loginDto);
+  }
+
+  @ApiOperation({
+    summary: 'Se connecter / s\'inscrire avec Google',
+    description:
+      "Vérifie l'ID token Google Identity Services et connecte ou crée le compte correspondant.",
+  })
+  @Post('google')
+  loginWithGoogle(@Body() googleLoginDto: GoogleLoginDto) {
+    return this.authService.loginWithGoogle(googleLoginDto);
   }
 
   @ApiOperation({

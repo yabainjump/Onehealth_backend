@@ -20,6 +20,9 @@ import configuration from './configuration';
           .required(),
         JWT_SECRET: Joi.string().min(16).required(),
         JWT_EXPIRES_IN: Joi.string().default('1h'),
+        // Client ID OAuth Web (Google Cloud Console). Optionnel : si absent,
+        // POST /auth/google répond 501 au lieu de planter le démarrage.
+        GOOGLE_CLIENT_ID: Joi.string().optional(),
         CORS_ORIGIN: Joi.string().optional(),
         PUBLIC_BASE_URL: Joi.string().uri().optional(),
         FRONTEND_PUBLIC_URL: Joi.string().uri().optional(),
