@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { existsSync, promises as fs } from 'fs';
-import { extname, join, normalize, sep } from 'path';
+import { dirname, extname, join, normalize, sep } from 'path';
 import sharp from 'sharp';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
@@ -85,6 +85,7 @@ export class MediaService {
     const cacheDir = join(this.cacheRoot, 'poster');
     const cacheName = `${this.hash(sourcePath)}.jpg`;
     const cacheFile = join(cacheDir, cacheName);
+    const fallbackFile = join(cacheDir, `${this.hash(sourcePath)}-fallback.jpg`);
 
     if (existsSync(cacheFile)) {
       return { filePath: cacheFile, contentType: 'image/jpeg' };
@@ -92,7 +93,7 @@ export class MediaService {
 
     const ffmpeg = await this.loadFfmpeg();
     if (!ffmpeg) {
-      throw new NotFoundException('Poster generation unavailable on this server');
+      return this.createFallbackPoster(fallbackFile);
     }
 
     await fs.mkdir(cacheDir, { recursive: true });
@@ -113,12 +114,40 @@ export class MediaService {
       this.logger.warn(
         `Poster generation failed for ${sourcePath}: ${this.errorMessage(error)}`,
       );
-      throw new NotFoundException('Could not generate poster');
+      return this.createFallbackPoster(fallbackFile);
     }
 
     if (!existsSync(cacheFile)) {
-      throw new NotFoundException('Could not generate poster');
+      return this.createFallbackPoster(fallbackFile);
     }
+
+    return { filePath: cacheFile, contentType: 'image/jpeg' };
+  }
+
+  private async createFallbackPoster(cacheFile: string): Promise<ResolvedMedia> {
+    if (existsSync(cacheFile)) {
+      return { filePath: cacheFile, contentType: 'image/jpeg' };
+    }
+
+    const playIcon = Buffer.from(`
+      <svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="640" cy="360" r="82" fill="rgba(255,255,255,0.92)"/>
+        <path d="M620 310 L620 410 L700 360 Z" fill="#17407f"/>
+      </svg>
+    `);
+
+    await fs.mkdir(dirname(cacheFile), { recursive: true });
+    await sharp({
+      create: {
+        width: 1280,
+        height: 720,
+        channels: 3,
+        background: '#17407f',
+      },
+    })
+      .composite([{ input: playIcon }])
+      .jpeg({ quality: 82 })
+      .toFile(cacheFile);
 
     return { filePath: cacheFile, contentType: 'image/jpeg' };
   }
