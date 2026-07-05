@@ -10,7 +10,7 @@ coverage/
 .cache/
 
 # Runtime data
-# uploads/
+uploads/
 .media-cache/
 exports/
 tmp/
