@@ -25,6 +25,20 @@ export class ShareController {
     this.replyWithShareHtml(req, res, metadata);
   }
 
+  @ApiOperation({
+    summary: 'Sitemap dynamique (XML)',
+    description:
+      'URLs frontend des publications et profils publics, pour l\'indexation Google. Référencé depuis le robots.txt du frontend.',
+  })
+  @Get('sitemap.xml')
+  async getSitemap(@Res() res: Response): Promise<void> {
+    const xml = await this.shareService.getSitemapXml();
+    res.setHeader('Content-Type', 'application/xml; charset=utf-8');
+    // Regenere au plus une fois par heure (cache navigateur + proxy LiteSpeed).
+    res.setHeader('Cache-Control', 'public, max-age=3600, s-maxage=3600');
+    res.status(200).send(xml);
+  }
+
   @ApiOperation({ summary: 'Page de partage d\'une publication (HTML)' })
   @ApiParam({ name: 'postId', description: 'Identifiant de la publication' })
   @Get('post/:postId')

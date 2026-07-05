@@ -15,7 +15,7 @@ import {
 export class ShareService {
   private static readonly DEFAULT_SITE_NAME = 'One Health Network';
   private static readonly DEFAULT_SITE_DESCRIPTION =
-    'One Health Network connecte les experts de la santé humaine, animale et environnementale pour prévenir les zoonoses et coordonner la réponse aux crises sanitaires : profils vérifiés, cartographie des acteurs, appels à projets, messagerie et l\'assistant Rudolf AI.';
+    'One Health Network connecte les experts de la santé humaine, animale et environnementale. Lancez et suivez des alertes sanitaires en temps réel sur la carte interactive, prévenez les zoonoses et coordonnez la réponse aux crises : profils vérifiés, messagerie et assistant Rudolf AI.';
   private static readonly DEFAULT_LOCALE = 'fr_FR';
   private static readonly DEFAULT_FRONTEND_URL = 'http://localhost:8100';
   private static readonly DEFAULT_IMAGE_PATH = '/public/onehealth-share.png';
@@ -33,13 +33,14 @@ export class ShareService {
     const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
     const siteDescription = this.resolveSiteDescription();
     const welcomeUrl = this.buildAbsoluteUrl(frontendBaseUrl, '/welcome');
-    const shareUrl = this.buildAbsoluteUrl(apiBaseUrl, '/api/share');
 
     return {
       title: siteName,
       description: siteDescription,
       canonicalUrl: welcomeUrl,
-      ogUrl: shareUrl,
+      // og:url = URL du FRONTEND : c'est elle que les reseaux sociaux
+      // affichent et utilisent comme lien canonique du partage.
+      ogUrl: welcomeUrl,
       ogType: 'website',
       imageUrl: defaultImage,
       siteName,
@@ -69,10 +70,6 @@ export class ShareService {
       frontendBaseUrl,
       `/post-detail?id=${encodeURIComponent(postId)}`,
     );
-    const shareUrl = this.buildAbsoluteUrl(
-      apiBaseUrl,
-      `/api/share/post/${encodeURIComponent(postId)}`,
-    );
     const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
     const imageUrl = this.resolvePostImageUrl(
       post.imageUrls || [],
@@ -97,7 +94,8 @@ export class ShareService {
       title,
       description,
       canonicalUrl,
-      ogUrl: shareUrl,
+      // og:url = lien frontend du post (affiche par WhatsApp/Facebook…).
+      ogUrl: canonicalUrl,
       ogType: 'article',
       imageUrl,
       siteName,
@@ -128,10 +126,6 @@ export class ShareService {
       frontendBaseUrl,
       `/profils/${encodeURIComponent(userId)}`,
     );
-    const shareUrl = this.buildAbsoluteUrl(
-      apiBaseUrl,
-      `/api/share/profile/${encodeURIComponent(userId)}`,
-    );
     const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
     // og:image = photo de profil convertie en JPEG (compatible robots sociaux),
     // sinon image de marque par defaut.
@@ -151,7 +145,8 @@ export class ShareService {
       title,
       description: bio,
       canonicalUrl,
-      ogUrl: shareUrl,
+      // og:url = lien frontend du profil (affiche par WhatsApp/Facebook…).
+      ogUrl: canonicalUrl,
       ogType: 'profile',
       imageUrl,
       siteName,
@@ -161,6 +156,77 @@ export class ShareService {
       appName: siteName,
       redirectUrl: canonicalUrl,
     };
+  }
+
+  /**
+   * Sitemap dynamique : URLs FRONTEND des publications et profils publics.
+   * Référencé depuis le robots.txt du frontend, il permet à Google d'indexer
+   * le contenu (les pages statiques restent dans le sitemap.xml du frontend).
+   */
+  async getSitemapXml(): Promise<string> {
+    const frontendBaseUrl = this.resolveFrontendBaseUrl();
+
+    type SitemapDoc = { _id: unknown; updatedAt?: Date; createdAt?: Date };
+    const [posts, users] = await Promise.all([
+      this.postModel
+        .find({ isHidden: { $ne: true } })
+        .sort({ createdAt: -1 })
+        .limit(1000)
+        .select('_id updatedAt createdAt')
+        .lean<SitemapDoc[]>()
+        .exec(),
+      this.userModel
+        .find({ isBanned: { $ne: true } })
+        .sort({ createdAt: -1 })
+        .limit(1000)
+        .select('_id updatedAt createdAt')
+        .lean<SitemapDoc[]>()
+        .exec(),
+    ]);
+
+    const entries: string[] = [];
+    for (const post of posts) {
+      entries.push(
+        this.buildSitemapEntry(
+          this.buildAbsoluteUrl(frontendBaseUrl, `/post-detail?id=${post._id}`),
+          post.updatedAt ?? post.createdAt,
+          'weekly',
+          '0.8',
+        ),
+      );
+    }
+    for (const user of users) {
+      entries.push(
+        this.buildSitemapEntry(
+          this.buildAbsoluteUrl(frontendBaseUrl, `/profils/${user._id}`),
+          user.updatedAt ?? user.createdAt,
+          'weekly',
+          '0.6',
+        ),
+      );
+    }
+
+    return [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
+      ...entries,
+      '</urlset>',
+    ].join('\n');
+  }
+
+  private buildSitemapEntry(
+    loc: string,
+    lastModified: Date | undefined,
+    changefreq: string,
+    priority: string,
+  ): string {
+    // Les URLs contiennent « ? » et « = » (valides en XML) mais jamais « & »
+    // (un seul paramètre) ; on échappe quand même par sécurité.
+    const safeLoc = loc.replace(/&/g, '&amp;');
+    const lastmod = lastModified
+      ? `\n    <lastmod>${new Date(lastModified).toISOString()}</lastmod>`
+      : '';
+    return `  <url>\n    <loc>${safeLoc}</loc>${lastmod}\n    <changefreq>${changefreq}</changefreq>\n    <priority>${priority}</priority>\n  </url>`;
   }
 
   private resolvePostImageUrl(
