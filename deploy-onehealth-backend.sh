@@ -9,8 +9,18 @@ NPM_BIN="${NPM_BIN:-$NODE_BIN_DIR/npm}"
 NODE_BIN="${NODE_BIN:-$NODE_BIN_DIR/node}"
 PM2_BIN="${PM2_BIN:-pm2}"
 PM2_APP_NAME="${PM2_APP_NAME:-onehealth-backend}"
+UPLOADS_DIR="${UPLOADS_DIR:-$HOME/apps/onehealth-data/uploads}"
+
+export UPLOADS_DIR
 
 mkdir -p "$APP_DIR"
+mkdir -p "$UPLOADS_DIR"/{profile,post,message}
+
+if [ ! -w "$UPLOADS_DIR" ]; then
+  echo "Error: upload directory is not writable: $UPLOADS_DIR"
+  exit 1
+fi
+
 cd "$APP_DIR"
 
 if [ ! -d .git ]; then

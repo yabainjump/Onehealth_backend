@@ -8,6 +8,7 @@ import { createHash } from 'crypto';
 import { existsSync, promises as fs } from 'fs';
 import { dirname, extname, join, normalize, sep } from 'path';
 import sharp from 'sharp';
+import { resolveUploadsRoot } from '../config/uploads-path';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.webm', '.mkv']);
@@ -29,7 +30,7 @@ export class MediaService {
   private static readonly DEFAULT_WIDTH = 800;
 
   private readonly logger = new Logger(MediaService.name);
-  private readonly uploadsRoot = join(process.cwd(), 'uploads');
+  private readonly uploadsRoot = resolveUploadsRoot();
   private readonly cacheRoot = join(process.cwd(), '.media-cache');
   // ffmpeg est une dependance OPTIONNELLE : chargee paresseusement, l'app
   // demarre meme si elle est absente (les posters video sont alors desactives).

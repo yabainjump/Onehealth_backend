@@ -21,6 +21,7 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
+import { resolveUploadsRoot } from '../config/uploads-path';
 import { UploadService } from './upload.service';
 
 const FILE_UPLOAD_BODY: ApiBodyOptions = {
@@ -79,7 +80,7 @@ function ensureDir(dir: string) {
 function storageFor(folder: string) {
   return diskStorage({
     destination: (_req: any, _file: any, cb: any) => {
-      cb(null, ensureDir(join(process.cwd(), 'uploads', folder)));
+      cb(null, ensureDir(join(resolveUploadsRoot(), folder)));
     },
     filename: (_req: any, _file: any, cb: any) => {
       cb(null, `${Date.now()}-${randomUUID().replace(/-/g, '')}.uploadtmp`);

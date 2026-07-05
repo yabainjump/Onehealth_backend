@@ -25,6 +25,7 @@ import configuration from './configuration';
         GOOGLE_CLIENT_ID: Joi.string().optional(),
         CORS_ORIGIN: Joi.string().optional(),
         PUBLIC_BASE_URL: Joi.string().uri().optional(),
+        UPLOADS_DIR: Joi.string().trim().min(1).optional(),
         FRONTEND_PUBLIC_URL: Joi.string().uri().optional(),
         SITE_NAME: Joi.string().min(2).max(120).optional(),
         SITE_DEFAULT_DESCRIPTION: Joi.string().min(10).max(300).optional(),

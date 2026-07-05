@@ -12,10 +12,11 @@
 import 'dotenv/config';
 import { existsSync, promises as fs } from 'fs';
 import { join } from 'path';
+import { resolveUploadsRoot } from '../src/config/uploads-path';
 import mongoose from 'mongoose';
 import sharp from 'sharp';
 
-const UPLOADS_ROOT = join(process.cwd(), 'uploads');
+const UPLOADS_ROOT = resolveUploadsRoot();
 const IMG_EXT = /\.(png|jpe?g|gif)$/i;
 const MAX_DIMENSION = 1920;
 const QUALITY = 80;

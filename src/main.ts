@@ -3,9 +3,11 @@ import { NextFunction, Request, Response } from 'express';
 import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
+import { mkdirSync } from 'fs';
 import { extname, join } from 'path';
 import { AppModule } from './app.module';
 import { setupSwagger } from './config/swagger';
+import { resolveUploadsRoot } from './config/uploads-path';
 
 const DEFAULT_DEV_CORS_ORIGINS = [
   'http://localhost:8100',
@@ -40,7 +42,10 @@ async function bootstrap() {
   app.set('trust proxy', 1);
   app.setGlobalPrefix('api');
 
-  app.useStaticAssets(join(process.cwd(), 'uploads'), {
+  const uploadsRoot = resolveUploadsRoot();
+  mkdirSync(uploadsRoot, { recursive: true });
+
+  app.useStaticAssets(uploadsRoot, {
     prefix: '/uploads/',
     maxAge: '30d',
     etag: true,
@@ -141,4 +146,3 @@ async function bootstrap() {
 }
 
 void bootstrap();
-

@@ -4,6 +4,7 @@ import { randomUUID } from 'crypto';
 import { promises as fs } from 'fs';
 import { extname, join } from 'path';
 import sharp from 'sharp';
+import { resolveUploadsRoot } from '../config/uploads-path';
 
 export type UploadKind = 'profile' | 'post' | 'message';
 
@@ -136,6 +137,8 @@ const FILE_RULES: FileRule[] = [
 
 @Injectable()
 export class UploadService {
+  private readonly uploadsRoot = resolveUploadsRoot();
+
   constructor(private readonly configService: ConfigService) {}
 
   async finalizeUploadedFile(
@@ -180,7 +183,7 @@ export class UploadService {
 
       if (convertToWebp) {
         finalFilename = `${baseName}.webp`;
-        finalDiskPath = join(process.cwd(), 'uploads', folder, finalFilename);
+        finalDiskPath = join(this.uploadsRoot, folder, finalFilename);
         await sharp(file.path, { animated: matchedRule.signature === 'gif' })
           .rotate()
           .resize({
@@ -196,7 +199,7 @@ export class UploadService {
         outputSize = (await fs.stat(finalDiskPath)).size;
       } else {
         finalFilename = `${baseName}${originalExtension}`;
-        finalDiskPath = join(process.cwd(), 'uploads', folder, finalFilename);
+        finalDiskPath = join(this.uploadsRoot, folder, finalFilename);
         await fs.rename(file.path, finalDiskPath);
       }
 
@@ -312,4 +315,3 @@ export class UploadService {
     }
   }
 }
-

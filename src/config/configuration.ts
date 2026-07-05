@@ -6,6 +6,7 @@ export default () => ({
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
   corsOrigin: process.env.CORS_ORIGIN,
   publicBaseUrl: process.env.PUBLIC_BASE_URL ?? '',
+  uploadsDir: process.env.UPLOADS_DIR ?? '',
   frontendPublicUrl: process.env.FRONTEND_PUBLIC_URL ?? '',
   siteName: process.env.SITE_NAME ?? 'One Health Network',
   siteDefaultDescription:
