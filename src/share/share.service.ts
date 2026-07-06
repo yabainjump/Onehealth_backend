@@ -70,6 +70,10 @@ export class ShareService {
       frontendBaseUrl,
       `/post-detail?id=${encodeURIComponent(postId)}`,
     );
+    const shareUrl = this.buildAbsoluteUrl(
+      apiBaseUrl,
+      `/api/share/post/${encodeURIComponent(postId)}`,
+    );
     const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
     const imageUrl = this.resolvePostImageUrl(
       post.imageUrls || [],
@@ -94,8 +98,8 @@ export class ShareService {
       title,
       description,
       canonicalUrl,
-      // og:url = lien frontend du post (affiche par WhatsApp/Facebook…).
-      ogUrl: canonicalUrl,
+      // L'URL partagee rend elle-meme les metadonnees, sans dependre d'Apache.
+      ogUrl: shareUrl,
       ogType: 'article',
       imageUrl,
       siteName,
@@ -126,6 +130,10 @@ export class ShareService {
       frontendBaseUrl,
       `/profils/${encodeURIComponent(userId)}`,
     );
+    const shareUrl = this.buildAbsoluteUrl(
+      apiBaseUrl,
+      `/api/share/profile/${encodeURIComponent(userId)}`,
+    );
     const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
     // og:image = photo de profil convertie en JPEG (compatible robots sociaux),
     // sinon image de marque par defaut.
@@ -145,8 +153,7 @@ export class ShareService {
       title,
       description: bio,
       canonicalUrl,
-      // og:url = lien frontend du profil (affiche par WhatsApp/Facebook…).
-      ogUrl: canonicalUrl,
+      ogUrl: shareUrl,
       ogType: 'profile',
       imageUrl,
       siteName,
