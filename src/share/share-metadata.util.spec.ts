@@ -30,21 +30,27 @@ describe('share-metadata.util', () => {
     const html = buildShareHtml({
       title: 'Sample Post',
       description: 'Sample Description',
-      canonicalUrl: 'https://onehealth.app/post-detail?id=abc',
-      ogUrl: 'https://api.onehealth.app/api/share/post/abc',
+      canonicalUrl: 'https://onehealth.app/posts/abc',
+      ogUrl: 'https://onehealth.app/posts/abc?v=5',
       ogType: 'article',
       imageUrl: 'https://onehealth.app/assets/cover.png',
       siteName: 'One Health Network',
       locale: 'fr_FR',
       twitterCard: 'summary_large_image',
       appName: 'One Health Network',
-      redirectUrl: 'https://onehealth.app/post-detail?id=abc',
+      redirectUrl: 'https://onehealth.app/posts/abc',
       shouldAutoRedirect: false,
     });
 
     expect(html).toContain('property="og:title" content="Sample Post"');
+    expect(html).toContain('property="og:description" content="Sample Description"');
     expect(html).toContain('property="og:type" content="article"');
+    expect(html).toContain('property="og:url" content="https://onehealth.app/posts/abc?v=5"');
+    expect(html).toContain('property="og:image" content="https://onehealth.app/assets/cover.png"');
+    expect(html).toContain('name="twitter:title" content="Sample Post"');
+    expect(html).toContain('name="twitter:description" content="Sample Description"');
+    expect(html).toContain('name="twitter:image" content="https://onehealth.app/assets/cover.png"');
     expect(html).toContain('name="twitter:card" content="summary_large_image"');
-    expect(html).toContain('rel="canonical" href="https://onehealth.app/post-detail?id=abc"');
+    expect(html).toContain('rel="canonical" href="https://onehealth.app/posts/abc"');
   });
 });

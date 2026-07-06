@@ -13,7 +13,7 @@ import {
 
 @Injectable()
 export class ShareService {
-  private static readonly SHARE_VERSION = '4';
+  private static readonly SHARE_VERSION = '5';
   private static readonly DEFAULT_SITE_NAME = 'One Health Network';
   private static readonly DEFAULT_SITE_DESCRIPTION =
     'One Health Network connecte les experts de la santé humaine, animale et environnementale. Lancez et suivez des alertes sanitaires en temps réel sur la carte interactive, prévenez les zoonoses et coordonnez la réponse aux crises : profils vérifiés, messagerie et assistant Rudolf AI.';
@@ -69,9 +69,9 @@ export class ShareService {
     const apiBaseUrl = this.resolveApiBaseUrl();
     const canonicalUrl = this.buildAbsoluteUrl(
       frontendBaseUrl,
-      `/post-detail?id=${encodeURIComponent(postId)}`,
+      `/posts/${encodeURIComponent(postId)}`,
     );
-    const socialUrl = `${canonicalUrl}&v=${ShareService.SHARE_VERSION}`;
+    const socialUrl = `${canonicalUrl}?v=${ShareService.SHARE_VERSION}`;
     const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
     const imageUrl = this.resolvePostImageUrl(
       post.imageUrls || [],
@@ -189,7 +189,7 @@ export class ShareService {
     for (const post of posts) {
       entries.push(
         this.buildSitemapEntry(
-          this.buildAbsoluteUrl(frontendBaseUrl, `/post-detail?id=${post._id}`),
+          this.buildAbsoluteUrl(frontendBaseUrl, `/posts/${post._id}`),
           post.updatedAt ?? post.createdAt,
           'weekly',
           '0.8',
