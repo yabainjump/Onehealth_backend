@@ -132,6 +132,7 @@ export function buildShareHtml(metadata: SharePageMetadata): string {
   <meta property="og:type" content="${ogType}" />
   <meta property="og:url" content="${ogUrl}" />
   <meta property="og:image" content="${imageUrl}" />
+  <meta property="og:image:secure_url" content="${imageUrl}" />
   <meta property="og:image:alt" content="${title}" />
   <meta property="og:site_name" content="${siteName}" />
   <meta property="og:locale" content="${locale}" />

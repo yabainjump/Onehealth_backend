@@ -13,6 +13,7 @@ import {
 
 @Injectable()
 export class ShareService {
+  private static readonly SHARE_VERSION = '3';
   private static readonly DEFAULT_SITE_NAME = 'One Health Network';
   private static readonly DEFAULT_SITE_DESCRIPTION =
     'One Health Network connecte les experts de la santé humaine, animale et environnementale. Lancez et suivez des alertes sanitaires en temps réel sur la carte interactive, prévenez les zoonoses et coordonnez la réponse aux crises : profils vérifiés, messagerie et assistant Rudolf AI.';
@@ -70,10 +71,7 @@ export class ShareService {
       frontendBaseUrl,
       `/post-detail?id=${encodeURIComponent(postId)}`,
     );
-    const shareUrl = this.buildAbsoluteUrl(
-      apiBaseUrl,
-      `/api/share/post/${encodeURIComponent(postId)}`,
-    );
+    const socialUrl = `${canonicalUrl}&v=${ShareService.SHARE_VERSION}`;
     const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
     const imageUrl = this.resolvePostImageUrl(
       post.imageUrls || [],
@@ -98,8 +96,7 @@ export class ShareService {
       title,
       description,
       canonicalUrl,
-      // L'URL partagee rend elle-meme les metadonnees, sans dependre d'Apache.
-      ogUrl: shareUrl,
+      ogUrl: socialUrl,
       ogType: 'article',
       imageUrl,
       siteName,
@@ -130,10 +127,7 @@ export class ShareService {
       frontendBaseUrl,
       `/profils/${encodeURIComponent(userId)}`,
     );
-    const shareUrl = this.buildAbsoluteUrl(
-      apiBaseUrl,
-      `/api/share/profile/${encodeURIComponent(userId)}`,
-    );
+    const socialUrl = `${canonicalUrl}?v=${ShareService.SHARE_VERSION}`;
     const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
     // og:image = photo de profil convertie en JPEG (compatible robots sociaux),
     // sinon image de marque par defaut.
@@ -153,7 +147,7 @@ export class ShareService {
       title,
       description: bio,
       canonicalUrl,
-      ogUrl: shareUrl,
+      ogUrl: socialUrl,
       ogType: 'profile',
       imageUrl,
       siteName,
