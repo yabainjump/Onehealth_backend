@@ -4,7 +4,7 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-$HOME/public_html/backend.onehealthnetwork.yaba-in.com}"
 REPO_URL="${REPO_URL:-https://github.com/yabainjump/Onehealth_backend.git}"
 BRANCH="${BRANCH:-main}"
-NODE_BIN_DIR="${NODE_BIN_DIR:-/opt/cpanel/ea-nodejs18/bin}"
+NODE_BIN_DIR="${NODE_BIN_DIR:-/opt/cpanel/ea-nodejs20/bin}"
 NPM_BIN="${NPM_BIN:-$NODE_BIN_DIR/npm}"
 NODE_BIN="${NODE_BIN:-$NODE_BIN_DIR/node}"
 PM2_BIN="${PM2_BIN:-pm2}"

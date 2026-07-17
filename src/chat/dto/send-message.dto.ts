@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsSafeMediaUrl } from '../../common/validation/safe-media-url.validator';
 
 export class SendMessageDto {
   @ApiPropertyOptional({ example: 'Bonjour, comment allez-vous ?', maxLength: 1000 })
@@ -14,6 +15,7 @@ export class SendMessageDto {
   })
   @IsOptional()
   @IsString()
+  @IsSafeMediaUrl()
   @MaxLength(500)
   imageUrl?: string;
 
@@ -23,6 +25,7 @@ export class SendMessageDto {
   })
   @IsOptional()
   @IsString()
+  @IsSafeMediaUrl()
   @MaxLength(500)
   fileUrl?: string;
 

@@ -72,6 +72,8 @@ export class MailService {
     resetUrl: string,
     ttlMinutes: number,
   ): string {
+    siteName = this.escapeHtml(siteName);
+    resetUrl = this.escapeHtml(resetUrl);
     const accent = '#1f9d57';
     const year = new Date().getFullYear();
 
@@ -192,6 +194,9 @@ export class MailService {
     displayName: string,
     resetUrl: string,
   ): string {
+    siteName = this.escapeHtml(siteName);
+    displayName = this.escapeHtml(displayName);
+    resetUrl = this.escapeHtml(resetUrl);
     const accent = '#1f9d57';
     const year = new Date().getFullYear();
     const hello = displayName ? `Bonjour ${displayName},` : 'Bonjour,';
@@ -310,6 +315,10 @@ export class MailService {
     appUrl: string,
     description: string,
   ): string {
+    siteName = this.escapeHtml(siteName);
+    displayName = this.escapeHtml(displayName);
+    appUrl = this.escapeHtml(appUrl);
+    description = this.escapeHtml(description);
     const accent = '#1f9d57';
     const year = new Date().getFullYear();
     const hello = displayName ? `Bonjour ${displayName},` : 'Bonjour,';
@@ -386,5 +395,14 @@ export class MailService {
 
   private config(key: string): string {
     return `${this.configService.get<string>(key) ?? ''}`.trim();
+  }
+
+  private escapeHtml(value: string): string {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 }

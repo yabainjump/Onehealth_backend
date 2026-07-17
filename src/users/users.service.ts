@@ -414,6 +414,7 @@ export class UsersService {
     const followers = (user.followers || []).map((follower) => follower.toString());
     const following = (user.following || []).map((followedUser) => followedUser.toString());
     const viewerId = (currentUserId || '').trim();
+    const isPrivateView = viewerId === user._id.toString();
     const isFollowing =
       !!viewerId &&
       viewerId !== user._id.toString() &&
@@ -421,7 +422,10 @@ export class UsersService {
 
     return {
       id: user._id.toString(),
-      email: user.email,
+      // Email et téléphone sont des données privées. Ils ne sont renvoyés que
+      // lorsque l'utilisateur consulte son propre compte (ou via les routes
+      // d'administration, qui demandent explicitement une vue privée).
+      email: isPrivateView ? user.email : '',
       username: user.username,
       firstName: user.firstName,
       lastName: user.lastName,
@@ -429,7 +433,7 @@ export class UsersService {
       typeMedecin: user.typeMedecin ?? '',
       country: user.country ?? '',
       city: user.city ?? '',
-      phone: user.phone ?? '',
+      phone: isPrivateView ? (user.phone ?? '') : '',
       bio: user.bio ?? '',
       photoURL: user.photoURL ?? '',
       coverPhotoURL: user.coverPhotoURL ?? '',

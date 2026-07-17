@@ -7,6 +7,7 @@ import {
   MaxLength,
   ValidateNested,
 } from 'class-validator';
+import { IsSafeMediaUrl } from '../../common/validation/safe-media-url.validator';
 import { Type } from 'class-transformer';
 import { PostAttachmentDto } from './post-attachment.dto';
 
@@ -32,6 +33,7 @@ export class UpdatePostDto {
   @IsArray()
   @ArrayMaxSize(8)
   @IsString({ each: true })
+  @IsSafeMediaUrl({ each: true })
   @MaxLength(500, { each: true })
   imageUrls?: string[];
 

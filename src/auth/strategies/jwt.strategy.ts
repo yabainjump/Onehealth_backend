@@ -28,6 +28,6 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Account suspended');
     }
 
-    return this.usersService.toPublicUser(user);
+    return this.usersService.toPublicUser(user, user._id.toString());
   }
 }

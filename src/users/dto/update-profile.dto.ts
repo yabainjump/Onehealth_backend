@@ -6,6 +6,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { IsSafeMediaUrl } from '../../common/validation/safe-media-url.validator';
 
 export class UpdateProfileDto {
   @ApiPropertyOptional({ example: 'dr_kamga', minLength: 3, maxLength: 40 })
@@ -75,6 +76,7 @@ export class UpdateProfileDto {
   })
   @IsOptional()
   @IsString()
+  @IsSafeMediaUrl()
   @MaxLength(500)
   photoURL?: string;
 
@@ -84,6 +86,7 @@ export class UpdateProfileDto {
   })
   @IsOptional()
   @IsString()
+  @IsSafeMediaUrl()
   @MaxLength(500)
   coverPhotoURL?: string;
 }

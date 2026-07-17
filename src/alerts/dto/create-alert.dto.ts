@@ -11,6 +11,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { IsSafeMediaUrl } from '../../common/validation/safe-media-url.validator';
 
 const CATEGORIES = ['human', 'animal', 'environment'] as const;
 const SEVERITIES = ['low', 'medium', 'high'] as const;
@@ -68,6 +69,7 @@ export class CreateAlertDto {
   @IsArray()
   @ArrayMaxSize(4)
   @IsString({ each: true })
+  @IsSafeMediaUrl({ each: true })
   @MaxLength(500, { each: true })
   imageUrls?: string[];
 }

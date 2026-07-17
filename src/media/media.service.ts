@@ -12,6 +12,7 @@ import { resolveUploadsRoot } from '../config/uploads-path';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.webm', '.mkv']);
+const CACHEABLE_WIDTHS = [64, 128, 256, 400, 640, 800, 1200, 1600] as const;
 
 export interface ResolvedMedia {
   filePath: string;
@@ -246,9 +247,13 @@ export class MediaService {
 
   private clampWidth(value: number): number {
     const width = Math.floor(Number(value)) || MediaService.DEFAULT_WIDTH;
-    return Math.min(
+    const clamped = Math.min(
       Math.max(width, MediaService.MIN_WIDTH),
       MediaService.MAX_WIDTH,
+    );
+    return (
+      CACHEABLE_WIDTHS.find((candidate) => candidate >= clamped) ??
+      CACHEABLE_WIDTHS[CACHEABLE_WIDTHS.length - 1]
     );
   }
 

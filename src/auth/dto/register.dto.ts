@@ -7,6 +7,7 @@ import {
   MaxLength,
   MinLength,
 } from 'class-validator';
+import { IsSafeMediaUrl } from '../../common/validation/safe-media-url.validator';
 
 export class RegisterDto {
   @ApiProperty({ example: 'dr.kamga@example.com', description: 'Adresse e-mail (unique).' })
@@ -87,6 +88,7 @@ export class RegisterDto {
   })
   @IsOptional()
   @IsString()
+  @IsSafeMediaUrl()
   @MaxLength(500)
   photoURL?: string;
 }

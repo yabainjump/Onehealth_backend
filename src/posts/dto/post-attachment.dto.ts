@@ -1,5 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsIn, IsInt, IsString, Max, MaxLength, Min } from 'class-validator';
+import { IsSafeMediaUrl } from '../../common/validation/safe-media-url.validator';
 
 export const POST_ATTACHMENT_TYPES = ['video', 'document'] as const;
 export type PostAttachmentType = (typeof POST_ATTACHMENT_TYPES)[number];
@@ -16,6 +17,7 @@ export class PostAttachmentDto {
     maxLength: 1000,
   })
   @IsString()
+  @IsSafeMediaUrl()
   @MaxLength(1000)
   url: string;
 

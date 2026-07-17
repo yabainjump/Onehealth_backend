@@ -58,7 +58,9 @@ export class ShareService {
       throw new NotFoundException('Post not found');
     }
 
-    const post = await this.postModel.findById(postId).exec();
+    const post = await this.postModel
+      .findOne({ _id: postId, isHidden: { $ne: true } })
+      .exec();
     if (!post) {
       throw new NotFoundException('Post not found');
     }

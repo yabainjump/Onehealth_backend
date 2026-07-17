@@ -9,6 +9,7 @@ import {
 } from 'class-validator';
 import { Type } from 'class-transformer';
 import { PostAttachmentDto } from './post-attachment.dto';
+import { IsSafeMediaUrl } from '../../common/validation/safe-media-url.validator';
 
 export class CreatePostDto {
   @ApiPropertyOptional({ example: 'Surveillance des zoonoses', maxLength: 120 })
@@ -35,6 +36,7 @@ export class CreatePostDto {
   @IsArray()
   @ArrayMaxSize(8)
   @IsString({ each: true })
+  @IsSafeMediaUrl({ each: true })
   @MaxLength(500, { each: true })
   imageUrls?: string[];
 

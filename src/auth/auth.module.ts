@@ -64,6 +64,7 @@ export class AuthModule implements NestModule {
     consumer.apply(AuthRateLimitMiddleware).forRoutes(
       { path: 'auth/login', method: RequestMethod.POST },
       { path: 'auth/register', method: RequestMethod.POST },
+      { path: 'auth/google', method: RequestMethod.POST },
       { path: 'auth/forgot-password', method: RequestMethod.POST },
       { path: 'auth/reset-password', method: RequestMethod.POST },
     );

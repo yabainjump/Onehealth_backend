@@ -93,7 +93,9 @@ export class AdminService {
     ]);
 
     return {
-      items: users.map((user) => this.usersService.toPublicUser(user)),
+      items: users.map((user) =>
+        this.usersService.toPublicUser(user, user._id.toString()),
+      ),
       total,
       page,
       limit,
@@ -110,7 +112,7 @@ export class AdminService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return this.usersService.toPublicUser(user);
+    return this.usersService.toPublicUser(user, user._id.toString());
   }
 
   async setUserBanned(userId: string, banned: boolean, currentAdminId: string) {
@@ -123,7 +125,7 @@ export class AdminService {
     if (!user) {
       throw new NotFoundException('User not found');
     }
-    return this.usersService.toPublicUser(user);
+    return this.usersService.toPublicUser(user, user._id.toString());
   }
 
   /** Demandes de certification, filtrables par statut (pending par défaut). */
@@ -151,7 +153,10 @@ export class AdminService {
     );
     const users = await this.usersService.findByIds(userIds);
     const usersById = new Map(
-      users.map((user) => [user._id.toString(), this.usersService.toPublicUser(user)]),
+      users.map((user) => [
+        user._id.toString(),
+        this.usersService.toPublicUser(user, user._id.toString()),
+      ]),
     );
 
     return {
@@ -319,7 +324,10 @@ export class AdminService {
     const uniqueIds = Array.from(new Set(authorIds));
     const users = await this.usersService.findByIds(uniqueIds);
     return new Map(
-      users.map((user) => [user._id.toString(), this.usersService.toPublicUser(user)]),
+      users.map((user) => [
+        user._id.toString(),
+        this.usersService.toPublicUser(user, user._id.toString()),
+      ]),
     );
   }
 

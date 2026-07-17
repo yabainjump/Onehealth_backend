@@ -198,7 +198,9 @@ export class PostsService {
   }
 
   async findById(postId: string, currentUserId: string) {
-    const post = await this.postModel.findById(postId).exec();
+    const post = await this.postModel
+      .findOne({ _id: postId, isHidden: { $ne: true } })
+      .exec();
     if (!post) {
       throw new NotFoundException('Post not found');
     }
@@ -210,7 +212,9 @@ export class PostsService {
   }
 
   async listComments(postId: string, currentUserId: string) {
-    const post = await this.postModel.findById(postId).exec();
+    const post = await this.postModel
+      .findOne({ _id: postId, isHidden: { $ne: true } })
+      .exec();
     if (!post) {
       throw new NotFoundException('Post not found');
     }
@@ -223,7 +227,9 @@ export class PostsService {
   }
 
   async like(postId: string, currentUserId: string) {
-    const post = await this.postModel.findById(postId).exec();
+    const post = await this.postModel
+      .findOne({ _id: postId, isHidden: { $ne: true } })
+      .exec();
     if (!post) {
       throw new NotFoundException('Post not found');
     }
@@ -248,7 +254,9 @@ export class PostsService {
   }
 
   async unlike(postId: string, currentUserId: string) {
-    const post = await this.postModel.findById(postId).exec();
+    const post = await this.postModel
+      .findOne({ _id: postId, isHidden: { $ne: true } })
+      .exec();
     if (!post) {
       throw new NotFoundException('Post not found');
     }
@@ -272,7 +280,9 @@ export class PostsService {
   }
 
   async addComment(postId: string, currentUserId: string, dto: AddCommentDto) {
-    const post = await this.postModel.findById(postId).exec();
+    const post = await this.postModel
+      .findOne({ _id: postId, isHidden: { $ne: true } })
+      .exec();
     if (!post) {
       throw new NotFoundException('Post not found');
     }
@@ -298,7 +308,9 @@ export class PostsService {
     currentUserId: string,
     context?: CommentLookupContext,
   ) {
-    const post = await this.postModel.findById(postId).exec();
+    const post = await this.postModel
+      .findOne({ _id: postId, isHidden: { $ne: true } })
+      .exec();
     if (!post) {
       throw new NotFoundException('Post not found');
     }
@@ -347,7 +359,9 @@ export class PostsService {
     currentUserId: string,
     context?: CommentLookupContext,
   ) {
-    const post = await this.postModel.findById(postId).exec();
+    const post = await this.postModel
+      .findOne({ _id: postId, isHidden: { $ne: true } })
+      .exec();
     if (!post) {
       throw new NotFoundException('Post not found');
     }

@@ -269,6 +269,10 @@ export class AuthService {
   }
 
   private async buildAuthResponse(user: UserDocument): Promise<AuthResponse> {
+    if (user.isBanned) {
+      throw new UnauthorizedException('Account suspended');
+    }
+
     const onlineUser = (await this.usersService.markOnline(
       user._id.toString(),
     )) ?? user;
@@ -285,7 +289,10 @@ export class AuthService {
       accessToken,
       tokenType: 'Bearer',
       expiresIn: this.configService.get<string>('JWT_EXPIRES_IN') ?? '1h',
-      user: this.usersService.toPublicUser(onlineUser),
+      user: this.usersService.toPublicUser(
+        onlineUser,
+        onlineUser._id.toString(),
+      ),
     };
   }
 

@@ -160,7 +160,9 @@ export class AlertsService {
   }
 
   async findById(id: string, currentUserId = '') {
-    const alert = await this.alertModel.findById(id).exec();
+    const alert = await this.alertModel
+      .findOne({ _id: id, isHidden: { $ne: true } })
+      .exec();
     if (!alert) {
       throw new NotFoundException('Alert not found');
     }
@@ -254,7 +256,11 @@ export class AlertsService {
     const userObjectId = new Types.ObjectId(currentUserId);
     const updated = await this.alertModel
       .findOneAndUpdate(
-        { _id: id, likedBy: { $ne: userObjectId } },
+        {
+          _id: id,
+          isHidden: { $ne: true },
+          likedBy: { $ne: userObjectId },
+        },
         { $push: { likedBy: userObjectId } },
         { new: true },
       )
@@ -262,7 +268,11 @@ export class AlertsService {
     if (updated) {
       void this.notifyAlertAuthor(updated, currentUserId, 'like');
     }
-    const alert = updated ?? (await this.alertModel.findById(id).exec());
+    const alert =
+      updated ??
+      (await this.alertModel
+        .findOne({ _id: id, isHidden: { $ne: true } })
+        .exec());
     if (!alert) {
       throw new NotFoundException('Alert not found');
     }
@@ -274,12 +284,16 @@ export class AlertsService {
     const userObjectId = new Types.ObjectId(currentUserId);
     const updated = await this.alertModel
       .findOneAndUpdate(
-        { _id: id, likedBy: userObjectId },
+        { _id: id, isHidden: { $ne: true }, likedBy: userObjectId },
         { $pull: { likedBy: userObjectId } },
         { new: true },
       )
       .exec();
-    const alert = updated ?? (await this.alertModel.findById(id).exec());
+    const alert =
+      updated ??
+      (await this.alertModel
+        .findOne({ _id: id, isHidden: { $ne: true } })
+        .exec());
     if (!alert) {
       throw new NotFoundException('Alert not found');
     }
@@ -296,7 +310,7 @@ export class AlertsService {
     };
     const alert = await this.alertModel
       .findOneAndUpdate(
-        { _id: id },
+        { _id: id, isHidden: { $ne: true } },
         { $push: { comments: comment } },
         { new: true, runValidators: true },
       )
@@ -310,7 +324,9 @@ export class AlertsService {
 
   /** Liste les commentaires d'une alerte. */
   async listComments(id: string, currentUserId = '') {
-    const alert = await this.alertModel.findById(id).exec();
+    const alert = await this.alertModel
+      .findOne({ _id: id, isHidden: { $ne: true } })
+      .exec();
     if (!alert) {
       throw new NotFoundException('Alert not found');
     }
@@ -324,7 +340,9 @@ export class AlertsService {
    * ajouté entre-temps par quelqu'un d'autre.
    */
   async deleteComment(id: string, commentId: string, currentUserId: string) {
-    const alert = await this.alertModel.findById(id).exec();
+    const alert = await this.alertModel
+      .findOne({ _id: id, isHidden: { $ne: true } })
+      .exec();
     if (!alert) {
       throw new NotFoundException('Alert not found');
     }

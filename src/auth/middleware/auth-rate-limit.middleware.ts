@@ -7,9 +7,11 @@ interface AttemptBucket {
 }
 
 const WINDOW_MS = 15 * 60 * 1000;
+const MAX_BUCKETS = 10_000;
 const ROUTE_LIMITS: Record<string, number> = {
   '/auth/login': 10,
   '/auth/register': 5,
+  '/auth/google': 10,
   '/auth/forgot-password': 5,
   '/auth/reset-password': 10,
 };
@@ -33,6 +35,7 @@ export class AuthRateLimitMiddleware implements NestMiddleware {
 
     const bucket = this.buckets.get(bucketKey);
     if (!bucket || bucket.resetAt <= now) {
+      this.ensureCapacity(now);
       this.buckets.set(bucketKey, {
         attempts: 1,
         resetAt: now + WINDOW_MS,
@@ -84,6 +87,17 @@ export class AuthRateLimitMiddleware implements NestMiddleware {
       if (bucket.resetAt <= now) {
         this.buckets.delete(key);
       }
+    }
+  }
+
+  private ensureCapacity(now: number): void {
+    this.cleanupExpiredBuckets(now);
+    while (this.buckets.size >= MAX_BUCKETS) {
+      const oldestKey = this.buckets.keys().next().value as string | undefined;
+      if (!oldestKey) {
+        break;
+      }
+      this.buckets.delete(oldestKey);
     }
   }
 }
