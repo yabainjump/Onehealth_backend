@@ -65,6 +65,32 @@ import configuration from './configuration';
         SMTP_USER: Joi.string().optional(),
         SMTP_PASS: Joi.string().optional(),
         MAIL_FROM: Joi.string().optional(),
+        GROQ_API_KEY: Joi.string()
+          .trim()
+          .allow('')
+          .min(20)
+          .pattern(/^gsk_/)
+          .optional(),
+        GROQ_MODEL: Joi.string()
+          .trim()
+          .min(3)
+          .max(120)
+          .default('llama-3.3-70b-versatile'),
+        GROQ_TIMEOUT_MS: Joi.number()
+          .integer()
+          .min(5_000)
+          .max(60_000)
+          .default(30_000),
+        RUDOLF_RATE_LIMIT_PER_10_MIN: Joi.number()
+          .integer()
+          .min(1)
+          .max(100)
+          .default(12),
+        RUDOLF_DAILY_LIMIT: Joi.number()
+          .integer()
+          .min(1)
+          .max(10_000)
+          .default(100),
       }),
     }),
   ],
