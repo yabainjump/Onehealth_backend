@@ -49,20 +49,11 @@ export class GroqProviderService {
   }
 
   async complete(history: RudolfProviderMessage[]): Promise<string> {
-    if (!this.client) {
-      throw new RudolfProviderError('not_configured');
-    }
-
-    const messages: ChatCompletionMessageParam[] = [
-      { role: 'system', content: RUDOLF_SYSTEM_PROMPT },
-      ...history.map((message) => ({
-        role: message.role,
-        content: message.content,
-      })),
-    ];
+    const client = this.requireClient();
+    const messages = this.buildMessages(history);
 
     try {
-      const completion = await this.client.chat.completions.create({
+      const completion = await client.chat.completions.create({
         model: this.model,
         messages,
         temperature: 0.2,
@@ -77,27 +68,71 @@ export class GroqProviderService {
 
       return content.slice(0, 12_000);
     } catch (error) {
-      if (error instanceof RudolfProviderError) {
-        throw error;
-      }
-      if (error instanceof APIConnectionTimeoutError) {
-        throw new RudolfProviderError('timeout');
-      }
-      if (error instanceof RateLimitError) {
-        throw new RudolfProviderError('rate_limit');
-      }
-      if (error instanceof AuthenticationError) {
-        this.logger.error('Groq rejected the configured API credential.');
-        throw new RudolfProviderError('authentication');
-      }
-
-      const statusValue: unknown =
-        error instanceof APIError ? error.status : undefined;
-      const status = typeof statusValue === 'number' ? statusValue : undefined;
-      this.logger.error(
-        `Groq request failed${status ? ` with status ${status}` : ''}.`,
-      );
-      throw new RudolfProviderError('unavailable');
+      this.rethrowProviderError(error);
     }
+  }
+
+  async *stream(
+    history: RudolfProviderMessage[],
+  ): AsyncGenerator<string, void, void> {
+    const client = this.requireClient();
+    const messages = this.buildMessages(history);
+
+    try {
+      const stream = await client.chat.completions.create({
+        model: this.model,
+        messages,
+        temperature: 0.2,
+        max_completion_tokens: 900,
+        top_p: 1,
+        stream: true,
+      });
+
+      for await (const chunk of stream) {
+        const content = chunk.choices[0]?.delta?.content;
+        if (content) yield content;
+      }
+    } catch (error) {
+      this.rethrowProviderError(error);
+    }
+  }
+
+  private requireClient(): Groq {
+    if (!this.client) throw new RudolfProviderError('not_configured');
+    return this.client;
+  }
+
+  private buildMessages(
+    history: RudolfProviderMessage[],
+  ): ChatCompletionMessageParam[] {
+    return [
+      { role: 'system', content: RUDOLF_SYSTEM_PROMPT },
+      ...history.map((message) => ({
+        role: message.role,
+        content: message.content,
+      })),
+    ];
+  }
+
+  private rethrowProviderError(error: unknown): never {
+    if (error instanceof RudolfProviderError) throw error;
+    if (error instanceof APIConnectionTimeoutError) {
+      throw new RudolfProviderError('timeout');
+    }
+    if (error instanceof RateLimitError) {
+      throw new RudolfProviderError('rate_limit');
+    }
+    if (error instanceof AuthenticationError) {
+      this.logger.error('Groq rejected the configured API credential.');
+      throw new RudolfProviderError('authentication');
+    }
+
+    const statusValue: unknown =
+      error instanceof APIError ? error.status : undefined;
+    const status = typeof statusValue === 'number' ? statusValue : undefined;
+    this.logger.error(
+      `Groq request failed${status ? ` with status ${status}` : ''}.`,
+    );
+    throw new RudolfProviderError('unavailable');
   }
 }

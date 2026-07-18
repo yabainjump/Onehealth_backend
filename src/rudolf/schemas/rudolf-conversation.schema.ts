@@ -27,13 +27,22 @@ export class RudolfConversation {
     type: Types.ObjectId,
     ref: 'User',
     required: true,
-    unique: true,
-    index: true,
   })
   userId: Types.ObjectId;
 
+  @Prop({
+    required: true,
+    trim: true,
+    maxlength: 80,
+    default: 'Conversation One Health',
+  })
+  title: string;
+
   @Prop({ type: [RudolfMessageSchema], default: [] })
   messages: RudolfMessage[];
+
+  @Prop({ type: Date, default: Date.now })
+  lastMessageAt: Date;
 
   createdAt: Date;
   updatedAt: Date;
@@ -42,6 +51,8 @@ export class RudolfConversation {
 export type RudolfConversationDocument = HydratedDocument<RudolfConversation>;
 export const RudolfConversationSchema =
   SchemaFactory.createForClass(RudolfConversation);
+
+RudolfConversationSchema.index({ userId: 1, updatedAt: -1 });
 
 // Minimise la conservation des données : une conversation inactive est
 // automatiquement supprimée par MongoDB après 180 jours.

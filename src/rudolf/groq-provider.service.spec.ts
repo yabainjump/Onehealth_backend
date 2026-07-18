@@ -18,6 +18,12 @@ describe('GroqProviderService', () => {
     ).rejects.toMatchObject<RudolfProviderError>({
       kind: 'not_configured',
     });
+
+    await expect(
+      service.stream([{ role: 'user', content: 'Bonjour' }]).next(),
+    ).rejects.toMatchObject<RudolfProviderError>({
+      kind: 'not_configured',
+    });
   });
 
   it('defines a strict One Health scope and prompt-injection protections', () => {
