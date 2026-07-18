@@ -255,7 +255,7 @@ export class MailService {
     const appUrl = this.resolveAppUrl();
     const description =
       this.config('SITE_DEFAULT_DESCRIPTION') ||
-      "One Health Network connecte les acteurs de la santé humaine, animale et environnementale pour collaborer, partager leurs travaux et coordonner la réponse aux enjeux sanitaires.";
+      'One Health Network réunit les acteurs de la santé humaine, animale, végétale et environnementale pour publier, collaborer, suivre les alertes sanitaires et interroger Rudolf AI.';
 
     try {
       await this.transporter.sendMail({

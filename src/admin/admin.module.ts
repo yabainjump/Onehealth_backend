@@ -7,6 +7,7 @@ import { UsersModule } from '../users/users.module';
 import { CertificationsModule } from '../certifications/certifications.module';
 import { AdminController } from './admin.controller';
 import { AdminService } from './admin.service';
+import { AlertsModule } from '../alerts/alerts.module';
 
 @Module({
   imports: [
@@ -17,6 +18,7 @@ import { AdminService } from './admin.service';
     ]),
     UsersModule,
     CertificationsModule,
+    AlertsModule,
   ],
   controllers: [AdminController],
   providers: [AdminService],

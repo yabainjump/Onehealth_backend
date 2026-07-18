@@ -10,7 +10,12 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
@@ -35,6 +40,7 @@ export class AlertsController {
     @Query('category') category?: string,
     @Query('severity') severity?: string,
     @Query('country') country?: string,
+    @Query('verificationStatus') verificationStatus?: string,
     @Query('limit') limit?: string,
     @Query('page') page?: string,
   ) {
@@ -45,6 +51,7 @@ export class AlertsController {
         category,
         severity,
         country,
+        verificationStatus,
         limit: Number.isFinite(parsedLimit) ? parsedLimit : undefined,
         page: Number.isFinite(parsedPage) ? parsedPage : undefined,
       },
@@ -52,7 +59,9 @@ export class AlertsController {
     );
   }
 
-  @ApiOperation({ summary: 'Alertes les plus proches d\'un point (lat/lng) — public' })
+  @ApiOperation({
+    summary: "Alertes les plus proches d'un point (lat/lng) — public",
+  })
   @UseGuards(OptionalJwtAuthGuard)
   @Get('near')
   near(
@@ -61,6 +70,7 @@ export class AlertsController {
     @Query('lng') lng: string,
     @Query('radiusKm') radiusKm?: string,
     @Query('category') category?: string,
+    @Query('verificationStatus') verificationStatus?: string,
   ) {
     const parsedRadius = parseInt(`${radiusKm ?? ''}`, 10);
     return this.alertsService.near(
@@ -68,12 +78,13 @@ export class AlertsController {
       parseFloat(`${lng}`),
       Number.isFinite(parsedRadius) ? parsedRadius : 100,
       category,
+      verificationStatus,
       100,
       req.user?.id ?? '',
     );
   }
 
-  @ApiOperation({ summary: 'Lister les commentaires d\'une alerte — public' })
+  @ApiOperation({ summary: "Lister les commentaires d'une alerte — public" })
   @ApiParam({ name: 'id', description: "Identifiant de l'alerte" })
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id/comments')
@@ -84,7 +95,7 @@ export class AlertsController {
     return this.alertsService.listComments(id, req.user?.id ?? '');
   }
 
-  @ApiOperation({ summary: 'Détail d\'une alerte — public' })
+  @ApiOperation({ summary: "Détail d'une alerte — public" })
   @ApiParam({ name: 'id', description: "Identifiant de l'alerte" })
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':id')
@@ -131,7 +142,7 @@ export class AlertsController {
   }
 
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Retirer son like d\'une alerte' })
+  @ApiOperation({ summary: "Retirer son like d'une alerte" })
   @ApiParam({ name: 'id', description: "Identifiant de l'alerte" })
   @UseGuards(JwtAuthGuard)
   @Delete(':id/like')
@@ -156,7 +167,9 @@ export class AlertsController {
   }
 
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Supprimer un commentaire (auteur du commentaire ou de l\'alerte)' })
+  @ApiOperation({
+    summary: "Supprimer un commentaire (auteur du commentaire ou de l'alerte)",
+  })
   @ApiParam({ name: 'id', description: "Identifiant de l'alerte" })
   @ApiParam({ name: 'commentId', description: 'Identifiant du commentaire' })
   @UseGuards(JwtAuthGuard)

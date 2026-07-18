@@ -13,13 +13,14 @@ import {
 
 @Injectable()
 export class ShareService {
-  private static readonly SHARE_VERSION = '5';
+  private static readonly SHARE_VERSION = '6';
   private static readonly DEFAULT_SITE_NAME = 'One Health Network';
   private static readonly DEFAULT_SITE_DESCRIPTION =
-    'One Health Network connecte les experts de la santé humaine, animale et environnementale. Lancez et suivez des alertes sanitaires en temps réel sur la carte interactive, prévenez les zoonoses et coordonnez la réponse aux crises : profils vérifiés, messagerie et assistant Rudolf AI.';
+    'One Health Network réunit les acteurs de la santé humaine, animale, végétale et environnementale : publications, profils professionnels, alertes sanitaires cartographiées, messagerie et Rudolf AI, l’assistant spécialisé One Health.';
   private static readonly DEFAULT_LOCALE = 'fr_FR';
   private static readonly DEFAULT_FRONTEND_URL = 'http://localhost:8100';
-  private static readonly DEFAULT_IMAGE_PATH = '/public/onehealth-share.png';
+  private static readonly DEFAULT_IMAGE_PATH =
+    '/assets/icon/brand-icon-512.png?v=20260718';
 
   constructor(
     @InjectModel(Post.name) private readonly postModel: Model<Post>,
@@ -31,7 +32,10 @@ export class ShareService {
     const siteName = this.resolveSiteName();
     const frontendBaseUrl = this.resolveFrontendBaseUrl();
     const apiBaseUrl = this.resolveApiBaseUrl();
-    const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
+    const defaultImage = this.resolveDefaultShareImage(
+      apiBaseUrl,
+      frontendBaseUrl,
+    );
     const siteDescription = this.resolveSiteDescription();
     const welcomeUrl = this.buildAbsoluteUrl(frontendBaseUrl, '/welcome');
 
@@ -46,7 +50,10 @@ export class ShareService {
       imageUrl: defaultImage,
       siteName,
       locale: ShareService.DEFAULT_LOCALE,
-      twitterCard: 'summary_large_image',
+      imageType: 'image/png',
+      imageWidth: 512,
+      imageHeight: 512,
+      twitterCard: 'summary',
       twitterSite: this.resolveTwitterHandle(),
       appName: siteName,
       redirectUrl: welcomeUrl,
@@ -74,7 +81,10 @@ export class ShareService {
       `/posts/${encodeURIComponent(postId)}`,
     );
     const socialUrl = `${canonicalUrl}?v=${ShareService.SHARE_VERSION}`;
-    const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
+    const defaultImage = this.resolveDefaultShareImage(
+      apiBaseUrl,
+      frontendBaseUrl,
+    );
     const imageUrl = this.resolvePostImageUrl(
       post.imageUrls || [],
       post.attachment,
@@ -107,7 +117,9 @@ export class ShareService {
       twitterSite: this.resolveTwitterHandle(),
       appName: siteName,
       authorName,
-      publishedTime: post.createdAt ? new Date(post.createdAt).toISOString() : undefined,
+      publishedTime: post.createdAt
+        ? new Date(post.createdAt).toISOString()
+        : undefined,
       redirectUrl: canonicalUrl,
     };
   }
@@ -130,17 +142,21 @@ export class ShareService {
       `/profils/${encodeURIComponent(userId)}`,
     );
     const socialUrl = `${canonicalUrl}?v=${ShareService.SHARE_VERSION}`;
-    const defaultImage = this.resolveDefaultShareImage(apiBaseUrl);
+    const defaultImage = this.resolveDefaultShareImage(
+      apiBaseUrl,
+      frontendBaseUrl,
+    );
     // og:image = photo de profil convertie en JPEG (compatible robots sociaux),
     // sinon image de marque par defaut.
     const imageUrl =
-      this.toSocialImageUrl((user.photoURL || '').trim(), apiBaseUrl) ?? defaultImage;
+      this.toSocialImageUrl((user.photoURL || '').trim(), apiBaseUrl) ??
+      defaultImage;
     const fullName = `${user.firstName || ''} ${user.lastName || ''}`.trim();
     const displayName =
       normalizeText(fullName) || normalizeText(user.username || '') || 'User';
     const bio = truncateText(
       normalizeText(user.bio || '') ||
-        `${displayName} is a member of ${siteName}.`,
+        `${displayName} est membre de ${siteName}.`,
       220,
     );
     const title = truncateText(`${displayName} • ${siteName}`, 70);
@@ -191,7 +207,7 @@ export class ShareService {
     for (const post of posts) {
       entries.push(
         this.buildSitemapEntry(
-          this.buildAbsoluteUrl(frontendBaseUrl, `/posts/${post._id}`),
+          this.buildAbsoluteUrl(frontendBaseUrl, `/posts/${String(post._id)}`),
           post.updatedAt ?? post.createdAt,
           'weekly',
           '0.8',
@@ -201,7 +217,10 @@ export class ShareService {
     for (const user of users) {
       entries.push(
         this.buildSitemapEntry(
-          this.buildAbsoluteUrl(frontendBaseUrl, `/profils/${user._id}`),
+          this.buildAbsoluteUrl(
+            frontendBaseUrl,
+            `/profils/${String(user._id)}`,
+          ),
           user.updatedAt ?? user.createdAt,
           'weekly',
           '0.6',
@@ -238,7 +257,9 @@ export class ShareService {
     apiBaseUrl: string,
     fallbackImage: string,
   ): string {
-    const firstImage = (imageUrls || []).find((value) => `${value || ''}`.trim().length > 0);
+    const firstImage = (imageUrls || []).find(
+      (value) => `${value || ''}`.trim().length > 0,
+    );
     if (firstImage) {
       return this.toSocialImageUrl(firstImage, apiBaseUrl) ?? fallbackImage;
     }
@@ -291,10 +312,31 @@ export class ShareService {
     }
 
     if (/^https?:\/\//i.test(value)) {
-      return value;
+      return this.resizeGoogleProfileImage(value);
     }
 
     return null;
+  }
+
+  /**
+   * Les avatars Google contiennent souvent une taille minuscule (`=s96-c`).
+   * On demande une version 800 px uniquement aux domaines Google autorisés,
+   * sans télécharger ni proxyfier une URL externe côté serveur.
+   */
+  private resizeGoogleProfileImage(value: string): string {
+    try {
+      const url = new URL(value);
+      const hostname = url.hostname.toLowerCase();
+      if (
+        hostname === 'googleusercontent.com' ||
+        hostname.endsWith('.googleusercontent.com')
+      ) {
+        url.pathname = url.pathname.replace(/=s\d+(?:-c)?$/i, '=s800-c');
+      }
+      return url.toString();
+    } catch {
+      return value;
+    }
   }
 
   private resolveAuthorName(author: User | null): string {
@@ -361,14 +403,18 @@ export class ShareService {
     return `http://localhost:${port || 3000}`;
   }
 
-  private resolveDefaultShareImage(apiBaseUrl: string): string {
+  private resolveDefaultShareImage(
+    apiBaseUrl: string,
+    frontendBaseUrl: string,
+  ): string {
     const configuredImage = this.readConfig(
       'DEFAULT_SHARE_IMAGE',
       'defaultShareImage',
     );
-    // Image par defaut hebergee par le backend (/public) : toujours joignable.
+    // Le logo officiel est servi par le domaine public du frontend. Cela garde
+    // og:url et og:image sur le meme domaine et evite une dependance au proxy API.
     const fallback = this.buildAbsoluteUrl(
-      apiBaseUrl,
+      frontendBaseUrl,
       ShareService.DEFAULT_IMAGE_PATH,
     );
 
@@ -384,12 +430,14 @@ export class ShareService {
   }
 
   private readConfig(primaryKey: string, secondaryKey: string): string {
-    const primary = `${this.configService.get<string>(primaryKey) || ''}`.trim();
+    const primary =
+      `${this.configService.get<string>(primaryKey) || ''}`.trim();
     if (primary) {
       return primary;
     }
 
-    const secondary = `${this.configService.get<string>(secondaryKey) || ''}`.trim();
+    const secondary =
+      `${this.configService.get<string>(secondaryKey) || ''}`.trim();
     if (secondary) {
       return secondary;
     }

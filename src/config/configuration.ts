@@ -11,7 +11,7 @@ export default () => ({
   siteName: process.env.SITE_NAME ?? 'One Health Network',
   siteDefaultDescription:
     process.env.SITE_DEFAULT_DESCRIPTION ??
-    'A global collaboration network for human, animal, and environmental health.',
+    'One Health Network réunit les acteurs de la santé humaine, animale, végétale et environnementale : publications, profils professionnels, alertes sanitaires cartographiées, messagerie et Rudolf AI, l’assistant spécialisé One Health.',
   defaultShareImage: process.env.DEFAULT_SHARE_IMAGE ?? '',
   twitterSiteHandle: process.env.TWITTER_SITE_HANDLE ?? '',
   swaggerEnabled:

@@ -18,11 +18,19 @@ describe('share-metadata.util', () => {
 
   it('returns absolute urls with fallback support', () => {
     expect(
-      toAbsoluteUrl('/uploads/post/img.png', 'https://onehealth.app', 'https://fallback/app.png'),
+      toAbsoluteUrl(
+        '/uploads/post/img.png',
+        'https://onehealth.app',
+        'https://fallback/app.png',
+      ),
     ).toBe('https://onehealth.app/uploads/post/img.png');
 
     expect(
-      toAbsoluteUrl('not a url', 'https://onehealth.app', 'https://fallback/app.png'),
+      toAbsoluteUrl(
+        'not a url',
+        'https://onehealth.app',
+        'https://fallback/app.png',
+      ),
     ).toBe('https://fallback/app.png');
   });
 
@@ -31,9 +39,12 @@ describe('share-metadata.util', () => {
       title: 'Sample Post',
       description: 'Sample Description',
       canonicalUrl: 'https://onehealth.app/posts/abc',
-      ogUrl: 'https://onehealth.app/posts/abc?v=5',
+      ogUrl: 'https://onehealth.app/posts/abc?v=6',
       ogType: 'article',
       imageUrl: 'https://onehealth.app/assets/cover.png',
+      imageType: 'image/png',
+      imageWidth: 512,
+      imageHeight: 512,
       siteName: 'One Health Network',
       locale: 'fr_FR',
       twitterCard: 'summary_large_image',
@@ -43,14 +54,30 @@ describe('share-metadata.util', () => {
     });
 
     expect(html).toContain('property="og:title" content="Sample Post"');
-    expect(html).toContain('property="og:description" content="Sample Description"');
+    expect(html).toContain(
+      'property="og:description" content="Sample Description"',
+    );
     expect(html).toContain('property="og:type" content="article"');
-    expect(html).toContain('property="og:url" content="https://onehealth.app/posts/abc?v=5"');
-    expect(html).toContain('property="og:image" content="https://onehealth.app/assets/cover.png"');
+    expect(html).toContain(
+      'property="og:url" content="https://onehealth.app/posts/abc?v=6"',
+    );
+    expect(html).toContain(
+      'property="og:image" content="https://onehealth.app/assets/cover.png"',
+    );
+    expect(html).toContain('property="og:image:type" content="image/png"');
+    expect(html).toContain('property="og:image:width" content="512"');
+    expect(html).toContain('property="og:image:height" content="512"');
     expect(html).toContain('name="twitter:title" content="Sample Post"');
-    expect(html).toContain('name="twitter:description" content="Sample Description"');
-    expect(html).toContain('name="twitter:image" content="https://onehealth.app/assets/cover.png"');
+    expect(html).toContain(
+      'name="twitter:description" content="Sample Description"',
+    );
+    expect(html).toContain(
+      'name="twitter:image" content="https://onehealth.app/assets/cover.png"',
+    );
+    expect(html).toContain('name="twitter:image:alt" content="Sample Post"');
     expect(html).toContain('name="twitter:card" content="summary_large_image"');
-    expect(html).toContain('rel="canonical" href="https://onehealth.app/posts/abc"');
+    expect(html).toContain(
+      'rel="canonical" href="https://onehealth.app/posts/abc"',
+    );
   });
 });

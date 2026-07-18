@@ -5,6 +5,9 @@ export interface SharePageMetadata {
   ogUrl: string;
   ogType: 'website' | 'article' | 'profile';
   imageUrl: string;
+  imageType?: string;
+  imageWidth?: number;
+  imageHeight?: number;
   siteName: string;
   locale: string;
   twitterCard: 'summary' | 'summary_large_image';
@@ -85,6 +88,15 @@ export function buildShareHtml(metadata: SharePageMetadata): string {
   const ogUrl = escapeHtml(metadata.ogUrl);
   const ogType = escapeHtml(metadata.ogType);
   const imageUrl = escapeHtml(metadata.imageUrl);
+  const imageType = metadata.imageType
+    ? `<meta property="og:image:type" content="${escapeHtml(metadata.imageType)}" />`
+    : '';
+  const imageWidth = metadata.imageWidth
+    ? `<meta property="og:image:width" content="${metadata.imageWidth}" />`
+    : '';
+  const imageHeight = metadata.imageHeight
+    ? `<meta property="og:image:height" content="${metadata.imageHeight}" />`
+    : '';
   const siteName = escapeHtml(metadata.siteName);
   const locale = escapeHtml(metadata.locale);
   const twitterCard = escapeHtml(metadata.twitterCard);
@@ -133,6 +145,9 @@ export function buildShareHtml(metadata: SharePageMetadata): string {
   <meta property="og:url" content="${ogUrl}" />
   <meta property="og:image" content="${imageUrl}" />
   <meta property="og:image:secure_url" content="${imageUrl}" />
+  ${imageType}
+  ${imageWidth}
+  ${imageHeight}
   <meta property="og:image:alt" content="${title}" />
   <meta property="og:site_name" content="${siteName}" />
   <meta property="og:locale" content="${locale}" />
@@ -142,6 +157,7 @@ export function buildShareHtml(metadata: SharePageMetadata): string {
   <meta name="twitter:title" content="${title}" />
   <meta name="twitter:description" content="${description}" />
   <meta name="twitter:image" content="${imageUrl}" />
+  <meta name="twitter:image:alt" content="${title}" />
   ${twitterSite}
   <style>
     :root { color-scheme: light; }

@@ -19,9 +19,15 @@ export interface ListAlertsQuery {
   country?: string;
   limit?: number;
   page?: number;
+  verificationStatus?: string;
 }
 
-const TRIMMED_UPDATE_FIELDS = ['title', 'description', 'country', 'city'] as const;
+const TRIMMED_UPDATE_FIELDS = [
+  'title',
+  'description',
+  'country',
+  'city',
+] as const;
 
 @Injectable()
 export class AlertsService {
@@ -48,12 +54,11 @@ export class AlertsService {
           ? { type: 'Point', coordinates: [lng, lat] }
           : undefined,
       severity: dto.severity ?? 'medium',
+      verificationStatus: 'pending',
       imageUrls: dto.imageUrls ?? [],
     });
 
     const saved = await alert.save();
-    // Prévient (en arrière-plan) les utilisateurs du même pays.
-    void this.notifyNearbyUsers(saved, authorId);
     return this.respond(saved, authorId);
   }
 
@@ -63,6 +68,7 @@ export class AlertsService {
     lng: number,
     radiusKm = 100,
     category?: string,
+    verificationStatus?: string,
     limit = 100,
     currentUserId = '',
   ) {
@@ -77,9 +83,23 @@ export class AlertsService {
         },
       },
       isHidden: { $ne: true },
+      verificationStatus: { $ne: 'rejected' },
     };
     if (category && ['human', 'animal', 'environment'].includes(category)) {
       filter.category = category;
+    }
+    if (
+      verificationStatus &&
+      ['pending', 'verified'].includes(verificationStatus)
+    ) {
+      if (verificationStatus === 'pending') {
+        filter.$or = [
+          { verificationStatus: 'pending' },
+          { verificationStatus: { $exists: false } },
+        ];
+      } else {
+        filter.verificationStatus = verificationStatus;
+      }
     }
     const alerts = await this.alertModel
       .find(filter)
@@ -129,14 +149,35 @@ export class AlertsService {
     }
   }
 
+  /** Notifie les membres concernés uniquement après validation administrative. */
+  async notifyVerifiedAlert(alertId: string): Promise<void> {
+    const alert = await this.alertModel
+      .findOne({
+        _id: alertId,
+        isHidden: { $ne: true },
+        verificationStatus: 'verified',
+      })
+      .exec();
+    if (!alert) {
+      return;
+    }
+    await this.notifyNearbyUsers(alert, alert.authorId.toString());
+  }
+
   async list(query: ListAlertsQuery, currentUserId = '') {
     const limit = Math.min(Math.max(query.limit ?? 50, 1), 100);
     const page = Math.max(query.page ?? 1, 1);
     const skip = (page - 1) * limit;
 
     // Les alertes mises en pause par un admin sont exclues des fils publics.
-    const filter: Record<string, unknown> = { isHidden: { $ne: true } };
-    if (query.category && ['human', 'animal', 'environment'].includes(query.category)) {
+    const filter: Record<string, unknown> = {
+      isHidden: { $ne: true },
+      verificationStatus: { $ne: 'rejected' },
+    };
+    if (
+      query.category &&
+      ['human', 'animal', 'environment'].includes(query.category)
+    ) {
       filter.category = query.category;
     }
     if (query.severity && ['low', 'medium', 'high'].includes(query.severity)) {
@@ -147,6 +188,19 @@ export class AlertsService {
         `${query.country}`.trim().replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
         'i',
       );
+    }
+    if (
+      query.verificationStatus &&
+      ['pending', 'verified'].includes(query.verificationStatus)
+    ) {
+      if (query.verificationStatus === 'pending') {
+        filter.$or = [
+          { verificationStatus: 'pending' },
+          { verificationStatus: { $exists: false } },
+        ];
+      } else {
+        filter.verificationStatus = query.verificationStatus;
+      }
     }
 
     const alerts = await this.alertModel
@@ -161,7 +215,11 @@ export class AlertsService {
 
   async findById(id: string, currentUserId = '') {
     const alert = await this.alertModel
-      .findOne({ _id: id, isHidden: { $ne: true } })
+      .findOne({
+        _id: id,
+        isHidden: { $ne: true },
+        verificationStatus: { $ne: 'rejected' },
+      })
       .exec();
     if (!alert) {
       throw new NotFoundException('Alert not found');
@@ -212,6 +270,13 @@ export class AlertsService {
       }
     }
 
+    // Toute modification du contenu invalide la vérification précédente.
+    if (Object.keys(set).length || Object.keys(unset).length) {
+      set.verificationStatus = 'pending';
+      set.reviewedAt = null;
+      set.reviewedBy = null;
+    }
+
     const updateOps: Record<string, unknown> = {};
     if (Object.keys(set).length) {
       updateOps.$set = set;
@@ -259,6 +324,7 @@ export class AlertsService {
         {
           _id: id,
           isHidden: { $ne: true },
+          verificationStatus: { $ne: 'rejected' },
           likedBy: { $ne: userObjectId },
         },
         { $push: { likedBy: userObjectId } },
@@ -271,7 +337,11 @@ export class AlertsService {
     const alert =
       updated ??
       (await this.alertModel
-        .findOne({ _id: id, isHidden: { $ne: true } })
+        .findOne({
+          _id: id,
+          isHidden: { $ne: true },
+          verificationStatus: { $ne: 'rejected' },
+        })
         .exec());
     if (!alert) {
       throw new NotFoundException('Alert not found');
@@ -284,7 +354,12 @@ export class AlertsService {
     const userObjectId = new Types.ObjectId(currentUserId);
     const updated = await this.alertModel
       .findOneAndUpdate(
-        { _id: id, isHidden: { $ne: true }, likedBy: userObjectId },
+        {
+          _id: id,
+          isHidden: { $ne: true },
+          verificationStatus: { $ne: 'rejected' },
+          likedBy: userObjectId,
+        },
         { $pull: { likedBy: userObjectId } },
         { new: true },
       )
@@ -292,7 +367,11 @@ export class AlertsService {
     const alert =
       updated ??
       (await this.alertModel
-        .findOne({ _id: id, isHidden: { $ne: true } })
+        .findOne({
+          _id: id,
+          isHidden: { $ne: true },
+          verificationStatus: { $ne: 'rejected' },
+        })
         .exec());
     if (!alert) {
       throw new NotFoundException('Alert not found');
@@ -310,7 +389,11 @@ export class AlertsService {
     };
     const alert = await this.alertModel
       .findOneAndUpdate(
-        { _id: id, isHidden: { $ne: true } },
+        {
+          _id: id,
+          isHidden: { $ne: true },
+          verificationStatus: { $ne: 'rejected' },
+        },
         { $push: { comments: comment } },
         { new: true, runValidators: true },
       )
@@ -325,7 +408,11 @@ export class AlertsService {
   /** Liste les commentaires d'une alerte. */
   async listComments(id: string, currentUserId = '') {
     const alert = await this.alertModel
-      .findOne({ _id: id, isHidden: { $ne: true } })
+      .findOne({
+        _id: id,
+        isHidden: { $ne: true },
+        verificationStatus: { $ne: 'rejected' },
+      })
       .exec();
     if (!alert) {
       throw new NotFoundException('Alert not found');
@@ -341,7 +428,11 @@ export class AlertsService {
    */
   async deleteComment(id: string, commentId: string, currentUserId: string) {
     const alert = await this.alertModel
-      .findOne({ _id: id, isHidden: { $ne: true } })
+      .findOne({
+        _id: id,
+        isHidden: { $ne: true },
+        verificationStatus: { $ne: 'rejected' },
+      })
       .exec();
     if (!alert) {
       throw new NotFoundException('Alert not found');
@@ -400,25 +491,30 @@ export class AlertsService {
 
   /** Construit la réponse publique d'une seule alerte (auteurs résolus). */
   private async respond(alert: AlertDocument, currentUserId = '') {
-    const authors = await this.buildAuthorsMap([alert], currentUserId);
-    return this.toResponse(alert, authors, currentUserId);
+    const authors = await this.buildAuthorsMap([alert], currentUserId, true);
+    return this.toResponse(alert, authors, currentUserId, true);
   }
 
   /** Construit la réponse publique d'une liste d'alertes (auteurs partagés). */
   private async respondMany(alerts: AlertDocument[], currentUserId = '') {
-    const authors = await this.buildAuthorsMap(alerts, currentUserId);
-    return alerts.map((alert) => this.toResponse(alert, authors, currentUserId));
+    const authors = await this.buildAuthorsMap(alerts, currentUserId, false);
+    return alerts.map((alert) =>
+      this.toResponse(alert, authors, currentUserId, false),
+    );
   }
 
   private async buildAuthorsMap(
     alerts: AlertDocument[],
     currentUserId?: string,
+    includeCommentAuthors = true,
   ): Promise<Map<string, PublicUser>> {
     const ids = new Set<string>();
     for (const alert of alerts) {
       ids.add(alert.authorId.toString());
-      for (const comment of alert.comments || []) {
-        ids.add(comment.authorId.toString());
+      if (includeCommentAuthors) {
+        for (const comment of alert.comments || []) {
+          ids.add(comment.authorId.toString());
+        }
       }
     }
     const users = await this.usersService.findByIds(Array.from(ids));
@@ -436,27 +532,30 @@ export class AlertsService {
     alert: AlertDocument,
     authors: Map<string, PublicUser>,
     currentUserId = '',
+    includeComments = true,
   ) {
     const author = authors.get(alert.authorId.toString()) ?? null;
-    const comments = (alert.comments || []).map((comment) => {
-      const cAuthor = authors.get(comment.authorId.toString()) ?? null;
-      return {
-        id: comment.commentId,
-        author: cAuthor
-          ? {
-              id: cAuthor.id,
-              firstName: cAuthor.firstName,
-              lastName: cAuthor.lastName,
-              username: cAuthor.username,
-              photoURL: cAuthor.photoURL,
-              institution: cAuthor.institution,
-              isCertified: !!cAuthor.isCertified,
-            }
-          : null,
-        text: comment.text,
-        createdAt: comment.createdAt,
-      };
-    });
+    const comments = (includeComments ? alert.comments || [] : []).map(
+      (comment) => {
+        const cAuthor = authors.get(comment.authorId.toString()) ?? null;
+        return {
+          id: comment.commentId,
+          author: cAuthor
+            ? {
+                id: cAuthor.id,
+                firstName: cAuthor.firstName,
+                lastName: cAuthor.lastName,
+                username: cAuthor.username,
+                photoURL: cAuthor.photoURL,
+                institution: cAuthor.institution,
+                isCertified: !!cAuthor.isCertified,
+              }
+            : null,
+          text: comment.text,
+          createdAt: comment.createdAt,
+        };
+      },
+    );
     return {
       id: alert._id.toString(),
       category: alert.category,
@@ -467,6 +566,8 @@ export class AlertsService {
       lat: alert.lat,
       lng: alert.lng,
       severity: alert.severity,
+      verificationStatus: alert.verificationStatus ?? 'pending',
+      reviewedAt: alert.reviewedAt ?? null,
       imageUrls: alert.imageUrls,
       author: author
         ? {
@@ -484,7 +585,7 @@ export class AlertsService {
         (userId) => userId.toString() === currentUserId,
       ),
       commentsCount: (alert.comments || []).length,
-      comments,
+      comments: includeComments ? comments : undefined,
       createdAt: alert.createdAt,
     };
   }

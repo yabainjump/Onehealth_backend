@@ -3,6 +3,7 @@ import { HydratedDocument, Types } from 'mongoose';
 
 export type AlertCategory = 'human' | 'animal' | 'environment';
 export type AlertSeverity = 'low' | 'medium' | 'high';
+export type AlertVerificationStatus = 'pending' | 'verified' | 'rejected';
 
 @Schema({ _id: false })
 export class AlertComment {
@@ -31,7 +32,11 @@ export class Alert {
   authorId: Types.ObjectId;
 
   // Pilier One Health concerné.
-  @Prop({ required: true, enum: ['human', 'animal', 'environment'], index: true })
+  @Prop({
+    required: true,
+    enum: ['human', 'animal', 'environment'],
+    index: true,
+  })
   category: AlertCategory;
 
   @Prop({ required: true, trim: true, minlength: 1, maxlength: 140 })
@@ -58,8 +63,29 @@ export class Alert {
   @Prop({ type: Object })
   geo?: { type: 'Point'; coordinates: number[] };
 
-  @Prop({ required: true, enum: ['low', 'medium', 'high'], default: 'medium', index: true })
+  @Prop({
+    required: true,
+    enum: ['low', 'medium', 'high'],
+    default: 'medium',
+    index: true,
+  })
   severity: AlertSeverity;
+
+  // Une alerte est toujours relue avant d'être présentée comme vérifiée.
+  // Les anciennes alertes sans ce champ sont traitées comme « pending ».
+  @Prop({
+    required: true,
+    enum: ['pending', 'verified', 'rejected'],
+    default: 'pending',
+    index: true,
+  })
+  verificationStatus: AlertVerificationStatus;
+
+  @Prop({ type: Date, default: null })
+  reviewedAt: Date | null;
+
+  @Prop({ type: Types.ObjectId, ref: 'User', default: null })
+  reviewedBy: Types.ObjectId | null;
 
   @Prop({ type: [String], default: [] })
   imageUrls: string[];
@@ -86,4 +112,5 @@ export const AlertSchema = SchemaFactory.createForClass(Alert);
 
 AlertSchema.index({ createdAt: -1 });
 AlertSchema.index({ category: 1, createdAt: -1 });
+AlertSchema.index({ verificationStatus: 1, createdAt: -1 });
 AlertSchema.index({ geo: '2dsphere' });

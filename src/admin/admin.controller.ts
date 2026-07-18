@@ -9,7 +9,12 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { AdminGuard } from '../common/guards/admin.guard';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
@@ -19,6 +24,7 @@ import { UpdateUserRoleDto } from './dto/update-user-role.dto';
 import { SetBannedDto } from './dto/set-banned.dto';
 import { RejectCertificationDto } from './dto/reject-certification.dto';
 import { SetHiddenDto } from './dto/set-hidden.dto';
+import { SetAlertVerificationDto } from './dto/set-alert-verification.dto';
 
 @ApiTags('Admin')
 @ApiBearerAuth('access-token')
@@ -33,7 +39,9 @@ export class AdminController {
     return this.adminService.getStats();
   }
 
-  @ApiOperation({ summary: 'Liste paginée des utilisateurs (recherche/filtres)' })
+  @ApiOperation({
+    summary: 'Liste paginée des utilisateurs (recherche/filtres)',
+  })
   @Get('users')
   listUsers(
     @Query('search') search?: string,
@@ -101,7 +109,9 @@ export class AdminController {
     return this.adminService.approveCertification(id, req.user.id);
   }
 
-  @ApiOperation({ summary: 'Refuser une demande de certification (avec motif)' })
+  @ApiOperation({
+    summary: 'Refuser une demande de certification (avec motif)',
+  })
   @ApiParam({ name: 'id', description: 'Identifiant de la demande' })
   @Patch('certifications/:id/reject')
   rejectCertification(
@@ -138,7 +148,9 @@ export class AdminController {
     return this.adminService.setPostHidden(id, dto.hidden);
   }
 
-  @ApiOperation({ summary: 'Modération : liste paginée des alertes (recherche)' })
+  @ApiOperation({
+    summary: 'Modération : liste paginée des alertes (recherche)',
+  })
   @Get('alerts')
   listAlerts(
     @Query('search') search?: string,
@@ -154,7 +166,9 @@ export class AdminController {
     );
   }
 
-  @ApiOperation({ summary: 'Modération : mettre en pause / republier une alerte' })
+  @ApiOperation({
+    summary: 'Modération : mettre en pause / republier une alerte',
+  })
   @ApiParam({ name: 'id', description: "Identifiant de l'alerte" })
   @Patch('alerts/:id/visibility')
   setAlertHidden(
@@ -162,6 +176,19 @@ export class AdminController {
     @Body() dto: SetHiddenDto,
   ) {
     return this.adminService.setAlertHidden(id, dto.hidden);
+  }
+
+  @ApiOperation({
+    summary: 'Modération : vérifier, rejeter ou rouvrir une alerte',
+  })
+  @ApiParam({ name: 'id', description: "Identifiant de l'alerte" })
+  @Patch('alerts/:id/verification')
+  setAlertVerification(
+    @Req() req: RequestWithUser,
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: SetAlertVerificationDto,
+  ) {
+    return this.adminService.setAlertVerification(id, dto.status, req.user.id);
   }
 
   @ApiOperation({ summary: 'Modération : supprimer une publication' })

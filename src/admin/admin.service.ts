@@ -8,7 +8,8 @@ import { Model, Types } from 'mongoose';
 import { User, UserRole } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { Post } from '../posts/schemas/post.schema';
-import { Alert } from '../alerts/schemas/alert.schema';
+import { Alert, AlertVerificationStatus } from '../alerts/schemas/alert.schema';
+import { AlertsService } from '../alerts/alerts.service';
 import {
   CertificationRequest,
   CertificationRequestDocument,
@@ -33,19 +34,26 @@ export class AdminService {
     private readonly requestModel: Model<CertificationRequest>,
     private readonly usersService: UsersService,
     private readonly certificationsService: CertificationsService,
+    private readonly alertsService: AlertsService,
   ) {}
 
   /** KPIs de la vue d'ensemble du dashboard. */
   async getStats() {
-    const [totalUsers, certifiedUsers, bannedUsers, pendingCertifications, totalPosts, totalAlerts] =
-      await Promise.all([
-        this.userModel.countDocuments().exec(),
-        this.userModel.countDocuments({ isCertified: true }).exec(),
-        this.userModel.countDocuments({ isBanned: true }).exec(),
-        this.requestModel.countDocuments({ status: 'pending' }).exec(),
-        this.postModel.countDocuments().exec(),
-        this.alertModel.countDocuments().exec(),
-      ]);
+    const [
+      totalUsers,
+      certifiedUsers,
+      bannedUsers,
+      pendingCertifications,
+      totalPosts,
+      totalAlerts,
+    ] = await Promise.all([
+      this.userModel.countDocuments().exec(),
+      this.userModel.countDocuments({ isCertified: true }).exec(),
+      this.userModel.countDocuments({ isBanned: true }).exec(),
+      this.requestModel.countDocuments({ status: 'pending' }).exec(),
+      this.postModel.countDocuments().exec(),
+      this.alertModel.countDocuments().exec(),
+    ]);
     return {
       totalUsers,
       certifiedUsers,
@@ -187,7 +195,11 @@ export class AdminService {
     return this.certificationsService.toResponse(request);
   }
 
-  async rejectCertification(requestId: string, adminId: string, reason: string) {
+  async rejectCertification(
+    requestId: string,
+    adminId: string,
+    reason: string,
+  ) {
     const request = await this.findPendingRequest(requestId);
     request.status = 'rejected';
     request.adminNotes = reason.trim();
@@ -212,7 +224,10 @@ export class AdminService {
     const filter: Record<string, unknown> = {};
     const trimmed = `${search}`.trim();
     if (trimmed) {
-      const regex = new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const regex = new RegExp(
+        trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        'i',
+      );
       filter.$or = [{ content: regex }, { title: regex }];
     }
 
@@ -255,7 +270,10 @@ export class AdminService {
     const filter: Record<string, unknown> = {};
     const trimmed = `${search}`.trim();
     if (trimmed) {
-      const regex = new RegExp(trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+      const regex = new RegExp(
+        trimmed.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'),
+        'i',
+      );
       filter.$or = [
         { title: regex },
         { description: regex },
@@ -289,6 +307,8 @@ export class AdminService {
         city: alert.city,
         imageUrls: alert.imageUrls || [],
         isHidden: !!alert.isHidden,
+        verificationStatus: alert.verificationStatus ?? 'pending',
+        reviewedAt: alert.reviewedAt ?? null,
         createdAt: alert.createdAt,
         author: authorsById.get(alert.authorId.toString()) ?? null,
       })),
@@ -318,6 +338,50 @@ export class AdminService {
       throw new NotFoundException('Alert not found');
     }
     return { id: alert._id.toString(), isHidden: !!alert.isHidden };
+  }
+
+  /** Attribue un statut de confiance à une alerte et conserve la trace du relecteur. */
+  async setAlertVerification(
+    alertId: string,
+    status: AlertVerificationStatus,
+    reviewerId: string,
+  ) {
+    const previous = await this.alertModel.findById(alertId).exec();
+    if (!previous) {
+      throw new NotFoundException('Alert not found');
+    }
+
+    const updated = await this.alertModel
+      .findByIdAndUpdate(
+        alertId,
+        {
+          $set: {
+            verificationStatus: status,
+            reviewedAt: new Date(),
+            reviewedBy: new Types.ObjectId(reviewerId),
+          },
+        },
+        { new: true, runValidators: true },
+      )
+      .exec();
+    if (!updated) {
+      throw new NotFoundException('Alert not found');
+    }
+
+    if (
+      status === 'verified' &&
+      (previous.verificationStatus ?? 'pending') !== 'verified'
+    ) {
+      void this.alertsService
+        .notifyVerifiedAlert(updated._id.toString())
+        .catch(() => undefined);
+    }
+
+    return {
+      id: updated._id.toString(),
+      verificationStatus: updated.verificationStatus,
+      reviewedAt: updated.reviewedAt,
+    };
   }
 
   private async buildAuthorsMap(authorIds: string[]) {
