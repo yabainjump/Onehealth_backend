@@ -46,6 +46,8 @@ export class AdminService {
       pendingCertifications,
       totalPosts,
       totalAlerts,
+      pendingAlerts,
+      verifiedAlerts,
     ] = await Promise.all([
       this.userModel.countDocuments().exec(),
       this.userModel.countDocuments({ isCertified: true }).exec(),
@@ -53,6 +55,15 @@ export class AdminService {
       this.requestModel.countDocuments({ status: 'pending' }).exec(),
       this.postModel.countDocuments().exec(),
       this.alertModel.countDocuments().exec(),
+      this.alertModel
+        .countDocuments({
+          $or: [
+            { verificationStatus: 'pending' },
+            { verificationStatus: { $exists: false } },
+          ],
+        })
+        .exec(),
+      this.alertModel.countDocuments({ verificationStatus: 'verified' }).exec(),
     ]);
     return {
       totalUsers,
@@ -61,6 +72,8 @@ export class AdminService {
       pendingCertifications,
       totalPosts,
       totalAlerts,
+      pendingAlerts,
+      verifiedAlerts,
     };
   }
 
@@ -264,7 +277,7 @@ export class AdminService {
   }
 
   /** Modération : liste paginée des alertes (recherche texte, masquées incluses). */
-  async listAlerts(search = '', page = 1, limit = 20) {
+  async listAlerts(search = '', page = 1, limit = 20, verificationStatus = '') {
     const safeLimit = Math.min(Math.max(limit, 1), 100);
     const safePage = Math.max(page, 1);
     const filter: Record<string, unknown> = {};
@@ -280,6 +293,21 @@ export class AdminService {
         { country: regex },
         { city: regex },
       ];
+    }
+    if (verificationStatus === 'pending') {
+      const pendingFilter = {
+        $or: [
+          { verificationStatus: 'pending' },
+          { verificationStatus: { $exists: false } },
+        ],
+      };
+      if (filter.$or) {
+        filter.$and = [pendingFilter];
+      } else {
+        Object.assign(filter, pendingFilter);
+      }
+    } else if (['verified', 'rejected'].includes(verificationStatus)) {
+      filter.verificationStatus = verificationStatus;
     }
 
     const [alerts, total] = await Promise.all([

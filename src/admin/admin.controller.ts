@@ -156,6 +156,7 @@ export class AdminController {
     @Query('search') search?: string,
     @Query('page') page?: string,
     @Query('limit') limit?: string,
+    @Query('verificationStatus') verificationStatus?: string,
   ) {
     const parsedPage = parseInt(`${page ?? ''}`, 10);
     const parsedLimit = parseInt(`${limit ?? ''}`, 10);
@@ -163,6 +164,7 @@ export class AdminController {
       search ?? '',
       Number.isFinite(parsedPage) ? parsedPage : 1,
       Number.isFinite(parsedLimit) ? parsedLimit : 20,
+      verificationStatus ?? '',
     );
   }
 
