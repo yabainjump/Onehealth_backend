@@ -42,4 +42,17 @@ describe('UsersService public profile privacy', () => {
     expect(result.email).toBe('private@example.com');
     expect(result.phone).toBe('+237600000000');
   });
+
+  it('keeps legacy Firebase profile images visible after migration', () => {
+    const legacyUser = {
+      ...(user as object),
+      photo: 'https://firebasestorage.googleapis.com/legacy-avatar.png',
+      coverPhoto: 'https://firebasestorage.googleapis.com/legacy-cover.png',
+    } as never;
+
+    const result = service.toPublicUser(legacyUser, id.toString());
+
+    expect(result.photoURL).toContain('legacy-avatar.png');
+    expect(result.coverPhotoURL).toContain('legacy-cover.png');
+  });
 });

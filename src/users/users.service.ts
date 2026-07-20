@@ -182,7 +182,10 @@ export class UsersService {
       .exec();
   }
 
-  async listUsers(search?: string, currentUserId?: string): Promise<PublicUser[]> {
+  async listUsers(
+    search?: string,
+    currentUserId?: string,
+  ): Promise<PublicUser[]> {
     // On echappe les caracteres speciaux : la saisie ne peut PAS injecter de
     // motif regex (evite un ReDoS / un matching inattendu).
     const safeSearch = search ? this.escapeRegex(search.trim()) : '';
@@ -228,7 +231,10 @@ export class UsersService {
       .filter((id) => id !== excludeId);
   }
 
-  async followUser(currentUserId: string, targetUserId: string): Promise<PublicUser> {
+  async followUser(
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<PublicUser> {
     this.assertDistinctUsers(currentUserId, targetUserId);
     const [currentUser, targetUser] = await Promise.all([
       this.findById(currentUserId),
@@ -282,7 +288,10 @@ export class UsersService {
     return this.toPublicUser(updatedTarget, currentUserId);
   }
 
-  async unfollowUser(currentUserId: string, targetUserId: string): Promise<PublicUser> {
+  async unfollowUser(
+    currentUserId: string,
+    targetUserId: string,
+  ): Promise<PublicUser> {
     this.assertDistinctUsers(currentUserId, targetUserId);
     const [currentUser, targetUser] = await Promise.all([
       this.findById(currentUserId),
@@ -411,8 +420,12 @@ export class UsersService {
       !!lastSeenAt &&
       Date.now() - new Date(lastSeenAt).getTime() <=
         UsersService.ONLINE_WINDOW_MS;
-    const followers = (user.followers || []).map((follower) => follower.toString());
-    const following = (user.following || []).map((followedUser) => followedUser.toString());
+    const followers = (user.followers || []).map((follower) =>
+      follower.toString(),
+    );
+    const following = (user.following || []).map((followedUser) =>
+      followedUser.toString(),
+    );
     const viewerId = (currentUserId || '').trim();
     const isPrivateView = viewerId === user._id.toString();
     const isFollowing =
@@ -435,8 +448,8 @@ export class UsersService {
       city: user.city ?? '',
       phone: isPrivateView ? (user.phone ?? '') : '',
       bio: user.bio ?? '',
-      photoURL: user.photoURL ?? '',
-      coverPhotoURL: user.coverPhotoURL ?? '',
+      photoURL: user.photoURL || user.photo || '',
+      coverPhotoURL: user.coverPhotoURL || user.coverPhoto || '',
       followersCount: followers.length,
       followingCount: following.length,
       isFollowing,
@@ -468,4 +481,3 @@ export class UsersService {
     return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   }
 }
-

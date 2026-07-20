@@ -64,8 +64,16 @@ export class User {
   @Prop({ default: '' })
   photoURL: string;
 
+  // Champs historiques issus de l'ancienne base Firebase. Ils restent lus
+  // afin que les premiers comptes conservent leurs images après migration.
+  @Prop({ default: '' })
+  photo: string;
+
   @Prop({ default: '' })
   coverPhotoURL: string;
+
+  @Prop({ default: '' })
+  coverPhoto: string;
 
   @Prop({ type: [Types.ObjectId], ref: 'User', default: [] })
   followers: Types.ObjectId[];
@@ -106,4 +114,3 @@ export class User {
 
 export type UserDocument = HydratedDocument<User>;
 export const UserSchema = SchemaFactory.createForClass(User);
-
