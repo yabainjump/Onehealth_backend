@@ -132,10 +132,19 @@ export class GoogleAvatarService {
     googleId: string,
     keepPhotoURL: string,
   ): Promise<void> {
-    if (!photoURL || photoURL === keepPhotoURL) return;
-    const filename = this.managedFilename(photoURL, googleId);
-    if (!filename) return;
-    await this.removeIfExists(join(this.uploadsRoot, 'profile', filename));
+    if (!photoURL) return;
+    const previousFilename = this.managedFilename(photoURL, googleId);
+    if (!previousFilename) return;
+
+    // La même image peut être enregistrée tantôt comme URL absolue, tantôt
+    // comme chemin /uploads/... . Comparer les chaînes complètes supprimait
+    // alors par erreur le fichier encore utilisé après une reconnexion.
+    const keptFilename = this.managedFilename(keepPhotoURL, googleId);
+    if (previousFilename === keptFilename) return;
+
+    await this.removeIfExists(
+      join(this.uploadsRoot, 'profile', previousFilename),
+    );
   }
 
   private async downloadImage(initialURL: string): Promise<Buffer> {

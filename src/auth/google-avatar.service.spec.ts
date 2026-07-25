@@ -116,4 +116,37 @@ describe('GoogleAvatarService', () => {
       ),
     ).rejects.toThrow('maximum size');
   });
+
+  it('keeps the current file when absolute and relative URLs target it', async () => {
+    const sourceImage = await sharp({
+      create: {
+        width: 32,
+        height: 32,
+        channels: 3,
+        background: '#0b6f8a',
+      },
+    })
+      .png()
+      .toBuffer();
+    fetchSpy.mockResolvedValue(
+      new Response(new Uint8Array(sourceImage), {
+        status: 200,
+        headers: { 'content-type': 'image/png' },
+      }),
+    );
+    const mirrored = await service.mirror(
+      'https://lh3.googleusercontent.com/a/avatar',
+      'google-user-1',
+    );
+
+    await service.removePreviousManagedAvatar(
+      `https://backend.onehealth.test${mirrored.photoURL}`,
+      'google-user-1',
+      mirrored.photoURL,
+    );
+
+    await expect(
+      service.isManagedAvatarAvailable(mirrored.photoURL, 'google-user-1'),
+    ).resolves.toBe(true);
+  });
 });
