@@ -8,7 +8,12 @@ import { InjectModel } from '@nestjs/mongoose';
 import { MongoServerError } from 'mongodb';
 import { Model, Types } from 'mongoose';
 import { PublicUser } from './interfaces/public-user.interface';
-import { User, UserDocument, UserRole } from './schemas/user.schema';
+import {
+  User,
+  UserDocument,
+  UserPhotoSource,
+  UserRole,
+} from './schemas/user.schema';
 import { Post } from '../posts/schemas/post.schema';
 import { NotificationsService } from '../notifications/notifications.service';
 
@@ -25,6 +30,8 @@ export interface CreateUserInput {
   phone?: string;
   bio?: string;
   photoURL?: string;
+  photoSource?: UserPhotoSource;
+  googlePhotoURL?: string;
   role?: UserRole;
   googleId?: string;
 }
@@ -174,8 +181,20 @@ export class UsersService {
     if (!Types.ObjectId.isValid(id)) {
       return null;
     }
+    const safeUpdates: UpdateUserProfileInput & {
+      photoSource?: UserPhotoSource;
+      googlePhotoURL?: string;
+    } = { ...updates };
+
+    // Une photo envoyée depuis l'édition du profil devient prioritaire sur
+    // l'avatar Google et ne doit plus être remplacée lors des connexions.
+    if (Object.prototype.hasOwnProperty.call(updates, 'photoURL')) {
+      safeUpdates.photoSource = UserPhotoSource.USER;
+      safeUpdates.googlePhotoURL = '';
+    }
+
     return this.userModel
-      .findByIdAndUpdate(id, updates, {
+      .findByIdAndUpdate(id, safeUpdates, {
         returnDocument: 'after',
         runValidators: true,
       })

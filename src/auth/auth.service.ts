@@ -20,7 +20,11 @@ import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
 import { PublicUser } from '../users/interfaces/public-user.interface';
 import { JwtPayload } from './interfaces/jwt-payload.interface';
-import { UserDocument } from '../users/schemas/user.schema';
+import { UserDocument, UserPhotoSource } from '../users/schemas/user.schema';
+import {
+  GoogleAvatarService,
+  MirroredGoogleAvatar,
+} from './google-avatar.service';
 
 export interface AuthResponse {
   accessToken: string;
@@ -47,6 +51,7 @@ export class AuthService {
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
+    private readonly googleAvatarService: GoogleAvatarService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponse> {
@@ -113,28 +118,122 @@ export class AuthService {
     }
 
     let user = await this.usersService.findByEmail(email);
+    const googlePictureURL = `${payload.picture || ''}`.trim();
 
     if (!user) {
-      const passwordHash = await bcrypt.hash(randomBytes(32).toString('hex'), 12);
+      const mirroredAvatar = await this.mirrorGoogleAvatarSafely(
+        googlePictureURL,
+        payload.sub,
+      );
+      const passwordHash = await bcrypt.hash(
+        randomBytes(32).toString('hex'),
+        12,
+      );
       user = await this.usersService.create({
         email,
         passwordHash,
-        username: await this.generateUsernameFromEmail(email),
+        username: this.generateUsernameFromEmail(email),
         firstName: payload.given_name || 'Utilisateur',
         lastName: payload.family_name || 'OneHealth',
-        photoURL: payload.picture ?? '',
+        photoURL: mirroredAvatar?.photoURL || googlePictureURL,
+        photoSource: googlePictureURL ? UserPhotoSource.GOOGLE : undefined,
+        googlePhotoURL: mirroredAvatar?.sourceURL || googlePictureURL,
         googleId: payload.sub,
       });
 
-      const welcomeName = `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
+      const welcomeName =
+        `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim();
       void this.mailService.sendWelcome(user.email, welcomeName);
-    } else if (!user.googleId) {
-      // Compte existant (créé par e-mail/mot de passe) : on relie Google.
-      user.googleId = payload.sub;
-      await user.save();
+    } else {
+      let shouldSave = false;
+      let mirroredAvatar: MirroredGoogleAvatar | null = null;
+      const previousPhotoURL = user.photoURL;
+
+      if (!user.googleId) {
+        // Compte existant (créé par e-mail/mot de passe) : on relie Google.
+        user.googleId = payload.sub;
+        shouldSave = true;
+      }
+
+      if (
+        googlePictureURL &&
+        (await this.shouldMirrorGoogleAvatar(user, googlePictureURL))
+      ) {
+        mirroredAvatar = await this.mirrorGoogleAvatarSafely(
+          googlePictureURL,
+          payload.sub,
+        );
+
+        if (mirroredAvatar) {
+          user.photoURL = mirroredAvatar.photoURL;
+          user.photoSource = UserPhotoSource.GOOGLE;
+          user.googlePhotoURL = mirroredAvatar.sourceURL;
+          shouldSave = true;
+        } else if (!user.photoURL) {
+          // Le login ne doit jamais échouer si Google ne sert pas sa photo.
+          // On conserve temporairement l'URL source et on réessaiera au login.
+          user.photoURL = googlePictureURL;
+          user.photoSource = UserPhotoSource.GOOGLE;
+          user.googlePhotoURL = googlePictureURL;
+          shouldSave = true;
+        }
+      }
+
+      if (shouldSave) {
+        await user.save();
+        if (mirroredAvatar) {
+          await this.googleAvatarService.removePreviousManagedAvatar(
+            previousPhotoURL,
+            payload.sub,
+            mirroredAvatar.photoURL,
+          );
+        }
+      }
     }
 
     return this.buildAuthResponse(user);
+  }
+
+  private async shouldMirrorGoogleAvatar(
+    user: UserDocument,
+    pictureURL: string,
+  ): Promise<boolean> {
+    if (user.photoSource === UserPhotoSource.USER) {
+      return false;
+    }
+
+    const isLegacyGoogleAvatar =
+      !user.photoSource &&
+      (!user.photoURL ||
+        this.googleAvatarService.isGoogleHostedURL(user.photoURL));
+    if (user.photoSource !== UserPhotoSource.GOOGLE && !isLegacyGoogleAvatar) {
+      return false;
+    }
+
+    if (user.googlePhotoURL !== pictureURL) {
+      return true;
+    }
+
+    return !(await this.googleAvatarService.isManagedAvatarAvailable(
+      user.photoURL,
+      user.googleId || '',
+    ));
+  }
+
+  private async mirrorGoogleAvatarSafely(
+    pictureURL: string,
+    googleId: string,
+  ): Promise<MirroredGoogleAvatar | null> {
+    if (!pictureURL) return null;
+
+    try {
+      return await this.googleAvatarService.mirror(pictureURL, googleId);
+    } catch (error) {
+      const message =
+        error instanceof Error ? error.message : 'unknown avatar error';
+      this.logger.warn(`Google avatar mirroring failed: ${message}`);
+      return null;
+    }
   }
 
   private async verifyGoogleIdToken(idToken: string) {
@@ -157,13 +256,15 @@ export class AuthService {
       }
       return payload;
     } catch (error) {
-      this.logger.warn(`Google ID token verification failed: ${(error as Error).message}`);
+      this.logger.warn(
+        `Google ID token verification failed: ${(error as Error).message}`,
+      );
       throw new UnauthorizedException('Invalid Google token');
     }
   }
 
   /** Génère un pseudo lisible et raisonnablement unique à partir de l'e-mail. */
-  private async generateUsernameFromEmail(email: string): Promise<string> {
+  private generateUsernameFromEmail(email: string): string {
     const base =
       email
         .split('@')[0]
@@ -273,9 +374,8 @@ export class AuthService {
       throw new UnauthorizedException('Account suspended');
     }
 
-    const onlineUser = (await this.usersService.markOnline(
-      user._id.toString(),
-    )) ?? user;
+    const onlineUser =
+      (await this.usersService.markOnline(user._id.toString())) ?? user;
 
     const payload: JwtPayload = {
       sub: onlineUser._id.toString(),

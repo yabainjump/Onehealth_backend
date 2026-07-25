@@ -6,6 +6,11 @@ export enum UserRole {
   ADMIN = 'admin',
 }
 
+export enum UserPhotoSource {
+  GOOGLE = 'google',
+  USER = 'user',
+}
+
 export type CertificationStatus = 'none' | 'pending' | 'approved' | 'rejected';
 
 @Schema({
@@ -63,6 +68,18 @@ export class User {
 
   @Prop({ default: '' })
   photoURL: string;
+
+  @Prop({
+    type: String,
+    enum: Object.values(UserPhotoSource),
+    default: null,
+  })
+  photoSource: UserPhotoSource | null;
+
+  // URL Google d'origine, conservée uniquement pour détecter un changement
+  // d'avatar lors d'une prochaine connexion. Elle n'est jamais exposée par API.
+  @Prop({ default: '' })
+  googlePhotoURL: string;
 
   // Champs historiques issus de l'ancienne base Firebase. Ils restent lus
   // afin que les premiers comptes conservent leurs images après migration.

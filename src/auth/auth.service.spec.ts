@@ -7,6 +7,7 @@ import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
 import { UserRole } from '../users/schemas/user.schema';
+import { GoogleAvatarService } from './google-avatar.service';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
@@ -35,6 +36,13 @@ describe('AuthService', () => {
     sendPasswordReset: jest.fn().mockResolvedValue(true),
   };
 
+  const googleAvatarServiceMock = {
+    mirror: jest.fn(),
+    isGoogleHostedURL: jest.fn(),
+    isManagedAvatarAvailable: jest.fn(),
+    removePreviousManagedAvatar: jest.fn().mockResolvedValue(undefined),
+  };
+
   beforeEach(async () => {
     jest.clearAllMocks();
 
@@ -45,6 +53,10 @@ describe('AuthService', () => {
         { provide: JwtService, useValue: jwtServiceMock },
         { provide: ConfigService, useValue: configServiceMock },
         { provide: MailService, useValue: mailServiceMock },
+        {
+          provide: GoogleAvatarService,
+          useValue: googleAvatarServiceMock,
+        },
       ],
     }).compile();
 
@@ -101,5 +113,77 @@ describe('AuthService', () => {
         password: 'wrong-password',
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  it('migrates a legacy Google avatar to local storage on login', async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    const user = {
+      _id: { toString: () => 'user-id-1' },
+      email: 'google@example.com',
+      googleId: 'google-sub-1',
+      photoURL: 'https://lh3.googleusercontent.com/a/legacy-avatar',
+      photoSource: undefined,
+      googlePhotoURL: '',
+      save,
+    };
+    const publicUser = {
+      id: 'user-id-1',
+      photoURL: '/uploads/profile/google.webp',
+    };
+
+    jest.spyOn(authService as any, 'verifyGoogleIdToken').mockResolvedValue({
+      sub: 'google-sub-1',
+      email: 'google@example.com',
+      email_verified: true,
+      picture: 'https://lh3.googleusercontent.com/a/current-avatar',
+    });
+    usersServiceMock.findByEmail.mockResolvedValue(user);
+    usersServiceMock.toPublicUser.mockReturnValue(publicUser);
+    googleAvatarServiceMock.isGoogleHostedURL.mockReturnValue(true);
+    googleAvatarServiceMock.mirror.mockResolvedValue({
+      photoURL: '/uploads/profile/google-local.webp',
+      sourceURL: 'https://lh3.googleusercontent.com/a/current-avatar',
+    });
+
+    const result = await authService.loginWithGoogle({
+      idToken: 'valid-token',
+    });
+
+    expect(googleAvatarServiceMock.mirror).toHaveBeenCalledWith(
+      'https://lh3.googleusercontent.com/a/current-avatar',
+      'google-sub-1',
+    );
+    expect(user.photoURL).toBe('/uploads/profile/google-local.webp');
+    expect(user.photoSource).toBe('google');
+    expect(save).toHaveBeenCalledTimes(1);
+    expect(result.user).toEqual(publicUser);
+  });
+
+  it('does not overwrite an avatar manually selected by the user', async () => {
+    const save = jest.fn().mockResolvedValue(undefined);
+    const user = {
+      _id: { toString: () => 'user-id-2' },
+      email: 'custom@example.com',
+      googleId: 'google-sub-2',
+      photoURL: '/uploads/profile/custom.webp',
+      photoSource: 'user',
+      googlePhotoURL: '',
+      save,
+    };
+
+    jest.spyOn(authService as any, 'verifyGoogleIdToken').mockResolvedValue({
+      sub: 'google-sub-2',
+      email: 'custom@example.com',
+      email_verified: true,
+      picture: 'https://lh3.googleusercontent.com/a/google-avatar',
+    });
+    usersServiceMock.findByEmail.mockResolvedValue(user);
+    usersServiceMock.toPublicUser.mockReturnValue({ id: 'user-id-2' });
+
+    await authService.loginWithGoogle({ idToken: 'valid-token' });
+
+    expect(googleAvatarServiceMock.mirror).not.toHaveBeenCalled();
+    expect(user.photoURL).toBe('/uploads/profile/custom.webp');
+    expect(save).not.toHaveBeenCalled();
   });
 });

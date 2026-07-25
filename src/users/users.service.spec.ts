@@ -1,5 +1,6 @@
 import { Types } from 'mongoose';
 import { UsersService } from './users.service';
+import { UserPhotoSource } from './schemas/user.schema';
 
 describe('UsersService public profile privacy', () => {
   const service = new UsersService({} as never, {} as never, {} as never);
@@ -54,5 +55,37 @@ describe('UsersService public profile privacy', () => {
 
     expect(result.photoURL).toContain('legacy-avatar.png');
     expect(result.coverPhotoURL).toContain('legacy-cover.png');
+  });
+});
+
+describe('UsersService profile photo ownership', () => {
+  it('marks a manually updated photo so Google cannot overwrite it', async () => {
+    const exec = jest
+      .fn()
+      .mockResolvedValue({ photoURL: '/uploads/profile/me.webp' });
+    const findByIdAndUpdate = jest.fn().mockReturnValue({ exec });
+    const service = new UsersService(
+      { findByIdAndUpdate } as never,
+      {} as never,
+      {} as never,
+    );
+    const id = new Types.ObjectId().toString();
+
+    await service.updateById(id, {
+      photoURL: '/uploads/profile/me.webp',
+    });
+
+    expect(findByIdAndUpdate).toHaveBeenCalledWith(
+      id,
+      {
+        photoURL: '/uploads/profile/me.webp',
+        photoSource: UserPhotoSource.USER,
+        googlePhotoURL: '',
+      },
+      {
+        returnDocument: 'after',
+        runValidators: true,
+      },
+    );
   });
 });

@@ -13,6 +13,7 @@ import { UsersModule } from '../users/users.module';
 import { MailModule } from '../mail/mail.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthRateLimitMiddleware } from './middleware/auth-rate-limit.middleware';
+import { GoogleAvatarService } from './google-avatar.service';
 
 function parseJwtExpiresInToSeconds(rawValue?: string): number {
   if (!rawValue) {
@@ -56,17 +57,19 @@ function parseJwtExpiresInToSeconds(rawValue?: string): number {
     }),
   ],
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, GoogleAvatarService, JwtStrategy],
   exports: [AuthService],
 })
 export class AuthModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(AuthRateLimitMiddleware).forRoutes(
-      { path: 'auth/login', method: RequestMethod.POST },
-      { path: 'auth/register', method: RequestMethod.POST },
-      { path: 'auth/google', method: RequestMethod.POST },
-      { path: 'auth/forgot-password', method: RequestMethod.POST },
-      { path: 'auth/reset-password', method: RequestMethod.POST },
-    );
+    consumer
+      .apply(AuthRateLimitMiddleware)
+      .forRoutes(
+        { path: 'auth/login', method: RequestMethod.POST },
+        { path: 'auth/register', method: RequestMethod.POST },
+        { path: 'auth/google', method: RequestMethod.POST },
+        { path: 'auth/forgot-password', method: RequestMethod.POST },
+        { path: 'auth/reset-password', method: RequestMethod.POST },
+      );
   }
 }
