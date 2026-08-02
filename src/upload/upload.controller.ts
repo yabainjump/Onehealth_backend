@@ -94,7 +94,7 @@ function imageFileFilter(
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
   if (!imageMimeTypes.has((file.mimetype || '').toLowerCase())) {
-    cb(new BadRequestException('Only image files are allowed') as unknown as Error, false);
+    cb(new BadRequestException('Only image files are allowed'), false);
     return;
   }
   cb(null, true);
@@ -109,7 +109,7 @@ function messageFileFilter(
     cb(
       new BadRequestException(
         'Unsupported file type. Allowed: images, pdf, doc, docx, ppt, pptx, xls, xlsx, txt.',
-      ) as unknown as Error,
+      ),
       false,
     );
     return;
@@ -126,7 +126,7 @@ function postFileFilter(
     cb(
       new BadRequestException(
         'Unsupported file type. Allowed: images, videos, pdf, doc, docx, ppt, pptx.',
-      ) as unknown as Error,
+      ),
       false,
     );
     return;
@@ -143,7 +143,8 @@ export class UploadController {
 
   @ApiOperation({
     summary: 'Téléverser une photo de profil',
-    description: 'Images uniquement (JPG, PNG, WebP, GIF). 10 Mo max. Converties en WebP.',
+    description:
+      'Images uniquement (JPG, PNG, WebP, GIF). 10 Mo max. Converties en WebP.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody(FILE_UPLOAD_BODY)
@@ -191,7 +192,11 @@ export class UploadController {
       throw new BadRequestException('File is required');
     }
 
-    const uploaded = await this.uploadService.finalizeUploadedFile(file, 'post', 'post');
+    const uploaded = await this.uploadService.finalizeUploadedFile(
+      file,
+      'post',
+      'post',
+    );
 
     return {
       url: uploaded.url,
@@ -204,7 +209,8 @@ export class UploadController {
 
   @ApiOperation({
     summary: 'Téléverser un fichier de message',
-    description: 'Images, vidéos ou documents (PDF, DOC, PPT, XLS, TXT…). 50 Mo max.',
+    description:
+      'Images, vidéos ou documents (PDF, DOC, PPT, XLS, TXT…). 50 Mo max.',
   })
   @ApiConsumes('multipart/form-data')
   @ApiBody(FILE_UPLOAD_BODY)

@@ -29,7 +29,7 @@ export class CreatePostDto {
 
   @ApiPropertyOptional({
     type: [String],
-    description: 'URLs d\'images (renvoyées par /api/upload/post). 8 max.',
+    description: "URLs d'images (renvoyées par /api/upload/post). 8 max.",
     example: ['/uploads/post/1700000000000-a.webp'],
   })
   @IsOptional()
@@ -42,7 +42,8 @@ export class CreatePostDto {
 
   @ApiPropertyOptional({
     type: () => PostAttachmentDto,
-    description: 'Pièce jointe unique (vidéo ou document) à la place des images.',
+    description:
+      'Pièce jointe unique (vidéo ou document) à la place des images.',
   })
   @IsOptional()
   @ValidateNested()

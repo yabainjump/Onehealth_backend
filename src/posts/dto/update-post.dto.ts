@@ -12,13 +12,19 @@ import { Type } from 'class-transformer';
 import { PostAttachmentDto } from './post-attachment.dto';
 
 export class UpdatePostDto {
-  @ApiPropertyOptional({ example: 'Surveillance des zoonoses (mise à jour)', maxLength: 120 })
+  @ApiPropertyOptional({
+    example: 'Surveillance des zoonoses (mise à jour)',
+    maxLength: 120,
+  })
   @IsOptional()
   @IsString()
   @MaxLength(120)
   title?: string;
 
-  @ApiPropertyOptional({ example: 'Texte mis à jour de la publication…', maxLength: 3000 })
+  @ApiPropertyOptional({
+    example: 'Texte mis à jour de la publication…',
+    maxLength: 3000,
+  })
   @IsOptional()
   @IsString()
   @MaxLength(3000)
@@ -26,7 +32,7 @@ export class UpdatePostDto {
 
   @ApiPropertyOptional({
     type: [String],
-    description: 'URLs d\'images. 8 max.',
+    description: "URLs d'images. 8 max.",
     example: ['/uploads/post/1700000000000-a.webp'],
   })
   @IsOptional()

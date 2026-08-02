@@ -17,7 +17,7 @@ export class ShareController {
   @ApiOperation({
     summary: 'Page de partage du site (HTML)',
     description:
-      'Renvoie une page HTML avec les balises meta Open Graph / Twitter pour les aperçus réseaux sociaux. Redirige les humains vers l\'application.',
+      "Renvoie une page HTML avec les balises meta Open Graph / Twitter pour les aperçus réseaux sociaux. Redirige les humains vers l'application.",
   })
   @Get()
   getSiteShare(@Req() req: Request, @Res() res: Response): void {
@@ -28,7 +28,7 @@ export class ShareController {
   @ApiOperation({
     summary: 'Sitemap dynamique (XML)',
     description:
-      'URLs frontend des publications et profils publics, pour l\'indexation Google. Référencé depuis le robots.txt du frontend.',
+      "URLs frontend des publications et profils publics, pour l'indexation Google. Référencé depuis le robots.txt du frontend.",
   })
   @Get('sitemap.xml')
   async getSitemap(@Res() res: Response): Promise<void> {
@@ -39,7 +39,7 @@ export class ShareController {
     res.status(200).send(xml);
   }
 
-  @ApiOperation({ summary: 'Page de partage d\'une publication (HTML)' })
+  @ApiOperation({ summary: "Page de partage d'une publication (HTML)" })
   @ApiParam({ name: 'postId', description: 'Identifiant de la publication' })
   @Get('post/:postId')
   async getPostShare(
@@ -51,7 +51,7 @@ export class ShareController {
     this.replyWithShareHtml(req, res, metadata);
   }
 
-  @ApiOperation({ summary: 'Page de partage d\'un profil (HTML)' })
+  @ApiOperation({ summary: "Page de partage d'un profil (HTML)" })
   @ApiParam({ name: 'userId', description: "Identifiant de l'utilisateur" })
   @Get('profile/:userId')
   async getProfileShare(

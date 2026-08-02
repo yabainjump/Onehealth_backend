@@ -12,7 +12,12 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
@@ -52,7 +57,8 @@ export class UsersController {
   @ApiBearerAuth('access-token')
   @ApiOperation({
     summary: 'Lister / rechercher des utilisateurs',
-    description: 'Recherche optionnelle par nom, prénom, username ou institution.',
+    description:
+      'Recherche optionnelle par nom, prénom, username ou institution.',
   })
   @UseGuards(JwtAuthGuard)
   @Get()
@@ -120,7 +126,10 @@ export class UsersController {
 
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Suivre un utilisateur' })
-  @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur à suivre" })
+  @ApiParam({
+    name: 'id',
+    description: "Identifiant de l'utilisateur à suivre",
+  })
   @UseGuards(JwtAuthGuard)
   @Post(':id/follow')
   followUser(
@@ -132,7 +141,10 @@ export class UsersController {
 
   @ApiBearerAuth('access-token')
   @ApiOperation({ summary: 'Ne plus suivre un utilisateur' })
-  @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur à ne plus suivre" })
+  @ApiParam({
+    name: 'id',
+    description: "Identifiant de l'utilisateur à ne plus suivre",
+  })
   @UseGuards(JwtAuthGuard)
   @Delete(':id/follow')
   unfollowUser(

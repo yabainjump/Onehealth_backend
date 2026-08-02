@@ -22,7 +22,7 @@ export class AuthController {
   @ApiOperation({
     summary: 'Créer un compte',
     description:
-      'Crée un nouvel utilisateur, envoie l\'e-mail de bienvenue et renvoie un accessToken JWT.',
+      "Crée un nouvel utilisateur, envoie l'e-mail de bienvenue et renvoie un accessToken JWT.",
   })
   @Post('register')
   register(@Body() registerDto: RegisterDto) {
@@ -31,7 +31,8 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Se connecter',
-    description: 'Renvoie un accessToken JWT à utiliser dans le bouton « Authorize ».',
+    description:
+      'Renvoie un accessToken JWT à utiliser dans le bouton « Authorize ».',
   })
   @Post('login')
   login(@Body() loginDto: LoginDto) {
@@ -39,7 +40,7 @@ export class AuthController {
   }
 
   @ApiOperation({
-    summary: 'Se connecter / s\'inscrire avec Google',
+    summary: "Se connecter / s'inscrire avec Google",
     description:
       "Vérifie l'ID token Google Identity Services et connecte ou crée le compte correspondant.",
   })
@@ -60,7 +61,8 @@ export class AuthController {
 
   @ApiOperation({
     summary: 'Réinitialiser le mot de passe',
-    description: 'Définit un nouveau mot de passe à partir du token reçu par e-mail.',
+    description:
+      'Définit un nouveau mot de passe à partir du token reçu par e-mail.',
   })
   @Post('reset-password')
   resetPassword(@Body() resetPasswordDto: ResetPasswordDto) {
@@ -68,7 +70,7 @@ export class AuthController {
   }
 
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Profil de l\'utilisateur connecté' })
+  @ApiOperation({ summary: "Profil de l'utilisateur connecté" })
   @ApiUnauthorizedResponse({ description: 'Jeton manquant ou invalide.' })
   @UseGuards(JwtAuthGuard)
   @Get('me')

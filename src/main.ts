@@ -16,7 +16,10 @@ const DEFAULT_DEV_CORS_ORIGINS = [
   'http://127.0.0.1:4200',
 ];
 
-function parseAllowedCorsOrigins(rawValue: string | undefined, nodeEnv: string): string[] {
+function parseAllowedCorsOrigins(
+  rawValue: string | undefined,
+  nodeEnv: string,
+): string[] {
   const fromEnv = (rawValue || '')
     .split(',')
     .map((origin) => origin.trim())

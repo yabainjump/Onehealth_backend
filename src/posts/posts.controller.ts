@@ -10,7 +10,12 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiParam,
+  ApiTags,
+} from '@nestjs/swagger';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../auth/guards/optional-jwt-auth.guard';
 import { ParseObjectIdPipe } from '../common/pipes/parse-object-id.pipe';
@@ -35,7 +40,9 @@ export class PostsController {
     return this.postsService.list(req.user?.id ?? '', query);
   }
 
-  @ApiOperation({ summary: 'Lister les publications d\'un utilisateur — public' })
+  @ApiOperation({
+    summary: "Lister les publications d'un utilisateur — public",
+  })
   @ApiParam({ name: 'userId', description: "Identifiant de l'auteur" })
   @UseGuards(OptionalJwtAuthGuard)
   @Get('user/:userId')
@@ -52,7 +59,9 @@ export class PostsController {
     );
   }
 
-  @ApiOperation({ summary: 'Lister les publications contenant un hashtag — public' })
+  @ApiOperation({
+    summary: 'Lister les publications contenant un hashtag — public',
+  })
   @ApiParam({ name: 'tag', description: 'Hashtag recherché (sans le #)' })
   @UseGuards(OptionalJwtAuthGuard)
   @Get('hashtag/:tag')
@@ -80,7 +89,9 @@ export class PostsController {
     return this.postsService.findById(postId, req.user?.id ?? '');
   }
 
-  @ApiOperation({ summary: 'Lister les commentaires d\'une publication — public' })
+  @ApiOperation({
+    summary: "Lister les commentaires d'une publication — public",
+  })
   @ApiParam({ name: 'postId', description: 'Identifiant de la publication' })
   @UseGuards(OptionalJwtAuthGuard)
   @Get(':postId/comments')
@@ -127,7 +138,7 @@ export class PostsController {
   }
 
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Retirer son like d\'une publication' })
+  @ApiOperation({ summary: "Retirer son like d'une publication" })
   @ApiParam({ name: 'postId', description: 'Identifiant de la publication' })
   @UseGuards(JwtAuthGuard)
   @Delete(':postId/like')
@@ -168,11 +179,16 @@ export class PostsController {
       createdAt?: string;
     },
   ) {
-    return this.postsService.likeComment(postId, commentId, req.user.id, context);
+    return this.postsService.likeComment(
+      postId,
+      commentId,
+      req.user.id,
+      context,
+    );
   }
 
   @ApiBearerAuth('access-token')
-  @ApiOperation({ summary: 'Retirer son like d\'un commentaire' })
+  @ApiOperation({ summary: "Retirer son like d'un commentaire" })
   @ApiParam({ name: 'postId', description: 'Identifiant de la publication' })
   @ApiParam({ name: 'commentId', description: 'Identifiant du commentaire' })
   @UseGuards(JwtAuthGuard)
@@ -188,7 +204,12 @@ export class PostsController {
       createdAt?: string;
     },
   ) {
-    return this.postsService.unlikeComment(postId, commentId, req.user.id, context);
+    return this.postsService.unlikeComment(
+      postId,
+      commentId,
+      req.user.id,
+      context,
+    );
   }
 
   @ApiBearerAuth('access-token')

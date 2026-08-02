@@ -473,6 +473,8 @@ export class UsersService {
       followingCount: following.length,
       isFollowing,
       role: user.role,
+      hubRoles: isPrivateView ? (user.hubRoles ?? []) : [],
+      hubCountryCodes: isPrivateView ? (user.hubCountryCodes ?? []) : [],
       isCertified: !!user.isCertified,
       certificationStatus: user.certificationStatus ?? 'none',
       isBanned: !!user.isBanned,

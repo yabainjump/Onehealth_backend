@@ -33,7 +33,9 @@ export class CertificationsService {
       .findOne({ userId: new Types.ObjectId(userId), status: 'pending' })
       .exec();
     if (existing) {
-      throw new BadRequestException('A certification request is already pending');
+      throw new BadRequestException(
+        'A certification request is already pending',
+      );
     }
 
     const request = await new this.requestModel({

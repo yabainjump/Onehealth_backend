@@ -131,7 +131,9 @@ export class ChatService {
 
     room.lastMessage =
       text ||
-      (this.isImageMessage(message) ? 'Image' : this.formatAttachmentPreview(fileName));
+      (this.isImageMessage(message)
+        ? 'Image'
+        : this.formatAttachmentPreview(fileName));
     room.unreadCounts = unread;
     await room.save();
 
@@ -201,9 +203,7 @@ export class ChatService {
     };
   }
 
-  private toPlainUnreadCounts(
-    source: unknown,
-  ): Record<string, number> {
+  private toPlainUnreadCounts(source: unknown): Record<string, number> {
     if (!source) {
       return {};
     }
@@ -254,11 +254,15 @@ export class ChatService {
       return false;
     }
 
-    const readBy = new Set((message.readBy ?? []).map((item) => item.toString()));
+    const readBy = new Set(
+      (message.readBy ?? []).map((item) => item.toString()),
+    );
     return otherMemberIds.every((id) => readBy.has(id));
   }
 
-  private isImageMessage(message: Pick<ChatMessage, 'imageUrl' | 'fileMimeType'>) {
+  private isImageMessage(
+    message: Pick<ChatMessage, 'imageUrl' | 'fileMimeType'>,
+  ) {
     return (
       !!message.imageUrl ||
       (message.fileMimeType ? message.fileMimeType.startsWith('image/') : false)

@@ -64,7 +64,9 @@ export class UpdateProfileDto {
   })
   phone?: string;
 
-  @ApiPropertyOptional({ example: 'Spécialiste en santé publique vétérinaire.' })
+  @ApiPropertyOptional({
+    example: 'Spécialiste en santé publique vétérinaire.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(250)

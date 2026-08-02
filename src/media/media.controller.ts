@@ -19,7 +19,10 @@ export class MediaController {
     summary: 'Miniature WebP générée à la volée',
     description: 'Renvoie une image (binaire) redimensionnée et mise en cache.',
   })
-  @ApiQuery({ name: 'path', description: "Chemin /uploads/... de l'image source" })
+  @ApiQuery({
+    name: 'path',
+    description: "Chemin /uploads/... de l'image source",
+  })
   @ApiQuery({
     name: 'w',
     required: false,
@@ -35,7 +38,10 @@ export class MediaController {
       if (!path) {
         throw new BadRequestException('Missing path');
       }
-      const resolved = await this.mediaService.getThumbnail(path, Number(width));
+      const resolved = await this.mediaService.getThumbnail(
+        path,
+        Number(width),
+      );
       this.sendFile(res, resolved.filePath, resolved.contentType);
     } catch (error) {
       this.sendError(res, error);
@@ -43,10 +49,14 @@ export class MediaController {
   }
 
   @ApiOperation({
-    summary: 'Poster (vignette) d\'une vidéo',
-    description: 'Renvoie une image (binaire) extraite de la vidéo et mise en cache.',
+    summary: "Poster (vignette) d'une vidéo",
+    description:
+      'Renvoie une image (binaire) extraite de la vidéo et mise en cache.',
   })
-  @ApiQuery({ name: 'path', description: 'Chemin /uploads/... de la vidéo source' })
+  @ApiQuery({
+    name: 'path',
+    description: 'Chemin /uploads/... de la vidéo source',
+  })
   @Get('poster')
   async getPoster(
     @Query('path') path: string,
@@ -68,7 +78,10 @@ export class MediaController {
     description:
       'Convertit une image (souvent WebP) en JPEG carré — compatible avec les robots WhatsApp/Facebook/LinkedIn.',
   })
-  @ApiQuery({ name: 'path', description: "Chemin /uploads/... de l'image source" })
+  @ApiQuery({
+    name: 'path',
+    description: "Chemin /uploads/... de l'image source",
+  })
   @Get('social')
   async getSocialImage(
     @Query('path') path: string,

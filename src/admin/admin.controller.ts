@@ -25,6 +25,7 @@ import { SetBannedDto } from './dto/set-banned.dto';
 import { RejectCertificationDto } from './dto/reject-certification.dto';
 import { SetHiddenDto } from './dto/set-hidden.dto';
 import { SetAlertVerificationDto } from './dto/set-alert-verification.dto';
+import { SetHubAccessDto } from './dto/set-hub-access.dto';
 
 @ApiTags('Admin')
 @ApiBearerAuth('access-token')
@@ -70,6 +71,18 @@ export class AdminController {
     @Body() dto: UpdateUserRoleDto,
   ) {
     return this.adminService.updateUserRole(id, dto.role, req.user.id);
+  }
+
+  @ApiOperation({
+    summary: 'Configurer les rôles et pays autorisés dans le Hub',
+  })
+  @ApiParam({ name: 'id', description: "Identifiant de l'utilisateur" })
+  @Patch('users/:id/hub-access')
+  setHubAccess(
+    @Param('id', ParseObjectIdPipe) id: string,
+    @Body() dto: SetHubAccessDto,
+  ) {
+    return this.adminService.setHubAccess(id, dto.roles, dto.countryCodes);
   }
 
   @ApiOperation({ summary: 'Suspendre / réactiver un compte' })

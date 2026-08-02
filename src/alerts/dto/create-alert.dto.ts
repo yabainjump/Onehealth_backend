@@ -21,7 +21,10 @@ export class CreateAlertDto {
   @IsEnum(CATEGORIES)
   category: (typeof CATEGORIES)[number];
 
-  @ApiProperty({ example: 'Mortalité inhabituelle de volailles', maxLength: 140 })
+  @ApiProperty({
+    example: 'Mortalité inhabituelle de volailles',
+    maxLength: 140,
+  })
   @IsString()
   @IsNotEmpty()
   @MaxLength(140)

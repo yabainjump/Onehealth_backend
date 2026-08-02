@@ -14,10 +14,12 @@ import { UploadRateLimitMiddleware } from './upload-rate-limit.middleware';
 })
 export class UploadModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
-    consumer.apply(UploadRateLimitMiddleware).forRoutes(
-      { path: 'upload/profile', method: RequestMethod.POST },
-      { path: 'upload/post', method: RequestMethod.POST },
-      { path: 'upload/message', method: RequestMethod.POST },
-    );
+    consumer
+      .apply(UploadRateLimitMiddleware)
+      .forRoutes(
+        { path: 'upload/profile', method: RequestMethod.POST },
+        { path: 'upload/post', method: RequestMethod.POST },
+        { path: 'upload/message', method: RequestMethod.POST },
+      );
   }
 }

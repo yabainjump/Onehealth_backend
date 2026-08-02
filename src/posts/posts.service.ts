@@ -340,7 +340,10 @@ export class PostsService {
     );
 
     if (!alreadyLiked) {
-      comment.likedBy = [...(comment.likedBy || []), new Types.ObjectId(currentUserId)];
+      comment.likedBy = [
+        ...(comment.likedBy || []),
+        new Types.ObjectId(currentUserId),
+      ];
       comment.likesCount = (comment.likesCount || 0) + 1;
       shouldSave = true;
     }
@@ -429,7 +432,8 @@ export class PostsService {
     }
 
     const hasText = `${post.content || ''}`.trim().length > 0;
-    const hasImages = Array.isArray(post.imageUrls) && post.imageUrls.length > 0;
+    const hasImages =
+      Array.isArray(post.imageUrls) && post.imageUrls.length > 0;
     const hasAttachment = !!post.attachment;
     if (!hasText && !hasImages && !hasAttachment) {
       throw new BadRequestException(
@@ -503,7 +507,9 @@ export class PostsService {
       const legacyMongoSubId = this.normalizeCommentKey(
         item?._id?.toString?.() ?? '',
       );
-      const legacyIdField = this.normalizeCommentKey(item?.id?.toString?.() ?? '');
+      const legacyIdField = this.normalizeCommentKey(
+        item?.id?.toString?.() ?? '',
+      );
       return (
         normalizedCommentId === target ||
         legacyMongoSubId === target ||

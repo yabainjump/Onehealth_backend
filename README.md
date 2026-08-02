@@ -1,6 +1,6 @@
 # OneHealth Backend (NestJS + MongoDB)
 
-Backend API NestJS prêt production pour OneHealth avec MongoDB (Mongoose), authentification JWT, validation globale, CORS, modules posts et chat.
+Backend API NestJS de One Health Network avec MongoDB, authentification JWT, validation globale et module institutionnel séparé pour le Hub régional CEEAC.
 
 ## Stack
 
@@ -38,7 +38,9 @@ Voir `.env.example`:
 - `NODE_ENV`: `development | production | test`
 - `PORT`: port HTTP API
 - `MONGODB_URI`: URI MongoDB
-- `JWT_SECRET`: secret JWT (minimum 16 chars)
+- `HUB_MONGODB_URI`: URI facultative du cluster Hub ; si vide, le cluster principal est réutilisé
+- `HUB_MONGODB_DB_NAME`: base logique du Hub, `onehealth_hub` par défaut
+- `JWT_SECRET`: secret JWT (minimum 32 caractères)
 - `JWT_EXPIRES_IN`: durée token access (ex: `1h`, `15m`)
 - `CORS_ORIGIN`: origines autorisées séparées par virgules
 
@@ -143,6 +145,30 @@ npm run start:prod
 - `POST /api/chat/rooms/:roomId/messages` (protégé JWT)
 - `POST /api/chat/rooms/:roomId/read` (protégé JWT)
 
+### Hub régional CEEAC
+
+Le Hub utilise la base logique `onehealth_hub` et ne mélange pas ses collections avec les alertes communautaires de l'application Ionic.
+
+- `GET /api/hub/summary`
+- `GET /api/hub/observations`
+- `GET /api/hub/observations/:id`
+- `PATCH /api/hub/signals/:signalCode/assign` — vérificateur uniquement
+- `PATCH /api/hub/signals/:signalCode/decision` — vérificateur uniquement, justification obligatoire
+- `POST /api/hub/demo/seed` — administrateur de l'application uniquement
+- `PATCH /api/admin/users/:id/hub-access` — attribution des rôles et pays autorisés
+
+Rôles Hub disponibles : `hub_viewer`, `hub_analyst`, `hub_verifier` et `hub_admin`. Sauf pour les administrateurs, les réponses sont filtrées côté backend selon `hubCountryCodes`.
+
+Chargement initial du démonstrateur :
+
+1. Démarrer le backend et se connecter avec un compte administrateur.
+2. Ouvrir Swagger sur `http://localhost:3000/api/docs` en développement.
+3. Utiliser **Authorize** avec le `accessToken` reçu par `/api/auth/login`.
+4. Appeler `POST /api/hub/demo/seed` une seule fois. L'opération est idempotente et peut être répétée sans créer de doublons.
+5. Attribuer ensuite les droits Hub aux comptes de démonstration avec `PATCH /api/admin/users/:id/hub-access`.
+
+Le seed crée 165 données brutes, 165 observations normalisées, 15 signaux, 3 alertes vérifiées et 11 politiques de partage. Toutes portent `isDemo: true`.
+
 ## Sécurité implémentée (baseline)
 
 - Hash mot de passe avec `bcrypt` (cost factor 12)
@@ -216,6 +242,15 @@ src/
     chat.controller.ts
     chat.module.ts
     chat.service.ts
+  hub/
+    controllers/
+    dto/
+    guards/
+    repositories/
+    schemas/
+    seeds/
+    services/
+    hub.module.ts
 ```
 
 ## Notes production

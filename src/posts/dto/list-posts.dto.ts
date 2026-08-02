@@ -1,10 +1,18 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Type } from 'class-transformer';
-import { IsMongoId, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsMongoId,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 
 export class ListPostsDto {
   @ApiPropertyOptional({
-    description: 'Cache-buster anti-proxy envoyé par le frontend (ignoré côté serveur).',
+    description:
+      'Cache-buster anti-proxy envoyé par le frontend (ignoré côté serveur).',
   })
   @IsOptional()
   @IsString()
@@ -16,14 +24,23 @@ export class ListPostsDto {
   @IsMongoId()
   authorId?: string;
 
-  @ApiPropertyOptional({ example: 7, minimum: 1, maximum: 100, description: 'Nombre par page.' })
+  @ApiPropertyOptional({
+    example: 7,
+    minimum: 1,
+    maximum: 100,
+    description: 'Nombre par page.',
+  })
   @IsOptional()
   @Type(() => Number)
   @Min(1)
   @Max(100)
   limit?: number;
 
-  @ApiPropertyOptional({ example: 1, minimum: 1, description: 'Numéro de page (1-based).' })
+  @ApiPropertyOptional({
+    example: 1,
+    minimum: 1,
+    description: 'Numéro de page (1-based).',
+  })
   @IsOptional()
   @Type(() => Number)
   @Min(1)

@@ -18,6 +18,15 @@ import configuration from './configuration';
         MONGODB_URI: Joi.string()
           .pattern(/^mongodb(\+srv)?:\/\/.+$/)
           .required(),
+        HUB_MONGODB_URI: Joi.string()
+          .allow('')
+          .pattern(/^mongodb(\+srv)?:\/\/.+$/)
+          .optional(),
+        HUB_MONGODB_DB_NAME: Joi.string()
+          .trim()
+          .min(1)
+          .max(64)
+          .default('onehealth_hub'),
         JWT_SECRET: Joi.string().min(32).required(),
         JWT_EXPIRES_IN: Joi.string().default('1h'),
         // Client ID OAuth Web (Google Cloud Console). Optionnel : si absent,
@@ -39,10 +48,7 @@ import configuration from './configuration';
         TWITTER_SITE_HANDLE: Joi.string()
           .pattern(/^@?[A-Za-z0-9_]{1,15}$/)
           .optional(),
-        SWAGGER_ENABLED: Joi.boolean()
-          .truthy('true')
-          .falsy('false')
-          .optional(),
+        SWAGGER_ENABLED: Joi.boolean().truthy('true').falsy('false').optional(),
         SWAGGER_PATH: Joi.string().trim().min(1).default('api/docs'),
         SWAGGER_TITLE: Joi.string().min(2).max(120).optional(),
         SWAGGER_DESCRIPTION: Joi.string().min(10).max(400).optional(),

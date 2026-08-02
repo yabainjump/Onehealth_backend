@@ -15,6 +15,8 @@ import { AlertsModule } from './alerts/alerts.module';
 import { CertificationsModule } from './certifications/certifications.module';
 import { AdminModule } from './admin/admin.module';
 import { RudolfModule } from './rudolf/rudolf.module';
+import { HubModule } from './hub/hub.module';
+import { HUB_CONNECTION } from './hub/hub.constants';
 
 @Module({
   imports: [
@@ -24,6 +26,17 @@ import { RudolfModule } from './rudolf/rudolf.module';
       useFactory: (configService: ConfigService) => ({
         uri: configService.get<string>('MONGODB_URI'),
         dbName: configService.get<string>('MONGODB_DB_NAME') ?? 'onehealth',
+      }),
+    }),
+    MongooseModule.forRootAsync({
+      connectionName: HUB_CONNECTION,
+      inject: [ConfigService],
+      useFactory: (configService: ConfigService) => ({
+        uri:
+          configService.get<string>('HUB_MONGODB_URI') ||
+          configService.get<string>('MONGODB_URI'),
+        dbName:
+          configService.get<string>('HUB_MONGODB_DB_NAME') ?? 'onehealth_hub',
       }),
     }),
     HealthModule,
@@ -39,6 +52,7 @@ import { RudolfModule } from './rudolf/rudolf.module';
     CertificationsModule,
     AdminModule,
     RudolfModule,
+    HubModule,
   ],
 })
 export class AppModule {}

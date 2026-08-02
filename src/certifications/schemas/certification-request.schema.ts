@@ -41,7 +41,8 @@ export class CertificationRequest {
   updatedAt: Date;
 }
 
-export type CertificationRequestDocument = HydratedDocument<CertificationRequest>;
+export type CertificationRequestDocument =
+  HydratedDocument<CertificationRequest>;
 export const CertificationRequestSchema =
   SchemaFactory.createForClass(CertificationRequest);
 

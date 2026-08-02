@@ -14,7 +14,10 @@ export class CertificationsController {
 
   @ApiOperation({ summary: 'Soumettre une demande de certification de profil' })
   @Post()
-  create(@Req() req: RequestWithUser, @Body() dto: CreateCertificationRequestDto) {
+  create(
+    @Req() req: RequestWithUser,
+    @Body() dto: CreateCertificationRequestDto,
+  ) {
     return this.certificationsService.create(req.user.id, dto);
   }
 

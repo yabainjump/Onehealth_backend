@@ -31,7 +31,11 @@ export class PostAttachmentDto {
   @MaxLength(150)
   mimeType: string;
 
-  @ApiProperty({ example: 482910, description: 'Taille en octets.', minimum: 1 })
+  @ApiProperty({
+    example: 482910,
+    description: 'Taille en octets.',
+    minimum: 1,
+  })
   @IsInt()
   @Min(1)
   @Max(50 * 1024 * 1024)

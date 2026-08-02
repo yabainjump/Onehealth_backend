@@ -1,9 +1,19 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
-import { IsInt, IsOptional, IsString, Max, MaxLength, Min } from 'class-validator';
+import {
+  IsInt,
+  IsOptional,
+  IsString,
+  Max,
+  MaxLength,
+  Min,
+} from 'class-validator';
 import { IsSafeMediaUrl } from '../../common/validation/safe-media-url.validator';
 
 export class SendMessageDto {
-  @ApiPropertyOptional({ example: 'Bonjour, comment allez-vous ?', maxLength: 1000 })
+  @ApiPropertyOptional({
+    example: 'Bonjour, comment allez-vous ?',
+    maxLength: 1000,
+  })
   @IsOptional()
   @IsString()
   @MaxLength(1000)
@@ -11,7 +21,7 @@ export class SendMessageDto {
 
   @ApiPropertyOptional({
     example: '/uploads/message/1700000000000-a.webp',
-    description: 'URL d\'image (renvoyée par /api/upload/message).',
+    description: "URL d'image (renvoyée par /api/upload/message).",
   })
   @IsOptional()
   @IsString()
@@ -41,7 +51,11 @@ export class SendMessageDto {
   @MaxLength(120)
   fileMimeType?: string;
 
-  @ApiPropertyOptional({ example: 482910, description: 'Taille du fichier en octets.', minimum: 0 })
+  @ApiPropertyOptional({
+    example: 482910,
+    description: 'Taille du fichier en octets.',
+    minimum: 0,
+  })
   @IsOptional()
   @IsInt()
   @Min(0)

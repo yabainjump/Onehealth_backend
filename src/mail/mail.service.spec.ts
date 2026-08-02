@@ -24,12 +24,8 @@ describe('MailService HTML escaping', () => {
 
     const message = sendMail.mock.calls[0][0] as { html: string };
     expect(message.html).toContain('One &lt;Health&gt;');
-    expect(message.html).toContain(
-      '&lt;img src=x onerror=alert(1)&gt;',
-    );
-    expect(message.html).toContain(
-      '&lt;script&gt;alert(1)&lt;/script&gt;',
-    );
+    expect(message.html).toContain('&lt;img src=x onerror=alert(1)&gt;');
+    expect(message.html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');
     expect(message.html).toContain('https://example.com/?a=1&amp;b=2');
     expect(message.html).not.toContain('<script>alert(1)</script>');
   });

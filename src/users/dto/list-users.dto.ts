@@ -13,7 +13,8 @@ export class ListUsersDto {
   search?: string;
 
   @ApiPropertyOptional({
-    description: 'Cache-buster anti-proxy envoyé par le frontend (ignoré côté serveur).',
+    description:
+      'Cache-buster anti-proxy envoyé par le frontend (ignoré côté serveur).',
   })
   @IsOptional()
   @IsString()

@@ -6,6 +6,13 @@ export enum UserRole {
   ADMIN = 'admin',
 }
 
+export enum HubRole {
+  VIEWER = 'hub_viewer',
+  ANALYST = 'hub_analyst',
+  VERIFIER = 'hub_verifier',
+  ADMIN = 'hub_admin',
+}
+
 export enum UserPhotoSource {
   GOOGLE = 'google',
   USER = 'user',
@@ -27,8 +34,11 @@ export class User {
 
   // Identifiant Google (sub du token) pour les comptes créés/liés via
   // « Se connecter avec Google ». Sparse : la plupart des comptes n'en ont pas.
-  @Prop({ type: String, default: null, index: { unique: true, sparse: true } })
-  googleId: string | null;
+  // Ce champ doit rester absent pour un compte classique. Avec un index
+  // unique sparse, stocker explicitement `null` empêcherait la création d'un
+  // deuxième compte sans Google ID.
+  @Prop({ type: String, index: { unique: true, sparse: true } })
+  googleId?: string;
 
   @Prop({ default: '', select: false })
   passwordResetTokenHash: string;
@@ -100,6 +110,17 @@ export class User {
 
   @Prop({ type: String, enum: UserRole, default: UserRole.USER })
   role: UserRole;
+
+  // Autorisations du Hub régional. Elles sont séparées du rôle de
+  // l'application communautaire pour ne pas donner un accès institutionnel
+  // aux comptes existants par défaut.
+  @Prop({ type: [String], enum: Object.values(HubRole), default: [] })
+  hubRoles: HubRole[];
+
+  // Codes ISO 3166-1 alpha-2 des pays dont l'utilisateur peut consulter les
+  // données. Un administrateur global ou Hub n'est pas limité par cette liste.
+  @Prop({ type: [String], default: [] })
+  hubCountryCodes: string[];
 
   // ---- Certification de profil (professionnels de santé / institutions) ----
   @Prop({ type: Boolean, default: false, index: true })

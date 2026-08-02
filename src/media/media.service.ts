@@ -37,7 +37,10 @@ export class MediaService {
   // demarre meme si elle est absente (les posters video sont alors desactives).
   private ffmpegLib: unknown | null | undefined = undefined;
 
-  async getThumbnail(rawPath: string, requestedWidth: number): Promise<ResolvedMedia> {
+  async getThumbnail(
+    rawPath: string,
+    requestedWidth: number,
+  ): Promise<ResolvedMedia> {
     const sourcePath = this.resolveSourcePath(rawPath);
     const extension = extname(sourcePath).toLowerCase();
 
@@ -50,7 +53,10 @@ export class MediaService {
 
     const width = this.clampWidth(requestedWidth);
     const cacheDir = join(this.cacheRoot, 'thumb');
-    const cacheFile = join(cacheDir, `${this.hash(`${sourcePath}|${width}`)}.webp`);
+    const cacheFile = join(
+      cacheDir,
+      `${this.hash(`${sourcePath}|${width}`)}.webp`,
+    );
 
     if (existsSync(cacheFile)) {
       return { filePath: cacheFile, contentType: 'image/webp' };
@@ -69,7 +75,10 @@ export class MediaService {
       this.logger.warn(
         `Thumbnail generation failed for ${sourcePath}: ${this.errorMessage(error)}`,
       );
-      return { filePath: sourcePath, contentType: this.imageContentType(extension) };
+      return {
+        filePath: sourcePath,
+        contentType: this.imageContentType(extension),
+      };
     }
   }
 
@@ -87,7 +96,10 @@ export class MediaService {
     const cacheDir = join(this.cacheRoot, 'poster');
     const cacheName = `${this.hash(sourcePath)}.jpg`;
     const cacheFile = join(cacheDir, cacheName);
-    const fallbackFile = join(cacheDir, `${this.hash(sourcePath)}-fallback.jpg`);
+    const fallbackFile = join(
+      cacheDir,
+      `${this.hash(sourcePath)}-fallback.jpg`,
+    );
 
     if (existsSync(cacheFile)) {
       return { filePath: cacheFile, contentType: 'image/jpeg' };
@@ -126,7 +138,9 @@ export class MediaService {
     return { filePath: cacheFile, contentType: 'image/jpeg' };
   }
 
-  private async createFallbackPoster(cacheFile: string): Promise<ResolvedMedia> {
+  private async createFallbackPoster(
+    cacheFile: string,
+  ): Promise<ResolvedMedia> {
     if (existsSync(cacheFile)) {
       return { filePath: cacheFile, contentType: 'image/jpeg' };
     }
@@ -191,7 +205,10 @@ export class MediaService {
         `Social image generation failed for ${sourcePath}: ${this.errorMessage(error)}`,
       );
       // En cas d'echec, on sert l'original : jamais d'image cassee.
-      return { filePath: sourcePath, contentType: this.imageContentType(extension) };
+      return {
+        filePath: sourcePath,
+        contentType: this.imageContentType(extension),
+      };
     }
   }
 

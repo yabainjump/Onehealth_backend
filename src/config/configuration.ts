@@ -2,6 +2,8 @@ export default () => ({
   nodeEnv: process.env.NODE_ENV ?? 'development',
   port: Number(process.env.PORT ?? 3000),
   mongodbUri: process.env.MONGODB_URI,
+  hubMongodbUri: process.env.HUB_MONGODB_URI || process.env.MONGODB_URI,
+  hubMongodbDbName: process.env.HUB_MONGODB_DB_NAME ?? 'onehealth_hub',
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
   corsOrigin: process.env.CORS_ORIGIN,

@@ -42,7 +42,8 @@ export class PostAttachment {
   size: number;
 }
 
-export const PostAttachmentSchema = SchemaFactory.createForClass(PostAttachment);
+export const PostAttachmentSchema =
+  SchemaFactory.createForClass(PostAttachment);
 
 @Schema({
   collection: 'posts',

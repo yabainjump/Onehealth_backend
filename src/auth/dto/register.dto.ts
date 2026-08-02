@@ -10,7 +10,10 @@ import {
 import { IsSafeMediaUrl } from '../../common/validation/safe-media-url.validator';
 
 export class RegisterDto {
-  @ApiProperty({ example: 'dr.kamga@example.com', description: 'Adresse e-mail (unique).' })
+  @ApiProperty({
+    example: 'dr.kamga@example.com',
+    description: 'Adresse e-mail (unique).',
+  })
   @IsEmail()
   email: string;
 
@@ -49,7 +52,10 @@ export class RegisterDto {
   @MaxLength(150)
   institution?: string;
 
-  @ApiPropertyOptional({ example: 'Vétérinaire', description: 'Spécialité / type de praticien.' })
+  @ApiPropertyOptional({
+    example: 'Vétérinaire',
+    description: 'Spécialité / type de praticien.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(120)
@@ -76,7 +82,9 @@ export class RegisterDto {
   })
   phone?: string;
 
-  @ApiPropertyOptional({ example: 'Spécialiste en santé publique vétérinaire.' })
+  @ApiPropertyOptional({
+    example: 'Spécialiste en santé publique vétérinaire.',
+  })
   @IsOptional()
   @IsString()
   @MaxLength(250)

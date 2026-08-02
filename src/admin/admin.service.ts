@@ -5,7 +5,7 @@ import {
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
-import { User, UserRole } from '../users/schemas/user.schema';
+import { HubRole, User, UserRole } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { Post } from '../posts/schemas/post.schema';
 import { Alert, AlertVerificationStatus } from '../alerts/schemas/alert.schema';
@@ -129,6 +129,34 @@ export class AdminService {
     }
     const user = await this.userModel
       .findByIdAndUpdate(userId, { $set: { role } }, { new: true })
+      .exec();
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    return this.usersService.toPublicUser(user, user._id.toString());
+  }
+
+  async setHubAccess(userId: string, roles: HubRole[], countryCodes: string[]) {
+    if (
+      roles.length > 0 &&
+      !roles.includes(HubRole.ADMIN) &&
+      countryCodes.length === 0
+    ) {
+      throw new BadRequestException(
+        'At least one CEEAC country is required for a scoped Hub role',
+      );
+    }
+    const user = await this.userModel
+      .findByIdAndUpdate(
+        userId,
+        {
+          $set: {
+            hubRoles: Array.from(new Set(roles)),
+            hubCountryCodes: Array.from(new Set(countryCodes)),
+          },
+        },
+        { new: true, runValidators: true },
+      )
       .exec();
     if (!user) {
       throw new NotFoundException('User not found');

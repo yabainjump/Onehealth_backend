@@ -23,7 +23,17 @@ interface UploadedFileLike {
 interface FileRule {
   extensions: string[];
   mimeTypes: string[];
-  signature: 'jpeg' | 'png' | 'webp' | 'gif' | 'pdf' | 'zip' | 'ole' | 'mp4qt' | 'ebml' | 'text';
+  signature:
+    | 'jpeg'
+    | 'png'
+    | 'webp'
+    | 'gif'
+    | 'pdf'
+    | 'zip'
+    | 'ole'
+    | 'mp4qt'
+    | 'ebml'
+    | 'text';
   allowedFor: UploadKind[];
 }
 
@@ -99,7 +109,9 @@ const FILE_RULES: FileRule[] = [
   },
   {
     extensions: ['.docx'],
-    mimeTypes: ['application/vnd.openxmlformats-officedocument.wordprocessingml.document'],
+    mimeTypes: [
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+    ],
     signature: 'zip',
     allowedFor: ['post', 'message'],
   },
@@ -111,7 +123,9 @@ const FILE_RULES: FileRule[] = [
   },
   {
     extensions: ['.pptx'],
-    mimeTypes: ['application/vnd.openxmlformats-officedocument.presentationml.presentation'],
+    mimeTypes: [
+      'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+    ],
     signature: 'zip',
     allowedFor: ['post', 'message'],
   },
@@ -123,7 +137,9 @@ const FILE_RULES: FileRule[] = [
   },
   {
     extensions: ['.xlsx'],
-    mimeTypes: ['application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'],
+    mimeTypes: [
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ],
     signature: 'zip',
     allowedFor: ['message'],
   },
@@ -167,7 +183,9 @@ export class UploadService {
 
       const sample = await this.readFileSample(file.path, 560);
       if (!this.matchesSignature(sample, matchedRule.signature)) {
-        throw new BadRequestException('File content does not match extension/type.');
+        throw new BadRequestException(
+          'File content does not match extension/type.',
+        );
       }
 
       const baseName = `${Date.now()}-${randomUUID().replace(/-/g, '')}`;
@@ -226,14 +244,17 @@ export class UploadService {
   }
 
   private resolvePublicBaseUrl(): string {
-    const configuredPublicBaseUrl =
-      (this.configService.get<string>('PUBLIC_BASE_URL') || '').trim();
+    const configuredPublicBaseUrl = (
+      this.configService.get<string>('PUBLIC_BASE_URL') || ''
+    ).trim();
 
     if (configuredPublicBaseUrl) {
       return configuredPublicBaseUrl.replace(/\/+$/, '');
     }
 
-    const firstCorsOrigin = (this.configService.get<string>('CORS_ORIGIN') || '')
+    const firstCorsOrigin = (
+      this.configService.get<string>('CORS_ORIGIN') || ''
+    )
       .split(',')
       .map((origin) => origin.trim())
       .find((origin) => origin.length > 0);
@@ -246,7 +267,10 @@ export class UploadService {
     return `http://localhost:${port}`;
   }
 
-  private async readFileSample(path: string, maxBytes: number): Promise<Buffer> {
+  private async readFileSample(
+    path: string,
+    maxBytes: number,
+  ): Promise<Buffer> {
     const handle = await fs.open(path, 'r');
 
     try {
@@ -258,7 +282,10 @@ export class UploadService {
     }
   }
 
-  private matchesSignature(buffer: Buffer, signature: FileRule['signature']): boolean {
+  private matchesSignature(
+    buffer: Buffer,
+    signature: FileRule['signature'],
+  ): boolean {
     if (buffer.length === 0) {
       return false;
     }
@@ -267,19 +294,43 @@ export class UploadService {
       case 'jpeg':
         return this.startsWith(buffer, [0xff, 0xd8, 0xff]);
       case 'png':
-        return this.startsWith(buffer, [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+        return this.startsWith(
+          buffer,
+          [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a],
+        );
       case 'webp':
-        return buffer.length >= 12 && buffer.subarray(0, 4).toString('ascii') === 'RIFF' && buffer.subarray(8, 12).toString('ascii') === 'WEBP';
+        return (
+          buffer.length >= 12 &&
+          buffer.subarray(0, 4).toString('ascii') === 'RIFF' &&
+          buffer.subarray(8, 12).toString('ascii') === 'WEBP'
+        );
       case 'gif':
-        return buffer.length >= 6 && (buffer.subarray(0, 6).toString('ascii') === 'GIF87a' || buffer.subarray(0, 6).toString('ascii') === 'GIF89a');
+        return (
+          buffer.length >= 6 &&
+          (buffer.subarray(0, 6).toString('ascii') === 'GIF87a' ||
+            buffer.subarray(0, 6).toString('ascii') === 'GIF89a')
+        );
       case 'pdf':
-        return buffer.length >= 5 && buffer.subarray(0, 5).toString('ascii') === '%PDF-';
+        return (
+          buffer.length >= 5 &&
+          buffer.subarray(0, 5).toString('ascii') === '%PDF-'
+        );
       case 'zip':
-        return this.startsWith(buffer, [0x50, 0x4b, 0x03, 0x04]) || this.startsWith(buffer, [0x50, 0x4b, 0x05, 0x06]) || this.startsWith(buffer, [0x50, 0x4b, 0x07, 0x08]);
+        return (
+          this.startsWith(buffer, [0x50, 0x4b, 0x03, 0x04]) ||
+          this.startsWith(buffer, [0x50, 0x4b, 0x05, 0x06]) ||
+          this.startsWith(buffer, [0x50, 0x4b, 0x07, 0x08])
+        );
       case 'ole':
-        return this.startsWith(buffer, [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1]);
+        return this.startsWith(
+          buffer,
+          [0xd0, 0xcf, 0x11, 0xe0, 0xa1, 0xb1, 0x1a, 0xe1],
+        );
       case 'mp4qt':
-        return buffer.length >= 12 && buffer.subarray(4, 8).toString('ascii') === 'ftyp';
+        return (
+          buffer.length >= 12 &&
+          buffer.subarray(4, 8).toString('ascii') === 'ftyp'
+        );
       case 'ebml':
         return this.startsWith(buffer, [0x1a, 0x45, 0xdf, 0xa3]);
       case 'text':
