@@ -55,7 +55,6 @@ export class HubScenarioService {
       });
       await Promise.all([
         this.repository.createAudit({
-          auditKey: `${scenario.scenarioCode}-RUN`,
           entityType: 'scenario',
           entityId: scenario.scenarioCode,
           action: 'SCENARIO_COMPLETED',
@@ -70,7 +69,6 @@ export class HubScenarioService {
           isDemo: true,
         }),
         this.repository.createAudit({
-          auditKey: `${scenario.scenarioCode}-SIGNAL`,
           entityType: 'signal',
           entityId: scenario.signal.signalCode,
           action: 'SIGNAL_CREATED_BY_SCENARIO',
