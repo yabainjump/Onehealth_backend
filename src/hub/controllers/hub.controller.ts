@@ -22,12 +22,16 @@ import { HubSignalDecisionDto } from '../dto/hub-signal-decision.dto';
 import { ListHubConnectorsDto } from '../dto/list-hub-connectors.dto';
 import { ListHubObservationsDto } from '../dto/list-hub-observations.dto';
 import { UpdateHubSharingPolicyDto } from '../dto/update-hub-sharing-policy.dto';
+import { UpdateHubReportStatusDto } from '../dto/update-hub-report-status.dto';
 import { HubAdminGuard } from '../guards/hub-admin.guard';
 import { HubAccessGuard } from '../guards/hub-access.guard';
 import { HubVerifierGuard } from '../guards/hub-verifier.guard';
+import { HubAnalystGuard } from '../guards/hub-analyst.guard';
 import { HubConnectorService } from '../services/hub-connector.service';
 import { HubDemoSeedService } from '../services/hub-demo-seed.service';
 import { HubService } from '../services/hub.service';
+import { HubScenarioService } from '../services/hub-scenario.service';
+import { HubReportService } from '../services/hub-report.service';
 
 @ApiTags('Hub régional CEEAC')
 @ApiBearerAuth('access-token')
@@ -38,6 +42,8 @@ export class HubController {
     private readonly hubService: HubService,
     private readonly connectorService: HubConnectorService,
     private readonly demoSeedService: HubDemoSeedService,
+    private readonly scenarioService: HubScenarioService,
+    private readonly reportService: HubReportService,
   ) {}
 
   @ApiOperation({ summary: 'Indicateurs du Hub selon la portée autorisée' })
@@ -55,6 +61,14 @@ export class HubController {
     @Query() query: ListHubObservationsDto,
   ) {
     return this.hubService.listObservations(query, request.user);
+  }
+
+  @ApiOperation({
+    summary: 'Décisions et signaux nécessitant une action humaine',
+  })
+  @Get('decisions')
+  decisions(@Req() request: RequestWithUser) {
+    return this.hubService.decisions(request.user);
   }
 
   @ApiOperation({ summary: "Dossier complet d'une observation du Hub" })
@@ -139,6 +153,50 @@ export class HubController {
       dto.note,
       request.user,
     );
+  }
+
+  @ApiOperation({ summary: 'État du scénario dynamique de démonstration' })
+  @UseGuards(HubAdminGuard)
+  @Get('demo/scenario')
+  scenario() {
+    return this.scenarioService.current();
+  }
+
+  @ApiOperation({ summary: 'Exécuter le scénario dynamique intersectoriel' })
+  @UseGuards(HubAdminGuard)
+  @Post('demo/scenario/run')
+  runScenario(@Req() request: RequestWithUser) {
+    return this.scenarioService.run(request.user);
+  }
+
+  @ApiOperation({ summary: "Versions de rapport d'une alerte vérifiée" })
+  @Get('alerts/:observationId/reports')
+  reports(
+    @Req() request: RequestWithUser,
+    @Param('observationId') observationId: string,
+  ) {
+    return this.reportService.list(observationId, request.user);
+  }
+
+  @ApiOperation({ summary: "Générer une nouvelle version du rapport d'alerte" })
+  @UseGuards(HubAnalystGuard)
+  @Post('alerts/:observationId/reports')
+  generateReport(
+    @Req() request: RequestWithUser,
+    @Param('observationId') observationId: string,
+  ) {
+    return this.reportService.generate(observationId, request.user);
+  }
+
+  @ApiOperation({ summary: 'Faire progresser le workflow du rapport' })
+  @UseGuards(HubAnalystGuard)
+  @Patch('reports/:reportId/status')
+  updateReportStatus(
+    @Req() request: RequestWithUser,
+    @Param('reportId') reportId: string,
+    @Body() dto: UpdateHubReportStatusDto,
+  ) {
+    return this.reportService.transition(reportId, dto.status, request.user);
   }
 
   @ApiOperation({

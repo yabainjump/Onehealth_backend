@@ -152,8 +152,14 @@ Le Hub utilise la base logique `onehealth_hub` et ne mélange pas ses collection
 - `GET /api/hub/summary`
 - `GET /api/hub/observations`
 - `GET /api/hub/observations/:id`
+- `GET /api/hub/decisions` — signaux en attente filtrés selon le périmètre pays
 - `PATCH /api/hub/signals/:signalCode/assign` — vérificateur uniquement
 - `PATCH /api/hub/signals/:signalCode/decision` — vérificateur uniquement, justification obligatoire
+- `GET /api/hub/demo/scenario` — état du scénario dynamique, administrateur Hub
+- `POST /api/hub/demo/scenario/run` — exécution idempotente du scénario Cameroun–Tchad
+- `GET /api/hub/alerts/:observationId/reports` — versions persistantes du rapport
+- `POST /api/hub/alerts/:observationId/reports` — génération d'une version, analyste minimum
+- `PATCH /api/hub/reports/:reportId/status` — workflow revue, validation et publication selon le rôle
 - `POST /api/hub/demo/seed` — administrateur de l'application uniquement
 - `PATCH /api/admin/users/:id/hub-access` — attribution des rôles et pays autorisés
 

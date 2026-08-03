@@ -67,12 +67,22 @@ export class HubService {
       this.repository.findSignalByObservation(observation.canonicalId),
       this.repository.findAlertByObservation(observation.canonicalId),
     ]);
-    const audit = signal
-      ? await this.repository.listAudit(
-          signal.signalCode,
+    const reports = alert
+      ? await this.repository.listReports(
+          alert.alertCode,
           observation.countryCode,
         )
       : [];
+    const audit = await this.repository.listDossierAudit(
+      [
+        observation.canonicalId,
+        observation.scenarioId,
+        ...(signal ? [signal.signalCode] : []),
+        ...(alert ? [alert.alertCode] : []),
+        ...reports.map((report) => report.reportId),
+      ],
+      observation.countryCode,
+    );
 
     return {
       observation: this.presentObservation(observation),
@@ -89,6 +99,37 @@ export class HubService {
         : null,
       audit,
       simulated: true,
+    };
+  }
+
+  async decisions(user: PublicUser) {
+    const rows = await this.repository.listDecisionSignals(
+      resolveHubCountryScope(user),
+    );
+    const priorityOrder = { critical: 0, high: 1, medium: 2, low: 3 } as const;
+    const items = rows
+      .filter((row) => row.observation)
+      .map(({ signal, observation }) => ({
+        signalCode: signal.signalCode,
+        observationId: signal.observationId,
+        title: observation!.title,
+        countryCode: observation!.countryCode,
+        countryName: observation!.countryName,
+        adminArea: observation!.adminArea,
+        sector: observation!.sector,
+        priority: signal.riskLevel,
+        confidenceScore: signal.confidenceScore,
+        status: signal.status,
+        assignedTo: signal.assignedTo?.toString() ?? null,
+        detectedAt: signal.detectedAt,
+        dueAt: new Date(signal.detectedAt.getTime() + 24 * 60 * 60 * 1000),
+        simulated: signal.isDemo,
+      }))
+      .sort((a, b) => priorityOrder[a.priority] - priorityOrder[b.priority]);
+    return {
+      items,
+      total: items.length,
+      simulated: items.every((item) => item.simulated),
     };
   }
 

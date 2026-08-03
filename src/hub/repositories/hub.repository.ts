@@ -26,6 +26,15 @@ import {
   HubSharingPolicyDocument,
 } from '../schemas/hub-sharing-policy.schema';
 import { HubSignal, HubSignalDocument } from '../schemas/hub-signal.schema';
+import {
+  HubScenarioRun,
+  HubScenarioRunDocument,
+} from '../schemas/hub-scenario-run.schema';
+import {
+  HubAlertReport,
+  HubAlertReportDocument,
+} from '../schemas/hub-alert-report.schema';
+import type { HubReportStatus } from '../hub.constants';
 
 export interface HubObservationListFilter {
   readonly search?: string;
@@ -45,7 +54,9 @@ export interface HubAuditInput {
     | 'alert'
     | 'connector'
     | 'sharing-policy'
-    | 'seed';
+    | 'seed'
+    | 'scenario'
+    | 'report';
   readonly entityId: string;
   readonly action: string;
   readonly actorId: string;
@@ -70,6 +81,10 @@ export class HubRepository {
     private readonly auditLogModel: Model<HubAuditLog>,
     @InjectModel(HubSharingPolicy.name, HUB_CONNECTION)
     private readonly sharingPolicyModel: Model<HubSharingPolicy>,
+    @InjectModel(HubScenarioRun.name, HUB_CONNECTION)
+    private readonly scenarioRunModel: Model<HubScenarioRun>,
+    @InjectModel(HubAlertReport.name, HUB_CONNECTION)
+    private readonly alertReportModel: Model<HubAlertReport>,
   ) {}
 
   async listObservations(filter: HubObservationListFilter): Promise<{
@@ -201,6 +216,196 @@ export class HubRepository {
       .limit(100)
       .lean()
       .exec();
+  }
+
+  async listDossierAudit(entityIds: readonly string[], countryCode: string) {
+    return this.auditLogModel
+      .find({ entityId: { $in: entityIds }, countryCode })
+      .sort({ createdAt: -1 })
+      .limit(200)
+      .lean()
+      .exec();
+  }
+
+  async listDecisionSignals(allowedCountryCodes: readonly string[] | null) {
+    const filter: Record<string, unknown> = {
+      status: { $in: ['SIGNAL_DETECTED', 'UNDER_VERIFICATION'] },
+    };
+    if (allowedCountryCodes) filter.countryCode = { $in: allowedCountryCodes };
+    const signals = await this.signalModel
+      .find(filter)
+      .sort({ riskLevel: -1, detectedAt: -1 })
+      .limit(100)
+      .exec();
+    const observations = await this.observationModel
+      .find({
+        canonicalId: { $in: signals.map((signal) => signal.observationId) },
+      })
+      .exec();
+    const byId = new Map(observations.map((item) => [item.canonicalId, item]));
+    return signals.map((signal) => ({
+      signal,
+      observation: byId.get(signal.observationId) ?? null,
+    }));
+  }
+
+  findScenario(scenarioCode: string): Promise<HubScenarioRunDocument | null> {
+    return this.scenarioRunModel.findOne({ scenarioCode }).exec();
+  }
+
+  async startScenario(input: {
+    scenarioCode: string;
+    title: string;
+    description: string;
+    steps: readonly { code: string; label: string }[];
+    initiatedBy: string;
+    startedAt: Date;
+  }) {
+    return this.scenarioRunModel
+      .findOneAndUpdate(
+        { scenarioCode: input.scenarioCode },
+        {
+          $set: {
+            title: input.title,
+            description: input.description,
+            status: 'RUNNING',
+            steps: input.steps.map((step) => ({
+              ...step,
+              status: 'PENDING',
+              completedAt: null,
+            })),
+            observationIds: [],
+            signalCode: '',
+            initiatedBy: input.initiatedBy,
+            startedAt: input.startedAt,
+            completedAt: null,
+            isDemo: true,
+          },
+        },
+        { upsert: true, new: true, runValidators: true },
+      )
+      .exec();
+  }
+
+  async completeScenario(input: {
+    scenarioCode: string;
+    observationIds: readonly string[];
+    signalCode: string;
+    completedAt: Date;
+  }) {
+    return this.scenarioRunModel
+      .findOneAndUpdate(
+        { scenarioCode: input.scenarioCode },
+        {
+          $set: {
+            status: 'COMPLETED',
+            observationIds: input.observationIds,
+            signalCode: input.signalCode,
+            completedAt: input.completedAt,
+            'steps.$[].status': 'COMPLETED',
+            'steps.$[].completedAt': input.completedAt,
+          },
+        },
+        { new: true, runValidators: true },
+      )
+      .exec();
+  }
+
+  failScenario(scenarioCode: string) {
+    return this.scenarioRunModel
+      .findOneAndUpdate(
+        { scenarioCode },
+        { $set: { status: 'FAILED', completedAt: new Date() } },
+        { new: true },
+      )
+      .exec();
+  }
+
+  async upsertScenarioData(data: {
+    rawRecords: readonly HubDemoRawSeed[];
+    observations: readonly HubDemoObservationSeed[];
+    signal: HubDemoSignalSeed;
+  }) {
+    await Promise.all([
+      this.bulkUpsert(this.rawRecordModel, data.rawRecords, (record) => ({
+        sourceSystem: record.sourceSystem,
+        sourceInstance: record.sourceInstance,
+        countryCode: record.countryCode,
+        sourceRecordId: record.sourceRecordId,
+      })),
+      this.bulkUpsert(this.observationModel, data.observations, (record) => ({
+        canonicalId: record.canonicalId,
+      })),
+      this.bulkUpsert(this.signalModel, [data.signal], (record) => ({
+        signalCode: record.signalCode,
+      })),
+    ]);
+  }
+
+  listReports(
+    alertCode: string,
+    countryCode: string,
+  ): Promise<HubAlertReportDocument[]> {
+    return this.alertReportModel
+      .find({ alertCode, countryCode })
+      .sort({ version: -1 })
+      .exec();
+  }
+
+  latestReport(alertCode: string): Promise<HubAlertReportDocument | null> {
+    return this.alertReportModel
+      .findOne({ alertCode })
+      .sort({ version: -1 })
+      .exec();
+  }
+
+  createReport(
+    input: Omit<
+      HubAlertReport,
+      'validatedBy' | 'validatedAt' | 'publishedBy' | 'publishedAt'
+    >,
+  ) {
+    return this.alertReportModel.create({
+      ...input,
+      validatedBy: '',
+      validatedAt: null,
+      publishedBy: '',
+      publishedAt: null,
+    });
+  }
+
+  updateReportStatus(
+    reportId: string,
+    from: HubReportStatus,
+    to: HubReportStatus,
+    actorId: string,
+    countryCodes: readonly string[] | null,
+  ) {
+    const filter: Record<string, unknown> = { reportId, status: from };
+    if (countryCodes) filter.countryCode = { $in: countryCodes };
+    const set: Record<string, unknown> = { status: to };
+    const now = new Date();
+    if (to === 'VALIDATED') {
+      set.validatedBy = actorId;
+      set.validatedAt = now;
+    }
+    if (to === 'PUBLISHED') {
+      set.publishedBy = actorId;
+      set.publishedAt = now;
+    }
+    return this.alertReportModel
+      .findOneAndUpdate(
+        filter,
+        { $set: set },
+        { new: true, runValidators: true },
+      )
+      .exec();
+  }
+
+  findReport(reportId: string, countryCodes: readonly string[] | null) {
+    const filter: Record<string, unknown> = { reportId };
+    if (countryCodes) filter.countryCode = { $in: countryCodes };
+    return this.alertReportModel.findOne(filter).exec();
   }
 
   listSharingPolicies(
@@ -340,7 +545,7 @@ export class HubRepository {
   }
 
   createAudit(input: HubAuditInput) {
-    return this.auditLogModel.create({
+    const document = {
       auditKey: input.auditKey ?? null,
       entityType: input.entityType,
       entityId: input.entityId,
@@ -350,7 +555,17 @@ export class HubRepository {
       metadata: input.metadata ?? {},
       countryCode: input.countryCode,
       isDemo: input.isDemo,
-    });
+    };
+    if (input.auditKey) {
+      return this.auditLogModel
+        .findOneAndUpdate(
+          { auditKey: input.auditKey },
+          { $setOnInsert: document },
+          { upsert: true, new: true },
+        )
+        .exec();
+    }
+    return this.auditLogModel.create(document);
   }
 
   async seedDemo(data: {
@@ -444,6 +659,24 @@ export class HubRepository {
     }));
     await model.bulkWrite(
       operations as Parameters<Model<TModel>['bulkWrite']>[0],
+      { ordered: false },
+    );
+  }
+
+  private async bulkUpsert<TModel, TSeed extends object>(
+    model: Model<TModel>,
+    records: readonly TSeed[],
+    filterFor: (record: TSeed) => Record<string, unknown>,
+  ): Promise<void> {
+    if (!records.length) return;
+    await model.bulkWrite(
+      records.map((record) => ({
+        updateOne: {
+          filter: filterFor(record),
+          update: { $set: record },
+          upsert: true,
+        },
+      })) as Parameters<Model<TModel>['bulkWrite']>[0],
       { ordered: false },
     );
   }

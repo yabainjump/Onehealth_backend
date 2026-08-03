@@ -35,6 +35,10 @@ export type HubSignalStatus =
   | 'VERIFIED'
   | 'REJECTED'
   | 'CLOSED';
+export type HubScenarioStatus = 'READY' | 'RUNNING' | 'COMPLETED' | 'FAILED';
+export type HubReportStatus = 'DRAFT' | 'IN_REVIEW' | 'VALIDATED' | 'PUBLISHED';
+
+export const HUB_DYNAMIC_SCENARIO_CODE = 'SCN-CM-TD-CONVERGENCE-01';
 
 export const HUB_SIGNAL_TRANSITION_ERROR =
   "Transition refusée : le signal doit être assigné à l'expert connecté et en cours de vérification.";
