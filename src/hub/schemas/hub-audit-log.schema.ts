@@ -3,8 +3,8 @@ import { HydratedDocument } from 'mongoose';
 
 @Schema({ collection: 'hub_audit_logs', timestamps: true, versionKey: false })
 export class HubAuditLog {
-  @Prop({ type: String, default: null, index: { unique: true, sparse: true } })
-  auditKey: string | null;
+  @Prop({ type: String, index: { unique: true, sparse: true } })
+  auditKey?: string;
 
   @Prop({ type: String, required: true, trim: true, index: true })
   entityType:

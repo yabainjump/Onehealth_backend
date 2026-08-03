@@ -556,7 +556,7 @@ export class HubRepository {
 
   createAudit(input: HubAuditInput) {
     const document = {
-      auditKey: input.auditKey ?? null,
+      ...(input.auditKey ? { auditKey: input.auditKey } : {}),
       entityType: input.entityType,
       entityId: input.entityId,
       action: input.action,
