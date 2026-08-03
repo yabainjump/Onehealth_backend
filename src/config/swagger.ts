@@ -11,9 +11,7 @@ export function setupSwagger(
     'SWAGGER_ENABLED',
   );
 
-  // Defaut SECURISE : si SWAGGER_ENABLED n'est pas defini, la doc est active en
-  // developpement mais DESACTIVEE en production (on n'expose pas publiquement le
-  // schema complet de l'API). Pour l'activer en prod : SWAGGER_ENABLED=true.
+  
   const swaggerEnabled =
     swaggerEnabledRaw === undefined ||
     swaggerEnabledRaw === null ||
