@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-APP_DIR="${APP_DIR:-$HOME/public_html/backend.onehealthnetwork.yaba-in.com}"
+APP_DIR="${APP_DIR:-$HOME/apps/onehealth_backend}"
 REPO_URL="${REPO_URL:-https://github.com/yabainjump/Onehealth_backend.git}"
 BRANCH="${BRANCH:-main}"
 NODE_BIN_DIR="${NODE_BIN_DIR:-/opt/cpanel/ea-nodejs20/bin}"
@@ -10,8 +10,12 @@ NODE_BIN="${NODE_BIN:-$NODE_BIN_DIR/node}"
 PM2_BIN="${PM2_BIN:-pm2}"
 PM2_APP_NAME="${PM2_APP_NAME:-onehealth-backend}"
 UPLOADS_DIR="${UPLOADS_DIR:-$HOME/apps/onehealth-data/uploads}"
+DASHBOARD_ORIGIN="${DASHBOARD_ORIGIN:-https://onehealthdashboard.yaba-in.com}"
+PUBLIC_API_BASE_URL="${PUBLIC_API_BASE_URL:-https://backend.onehealthnetwork.yaba-in.com/api}"
+VERIFY_PUBLIC_API="${VERIFY_PUBLIC_API:-true}"
 
-export UPLOADS_DIR
+export PATH="$(dirname "$NODE_BIN"):$NODE_BIN_DIR:$PATH"
+export NODE_BIN PM2_APP_NAME UPLOADS_DIR
 
 mkdir -p "$APP_DIR"
 mkdir -p "$UPLOADS_DIR"/{profile,post,message}
@@ -50,6 +54,27 @@ git fetch origin "$BRANCH"
 git checkout -f "$BRANCH"
 git reset --hard "origin/$BRANCH"
 
+if [ ! -f .env ]; then
+  echo "Error: missing production configuration: $APP_DIR/.env"
+  exit 1
+fi
+
+CORS_VALUE="$(grep -E '^[[:space:]]*CORS_ORIGIN=' .env | tail -n 1 | cut -d= -f2- || true)"
+CORS_NORMALIZED="$(printf '%s' "$CORS_VALUE" | tr -d '[:space:]\"' | tr -d "'")"
+case ",$CORS_NORMALIZED," in
+  *",$DASHBOARD_ORIGIN,"*) ;;
+  *)
+    echo "Error: $DASHBOARD_ORIGIN is missing from CORS_ORIGIN in $APP_DIR/.env"
+    echo "Keep the existing origins and add the dashboard origin, separated by a comma."
+    exit 1
+    ;;
+esac
+
+# Passing the validated value to PM2 with --update-env also fixes processes
+# originally created from another working directory. ConfigModule will still
+# read the complete .env file from APP_DIR for all other settings.
+export CORS_ORIGIN="$CORS_NORMALIZED"
+
 if [ -f package-lock.json ]; then
   "$NPM_BIN" ci
 else
@@ -58,14 +83,27 @@ fi
 
 "$NPM_BIN" run build
 
-if "$PM2_BIN" describe "$PM2_APP_NAME" >/dev/null 2>&1; then
-  "$PM2_BIN" restart "$PM2_APP_NAME" --update-env
-else
-  "$PM2_BIN" start dist/main.js \
-    --interpreter "$NODE_BIN" \
-    --name "$PM2_APP_NAME"
-fi
+"$PM2_BIN" startOrReload ecosystem.config.cjs --update-env
 
 "$PM2_BIN" save
+
+if [ "$VERIFY_PUBLIC_API" = "true" ]; then
+  CORS_HEADERS="$(mktemp)"
+  trap 'rm -f "$CORS_HEADERS"' EXIT
+  CORS_STATUS="$(curl -sS --connect-timeout 10 --max-time 30 \
+    -X OPTIONS -D "$CORS_HEADERS" -o /dev/null -w '%{http_code}' \
+    -H "Origin: $DASHBOARD_ORIGIN" \
+    -H 'Access-Control-Request-Method: POST' \
+    -H 'Access-Control-Request-Headers: content-type,authorization' \
+    "$PUBLIC_API_BASE_URL/auth/login")"
+  if [ "$CORS_STATUS" != "204" ] || \
+     ! grep -Fqi "Access-Control-Allow-Origin: $DASHBOARD_ORIGIN" "$CORS_HEADERS"; then
+    echo "Error: public API CORS verification failed with HTTP $CORS_STATUS."
+    "$PM2_BIN" describe "$PM2_APP_NAME" || true
+    exit 1
+  fi
+  rm -f "$CORS_HEADERS"
+  trap - EXIT
+fi
 
 echo "OneHealth backend deployment completed."
