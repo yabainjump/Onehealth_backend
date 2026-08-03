@@ -326,6 +326,16 @@ export class HubRepository {
     observations: readonly HubDemoObservationSeed[];
     signal: HubDemoSignalSeed;
   }) {
+    // Une relance rejoue le workflow de démonstration depuis le signal. Les
+    // rapports restent historisés, mais une ancienne alerte vérifiée ne doit
+    // pas rendre le nouveau signal artificiellement validé.
+    await this.alertModel
+      .deleteOne({
+        signalCode: data.signal.signalCode,
+        observationId: data.signal.observationId,
+        isDemo: true,
+      })
+      .exec();
     await Promise.all([
       this.bulkUpsert(this.rawRecordModel, data.rawRecords, (record) => ({
         sourceSystem: record.sourceSystem,
