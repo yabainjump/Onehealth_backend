@@ -13,9 +13,18 @@ UPLOADS_DIR="${UPLOADS_DIR:-$HOME/apps/onehealth-data/uploads}"
 DASHBOARD_ORIGIN="${DASHBOARD_ORIGIN:-https://onehealthdashboard.yaba-in.com}"
 PUBLIC_API_BASE_URL="${PUBLIC_API_BASE_URL:-https://backend.onehealthnetwork.yaba-in.com/api}"
 VERIFY_PUBLIC_API="${VERIFY_PUBLIC_API:-true}"
+STARTUP_CHECK_ATTEMPTS="${STARTUP_CHECK_ATTEMPTS:-12}"
+STARTUP_CHECK_DELAY_SECONDS="${STARTUP_CHECK_DELAY_SECONDS:-5}"
 
 export PATH="$(dirname "$NODE_BIN"):$NODE_BIN_DIR:$PATH"
 export NODE_BIN PM2_APP_NAME UPLOADS_DIR
+
+case "$STARTUP_CHECK_ATTEMPTS:$STARTUP_CHECK_DELAY_SECONDS" in
+  :*|*:|*[!0-9:]*|0:*|*:0)
+    echo "Error: startup check attempts and delay must be positive integers."
+    exit 1
+    ;;
+esac
 
 mkdir -p "$APP_DIR"
 mkdir -p "$UPLOADS_DIR"/{profile,post,message}
@@ -90,14 +99,32 @@ fi
 if [ "$VERIFY_PUBLIC_API" = "true" ]; then
   CORS_HEADERS="$(mktemp)"
   trap 'rm -f "$CORS_HEADERS"' EXIT
-  CORS_STATUS="$(curl -sS --connect-timeout 10 --max-time 30 \
-    -X OPTIONS -D "$CORS_HEADERS" -o /dev/null -w '%{http_code}' \
-    -H "Origin: $DASHBOARD_ORIGIN" \
-    -H 'Access-Control-Request-Method: POST' \
-    -H 'Access-Control-Request-Headers: content-type,authorization' \
-    "$PUBLIC_API_BASE_URL/auth/login")"
-  if [ "$CORS_STATUS" != "204" ] || \
-     ! grep -Fqi "Access-Control-Allow-Origin: $DASHBOARD_ORIGIN" "$CORS_HEADERS"; then
+  CORS_STATUS="000"
+  CORS_READY="false"
+
+  for ((attempt = 1; attempt <= STARTUP_CHECK_ATTEMPTS; attempt += 1)); do
+    if ! CORS_STATUS="$(curl -sS --connect-timeout 10 --max-time 30 \
+      -X OPTIONS -D "$CORS_HEADERS" -o /dev/null -w '%{http_code}' \
+      -H "Origin: $DASHBOARD_ORIGIN" \
+      -H 'Access-Control-Request-Method: POST' \
+      -H 'Access-Control-Request-Headers: content-type,authorization' \
+      "$PUBLIC_API_BASE_URL/auth/login")"; then
+      CORS_STATUS="000"
+    fi
+
+    if [ "$CORS_STATUS" = "204" ] && \
+       grep -Fqi "Access-Control-Allow-Origin: $DASHBOARD_ORIGIN" "$CORS_HEADERS"; then
+      CORS_READY="true"
+      break
+    fi
+
+    if [ "$attempt" -lt "$STARTUP_CHECK_ATTEMPTS" ]; then
+      echo "API not ready yet (HTTP $CORS_STATUS), retry $attempt/$STARTUP_CHECK_ATTEMPTS..."
+      sleep "$STARTUP_CHECK_DELAY_SECONDS"
+    fi
+  done
+
+  if [ "$CORS_READY" != "true" ]; then
     echo "Error: public API CORS verification failed with HTTP $CORS_STATUS."
     "$PM2_BIN" describe "$PM2_APP_NAME" || true
     exit 1
