@@ -55,6 +55,9 @@ export class HubSharingPolicy {
 
   @Prop({ required: true, default: true })
   isDemo: boolean;
+
+  createdAt: Date;
+  updatedAt: Date;
 }
 
 export type HubSharingPolicyDocument = HydratedDocument<HubSharingPolicy>;

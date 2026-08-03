@@ -7,7 +7,13 @@ export class HubAuditLog {
   auditKey: string | null;
 
   @Prop({ type: String, required: true, trim: true, index: true })
-  entityType: 'observation' | 'signal' | 'alert' | 'connector' | 'seed';
+  entityType:
+    | 'observation'
+    | 'signal'
+    | 'alert'
+    | 'connector'
+    | 'sharing-policy'
+    | 'seed';
 
   @Prop({ required: true, trim: true, index: true })
   entityId: string;

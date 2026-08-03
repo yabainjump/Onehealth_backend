@@ -1,14 +1,20 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import type { PublicUser } from '../../users/interfaces/public-user.interface';
-import { HUB_SIGNAL_TRANSITION_ERROR } from '../hub.constants';
+import {
+  CEEAC_COUNTRY_CODES,
+  HUB_SIGNAL_TRANSITION_ERROR,
+} from '../hub.constants';
 import { ListHubObservationsDto } from '../dto/list-hub-observations.dto';
+import { UpdateHubSharingPolicyDto } from '../dto/update-hub-sharing-policy.dto';
 import { resolveHubCountryScope } from '../hub-access-scope';
 import { HubRepository } from '../repositories/hub.repository';
 import { HubObservationDocument } from '../schemas/hub-observation.schema';
+import { HubSharingPolicyDocument } from '../schemas/hub-sharing-policy.schema';
 import { HubSignalDocument } from '../schemas/hub-signal.schema';
 
 @Injectable()
@@ -84,6 +90,51 @@ export class HubService {
       audit,
       simulated: true,
     };
+  }
+
+  async listSharingPolicies(user: PublicUser) {
+    const policies = await this.repository.listSharingPolicies(
+      resolveHubCountryScope(user),
+    );
+    return {
+      items: policies.map((policy) => this.presentSharingPolicy(policy)),
+      total: policies.length,
+      simulated: policies.every((policy) => policy.isDemo),
+    };
+  }
+
+  async updateSharingPolicy(
+    policyId: string,
+    dto: UpdateHubSharingPolicyDto,
+    user: PublicUser,
+  ) {
+    const safePolicyId = this.policyId(policyId);
+    const updates = this.normalizeSharingPolicy(dto);
+    const policy = await this.repository.updateSharingPolicy(
+      safePolicyId,
+      resolveHubCountryScope(user),
+      updates,
+    );
+    if (!policy) throw new NotFoundException('Hub sharing policy not found');
+
+    await this.repository.createAudit({
+      entityType: 'sharing-policy',
+      entityId: policy.policyId,
+      action: 'SHARING_POLICY_UPDATED',
+      actorId: user.id,
+      actorType: 'USER',
+      metadata: {
+        sharingLevel: policy.sharingLevel,
+        aggregationLevel: policy.aggregationLevel,
+        retentionPeriodDays: policy.retentionPeriodDays,
+        containsPersonalData: policy.containsPersonalData,
+        allowedRoles: policy.allowedRoles,
+        allowedCountries: policy.allowedCountries,
+      },
+      countryCode: policy.countryOwner,
+      isDemo: policy.isDemo,
+    });
+    return this.presentSharingPolicy(policy);
   }
 
   async assignSignal(signalCode: string, user: PublicUser) {
@@ -220,6 +271,65 @@ export class HubService {
     };
   }
 
+  private presentSharingPolicy(policy: HubSharingPolicyDocument) {
+    return {
+      policyId: policy.policyId,
+      countryOwner: policy.countryOwner,
+      sharingLevel: policy.sharingLevel,
+      allowedRoles: policy.allowedRoles,
+      allowedCountries: policy.allowedCountries,
+      aggregationLevel: policy.aggregationLevel,
+      retentionPeriodDays: policy.retentionPeriodDays,
+      containsPersonalData: policy.containsPersonalData,
+      updatedAt: policy.updatedAt,
+      simulated: policy.isDemo,
+    };
+  }
+
+  private normalizeSharingPolicy(dto: UpdateHubSharingPolicyDto) {
+    const allowedRoles = Array.from(new Set(dto.allowedRoles));
+    let allowedCountries = Array.from(
+      new Set(dto.allowedCountries.map((code) => code.toUpperCase())),
+    );
+
+    if (
+      dto.sharingLevel === 'AUTHORIZED_COUNTRIES' &&
+      !allowedCountries.length
+    ) {
+      throw new BadRequestException(
+        'At least one country is required for AUTHORIZED_COUNTRIES',
+      );
+    }
+    if (dto.sharingLevel === 'REGIONAL_AUTHORIZED') {
+      allowedCountries = [...CEEAC_COUNTRY_CODES];
+    }
+    if (
+      dto.sharingLevel === 'OWNER_ONLY' ||
+      dto.sharingLevel === 'OWNER_AND_CEEAC' ||
+      dto.sharingLevel === 'PUBLIC_AGGREGATED'
+    ) {
+      allowedCountries = [];
+    }
+    if (
+      dto.sharingLevel === 'PUBLIC_AGGREGATED' &&
+      (dto.containsPersonalData ||
+        !['COUNTRY', 'REGIONAL'].includes(dto.aggregationLevel))
+    ) {
+      throw new BadRequestException(
+        'Public data must exclude personal data and be aggregated at country or regional level',
+      );
+    }
+
+    return {
+      sharingLevel: dto.sharingLevel,
+      allowedRoles: dto.sharingLevel === 'OWNER_ONLY' ? [] : allowedRoles,
+      allowedCountries,
+      aggregationLevel: dto.aggregationLevel,
+      retentionPeriodDays: dto.retentionPeriodDays,
+      containsPersonalData: dto.containsPersonalData,
+    };
+  }
+
   private canonicalId(value: string): string {
     const id = value.trim().toUpperCase();
     if (!/^OBS-(DHIS2|ARIS|CAPC)-[A-Z]{2}-\d{2}$/.test(id)) {
@@ -234,5 +344,13 @@ export class HubService {
       throw new NotFoundException('Hub signal not found');
     }
     return code;
+  }
+
+  private policyId(value: string): string {
+    const id = value.trim().toUpperCase();
+    if (!/^POLICY-[A-Z0-9-]{2,80}$/.test(id)) {
+      throw new NotFoundException('Hub sharing policy not found');
+    }
+    return id;
   }
 }

@@ -21,7 +21,10 @@ import {
   HubObservationDocument,
 } from '../schemas/hub-observation.schema';
 import { HubRawRecord } from '../schemas/hub-raw-record.schema';
-import { HubSharingPolicy } from '../schemas/hub-sharing-policy.schema';
+import {
+  HubSharingPolicy,
+  HubSharingPolicyDocument,
+} from '../schemas/hub-sharing-policy.schema';
 import { HubSignal, HubSignalDocument } from '../schemas/hub-signal.schema';
 
 export interface HubObservationListFilter {
@@ -41,6 +44,7 @@ export interface HubAuditInput {
     | 'signal'
     | 'alert'
     | 'connector'
+    | 'sharing-policy'
     | 'seed';
   readonly entityId: string;
   readonly action: string;
@@ -196,6 +200,44 @@ export class HubRepository {
       .sort({ createdAt: -1 })
       .limit(100)
       .lean()
+      .exec();
+  }
+
+  listSharingPolicies(
+    allowedCountryCodes: readonly string[] | null,
+  ): Promise<HubSharingPolicyDocument[]> {
+    const filter = allowedCountryCodes
+      ? { countryOwner: { $in: allowedCountryCodes } }
+      : {};
+    return this.sharingPolicyModel
+      .find(filter)
+      .sort({ countryOwner: 1, policyId: 1 })
+      .exec();
+  }
+
+  updateSharingPolicy(
+    policyId: string,
+    allowedCountryCodes: readonly string[] | null,
+    updates: Pick<
+      HubSharingPolicy,
+      | 'sharingLevel'
+      | 'allowedRoles'
+      | 'allowedCountries'
+      | 'aggregationLevel'
+      | 'retentionPeriodDays'
+      | 'containsPersonalData'
+    >,
+  ): Promise<HubSharingPolicyDocument | null> {
+    const filter: Record<string, unknown> = { policyId };
+    if (allowedCountryCodes) {
+      filter.countryOwner = { $in: allowedCountryCodes };
+    }
+    return this.sharingPolicyModel
+      .findOneAndUpdate(
+        filter,
+        { $set: updates },
+        { returnDocument: 'after', runValidators: true },
+      )
       .exec();
   }
 

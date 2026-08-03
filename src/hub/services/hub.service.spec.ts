@@ -1,8 +1,13 @@
-import { ConflictException, ForbiddenException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  ForbiddenException,
+} from '@nestjs/common';
 import type { PublicUser } from '../../users/interfaces/public-user.interface';
 import { HubRole, UserRole } from '../../users/schemas/user.schema';
 import { HubRepository } from '../repositories/hub.repository';
 import type { HubObservationDocument } from '../schemas/hub-observation.schema';
+import type { HubSharingPolicyDocument } from '../schemas/hub-sharing-policy.schema';
 import type { HubSignalDocument } from '../schemas/hub-signal.schema';
 import { HubService } from './hub.service';
 
@@ -23,6 +28,10 @@ describe('HubService', () => {
   const updateObservationStageMock = jest.fn();
   const upsertVerifiedAlertMock = jest.fn();
   const createAuditMock = jest.fn();
+  const listSharingPoliciesMock =
+    jest.fn<HubRepository['listSharingPolicies']>();
+  const updateSharingPolicyMock =
+    jest.fn<HubRepository['updateSharingPolicy']>();
   const repository = {
     summary: summaryMock,
     listObservations: jest.fn(),
@@ -31,6 +40,8 @@ describe('HubService', () => {
     findSignalByObservation: jest.fn(),
     findAlertByObservation: jest.fn(),
     listAudit: jest.fn(),
+    listSharingPolicies: listSharingPoliciesMock,
+    updateSharingPolicy: updateSharingPolicyMock,
     assignSignal: assignSignalMock,
     decideSignal: decideSignalMock,
     updateObservationStage: updateObservationStageMock,
@@ -77,6 +88,117 @@ describe('HubService', () => {
       service.summary(user({ hubCountryCodes: [] })),
     ).rejects.toBeInstanceOf(ForbiddenException);
     expect(summaryMock).not.toHaveBeenCalled();
+  });
+
+  it('lists sovereignty policies only within the user country scope', async () => {
+    const policy = {
+      policyId: 'POLICY-DEMO-CM',
+      countryOwner: 'CM',
+      sharingLevel: 'REGIONAL_AUTHORIZED',
+      allowedRoles: [HubRole.VIEWER],
+      allowedCountries: ['CM'],
+      aggregationLevel: 'ADMIN_1',
+      retentionPeriodDays: 365,
+      containsPersonalData: false,
+      updatedAt: new Date('2026-08-02T12:00:00.000Z'),
+      isDemo: true,
+    } as HubSharingPolicyDocument;
+    listSharingPoliciesMock.mockResolvedValue([policy]);
+
+    const result = await service.listSharingPolicies(user());
+
+    expect(listSharingPoliciesMock).toHaveBeenCalledWith(['CM']);
+    expect(result.items).toHaveLength(1);
+    expect(result.items[0]).toEqual(
+      expect.objectContaining({ policyId: 'POLICY-DEMO-CM' }),
+    );
+  });
+
+  it('refuses public sharing of personal or precise data', async () => {
+    await expect(
+      service.updateSharingPolicy(
+        'POLICY-DEMO-CM',
+        {
+          sharingLevel: 'PUBLIC_AGGREGATED',
+          allowedRoles: [HubRole.VIEWER],
+          allowedCountries: [],
+          aggregationLevel: 'POINT',
+          retentionPeriodDays: 90,
+          containsPersonalData: true,
+        },
+        user({ role: UserRole.ADMIN }),
+      ),
+    ).rejects.toBeInstanceOf(BadRequestException);
+    expect(updateSharingPolicyMock).not.toHaveBeenCalled();
+  });
+
+  it('normalizes and audits a regional sharing decision', async () => {
+    const updatedPolicy = {
+      policyId: 'POLICY-DEMO-CM',
+      countryOwner: 'CM',
+      sharingLevel: 'REGIONAL_AUTHORIZED',
+      allowedRoles: [HubRole.ANALYST],
+      allowedCountries: [
+        'AO',
+        'BI',
+        'CM',
+        'CF',
+        'TD',
+        'CG',
+        'CD',
+        'GQ',
+        'GA',
+        'RW',
+        'ST',
+      ],
+      aggregationLevel: 'ADMIN_1',
+      retentionPeriodDays: 365,
+      containsPersonalData: false,
+      updatedAt: new Date('2026-08-02T12:00:00.000Z'),
+      isDemo: true,
+    } as HubSharingPolicyDocument;
+    let capturedUpdate:
+      | Parameters<HubRepository['updateSharingPolicy']>[2]
+      | null = null;
+    updateSharingPolicyMock.mockImplementation(
+      (
+        _policyId: string,
+        _countryCodes: readonly string[] | null,
+        updates: Parameters<HubRepository['updateSharingPolicy']>[2],
+      ) => {
+        capturedUpdate = updates;
+        return Promise.resolve(updatedPolicy);
+      },
+    );
+    createAuditMock.mockResolvedValue({});
+
+    await service.updateSharingPolicy(
+      'POLICY-DEMO-CM',
+      {
+        sharingLevel: 'REGIONAL_AUTHORIZED',
+        allowedRoles: [HubRole.ANALYST],
+        allowedCountries: [],
+        aggregationLevel: 'ADMIN_1',
+        retentionPeriodDays: 365,
+        containsPersonalData: false,
+      },
+      user({ role: UserRole.ADMIN }),
+    );
+
+    expect(updateSharingPolicyMock).toHaveBeenCalledWith(
+      'POLICY-DEMO-CM',
+      null,
+      expect.any(Object),
+    );
+    expect(capturedUpdate?.allowedCountries).toEqual(
+      expect.arrayContaining(['CM', 'GA', 'CD']),
+    );
+    expect(createAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: 'sharing-policy',
+        action: 'SHARING_POLICY_UPDATED',
+      }),
+    );
   });
 
   it('audits signal assignment', async () => {

@@ -21,6 +21,7 @@ import type { RequestWithUser } from '../../users/interfaces/request-with-user.i
 import { HubSignalDecisionDto } from '../dto/hub-signal-decision.dto';
 import { ListHubConnectorsDto } from '../dto/list-hub-connectors.dto';
 import { ListHubObservationsDto } from '../dto/list-hub-observations.dto';
+import { UpdateHubSharingPolicyDto } from '../dto/update-hub-sharing-policy.dto';
 import { HubAdminGuard } from '../guards/hub-admin.guard';
 import { HubAccessGuard } from '../guards/hub-access.guard';
 import { HubVerifierGuard } from '../guards/hub-verifier.guard';
@@ -76,6 +77,28 @@ export class HubController {
     @Query() query: ListHubConnectorsDto,
   ) {
     return this.connectorService.list(query, request.user);
+  }
+
+  @ApiOperation({
+    summary: 'Registre des politiques de souveraineté autorisées',
+  })
+  @Get('sharing-policies')
+  sharingPolicies(@Req() request: RequestWithUser) {
+    return this.hubService.listSharingPolicies(request.user);
+  }
+
+  @ApiOperation({
+    summary: 'Modifier une politique de partage et auditer la décision',
+  })
+  @ApiParam({ name: 'policyId', example: 'POLICY-DEMO-CM' })
+  @UseGuards(HubAdminGuard)
+  @Patch('sharing-policies/:policyId')
+  updateSharingPolicy(
+    @Req() request: RequestWithUser,
+    @Param('policyId') policyId: string,
+    @Body() dto: UpdateHubSharingPolicyDto,
+  ) {
+    return this.hubService.updateSharingPolicy(policyId, dto, request.user);
   }
 
   @ApiOperation({
