@@ -15,6 +15,7 @@ describe('HubRepository audit persistence', () => {
       unusedModel,
       unusedModel,
       unusedModel,
+      unusedModel,
     );
 
     await repository.createAudit({

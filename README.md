@@ -153,6 +153,9 @@ Le Hub utilise la base logique `onehealth_hub` et ne mélange pas ses collection
 - `GET /api/hub/observations`
 - `GET /api/hub/observations/:id`
 - `GET /api/hub/decisions` — signaux en attente filtrés selon le périmètre pays
+- `GET /api/hub/events` — événements consolidés visibles dans le périmètre autorisé
+- `GET /api/hub/events/:eventCode` — score, raisons et observations sources autorisées
+- `POST /api/hub/events` — consolidation manuelle contrôlée, analyste minimum
 - `PATCH /api/hub/signals/:signalCode/assign` — vérificateur uniquement
 - `PATCH /api/hub/signals/:signalCode/decision` — vérificateur uniquement, justification obligatoire
 - `GET /api/hub/demo/scenario` — état du scénario dynamique, administrateur Hub
@@ -174,6 +177,8 @@ Chargement initial du démonstrateur :
 5. Attribuer ensuite les droits Hub aux comptes de démonstration avec `PATCH /api/admin/users/:id/hub-access`.
 
 Le seed crée 165 données brutes, 165 observations normalisées, 15 signaux, 3 alertes vérifiées et 11 politiques de partage. Toutes portent `isDemo: true`.
+
+Le scénario dynamique crée également un événement consolidé séparé des observations sources. Le moteur `CEEAC-SPATIOTEMPORAL-1.0` calcule un score explicable à partir de la diversité sectorielle, de la fenêtre temporelle, de la distance et du caractère transfrontalier. Un regroupement mono-sectoriel ou insuffisamment corrélé est refusé ; ce score ne valide jamais une alerte.
 
 ## Sécurité implémentée (baseline)
 

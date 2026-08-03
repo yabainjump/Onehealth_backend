@@ -116,6 +116,9 @@ export class HubObservation {
 
   @Prop({ required: true, trim: true, index: true })
   scenarioId: string;
+
+  @Prop({ default: '', trim: true, index: true })
+  eventCode: string;
 }
 
 export type HubObservationDocument = HydratedDocument<HubObservation>;

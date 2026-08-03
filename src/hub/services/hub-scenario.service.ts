@@ -4,10 +4,14 @@ import { HUB_DYNAMIC_SCENARIO_CODE } from '../hub.constants';
 import { HubRepository } from '../repositories/hub.repository';
 import { buildDynamicScenario } from '../scenarios/hub-dynamic-scenario.factory';
 import type { HubScenarioRunDocument } from '../schemas/hub-scenario-run.schema';
+import { HubEventService } from './hub-event.service';
 
 @Injectable()
 export class HubScenarioService {
-  constructor(private readonly repository: HubRepository) {}
+  constructor(
+    private readonly repository: HubRepository,
+    private readonly eventService: HubEventService,
+  ) {}
 
   async current() {
     const run = await this.repository.findScenario(HUB_DYNAMIC_SCENARIO_CODE);
@@ -46,11 +50,17 @@ export class HubScenarioService {
 
     try {
       await this.repository.upsertScenarioData(scenario);
+      const event = await this.eventService.consolidate(
+        scenario.observations.map((item) => item.canonicalId),
+        user,
+        scenario.scenarioCode,
+      );
       const completedAt = new Date();
       const run = await this.repository.completeScenario({
         scenarioCode: scenario.scenarioCode,
         observationIds: scenario.observations.map((item) => item.canonicalId),
         signalCode: scenario.signal.signalCode,
+        eventCode: event.eventCode,
         completedAt,
       });
       await Promise.all([
@@ -64,6 +74,7 @@ export class HubScenarioService {
             observations: scenario.observations.length,
             signalCode: scenario.signal.signalCode,
             countries: ['CM', 'TD'],
+            eventCode: event.eventCode,
           },
           countryCode: 'CM',
           isDemo: true,
@@ -104,6 +115,7 @@ export class HubScenarioService {
       })),
       observationIds: run.observationIds,
       signalCode: run.signalCode || null,
+      eventCode: run.eventCode || null,
       initiatedBy: run.initiatedBy,
       startedAt: run.startedAt,
       completedAt: run.completedAt,

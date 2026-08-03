@@ -16,10 +16,14 @@ import { HubRepository } from '../repositories/hub.repository';
 import { HubObservationDocument } from '../schemas/hub-observation.schema';
 import { HubSharingPolicyDocument } from '../schemas/hub-sharing-policy.schema';
 import { HubSignalDocument } from '../schemas/hub-signal.schema';
+import { HubEventService } from './hub-event.service';
 
 @Injectable()
 export class HubService {
-  constructor(private readonly repository: HubRepository) {}
+  constructor(
+    private readonly repository: HubRepository,
+    private readonly eventService: HubEventService,
+  ) {}
 
   async summary(user: PublicUser) {
     const result = await this.repository.summary(resolveHubCountryScope(user));
@@ -73,10 +77,14 @@ export class HubService {
           observation.countryCode,
         )
       : [];
+    const event = observation.eventCode
+      ? await this.eventService.detail(observation.eventCode, user)
+      : null;
     const audit = await this.repository.listDossierAudit(
       [
         observation.canonicalId,
         observation.scenarioId,
+        ...(observation.eventCode ? [observation.eventCode] : []),
         ...(signal ? [signal.signalCode] : []),
         ...(alert ? [alert.alertCode] : []),
         ...reports.map((report) => report.reportId),
@@ -98,6 +106,7 @@ export class HubService {
           }
         : null,
       audit,
+      event,
       simulated: true,
     };
   }
@@ -292,6 +301,7 @@ export class HubService {
         sourceInstance: observation.sourceInstance,
         sharingPolicyId: observation.sharingPolicyId,
         scenarioId: observation.scenarioId,
+        eventCode: observation.eventCode || null,
       },
     };
   }

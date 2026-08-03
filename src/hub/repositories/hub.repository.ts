@@ -35,6 +35,7 @@ import {
   HubAlertReportDocument,
 } from '../schemas/hub-alert-report.schema';
 import type { HubReportStatus } from '../hub.constants';
+import { HubEvent, HubEventDocument } from '../schemas/hub-event.schema';
 
 export interface HubObservationListFilter {
   readonly search?: string;
@@ -56,7 +57,8 @@ export interface HubAuditInput {
     | 'sharing-policy'
     | 'seed'
     | 'scenario'
-    | 'report';
+    | 'report'
+    | 'event';
   readonly entityId: string;
   readonly action: string;
   readonly actorId: string;
@@ -85,6 +87,8 @@ export class HubRepository {
     private readonly scenarioRunModel: Model<HubScenarioRun>,
     @InjectModel(HubAlertReport.name, HUB_CONNECTION)
     private readonly alertReportModel: Model<HubAlertReport>,
+    @InjectModel(HubEvent.name, HUB_CONNECTION)
+    private readonly eventModel: Model<HubEvent>,
   ) {}
 
   async listObservations(filter: HubObservationListFilter): Promise<{
@@ -178,6 +182,19 @@ export class HubRepository {
         ...this.observationFilter(allowedCountryCodes),
         canonicalId,
       })
+      .exec();
+  }
+
+  findObservationsByIds(
+    canonicalIds: readonly string[],
+    allowedCountryCodes: readonly string[] | null,
+  ): Promise<HubObservationDocument[]> {
+    return this.observationModel
+      .find({
+        ...this.observationFilter(allowedCountryCodes),
+        canonicalId: { $in: canonicalIds },
+      })
+      .sort({ observedAt: 1, canonicalId: 1 })
       .exec();
   }
 
@@ -276,6 +293,7 @@ export class HubRepository {
             })),
             observationIds: [],
             signalCode: '',
+            eventCode: '',
             initiatedBy: input.initiatedBy,
             startedAt: input.startedAt,
             completedAt: null,
@@ -291,6 +309,7 @@ export class HubRepository {
     scenarioCode: string;
     observationIds: readonly string[];
     signalCode: string;
+    eventCode: string;
     completedAt: Date;
   }) {
     return this.scenarioRunModel
@@ -301,6 +320,7 @@ export class HubRepository {
             status: 'COMPLETED',
             observationIds: input.observationIds,
             signalCode: input.signalCode,
+            eventCode: input.eventCode,
             completedAt: input.completedAt,
             'steps.$[].status': 'COMPLETED',
             'steps.$[].completedAt': input.completedAt,
@@ -416,6 +436,51 @@ export class HubRepository {
     const filter: Record<string, unknown> = { reportId };
     if (countryCodes) filter.countryCode = { $in: countryCodes };
     return this.alertReportModel.findOne(filter).exec();
+  }
+
+  listEvents(
+    allowedCountryCodes: readonly string[] | null,
+    limit = 100,
+  ): Promise<HubEventDocument[]> {
+    const filter = allowedCountryCodes
+      ? { countryCodes: { $in: allowedCountryCodes } }
+      : {};
+    return this.eventModel
+      .find(filter)
+      .sort({ correlationScore: -1, lastObservedAt: -1 })
+      .limit(limit)
+      .exec();
+  }
+
+  findEvent(
+    eventCode: string,
+    allowedCountryCodes: readonly string[] | null,
+  ): Promise<HubEventDocument | null> {
+    const filter: Record<string, unknown> = { eventCode };
+    if (allowedCountryCodes) filter.countryCodes = { $in: allowedCountryCodes };
+    return this.eventModel.findOne(filter).exec();
+  }
+
+  upsertEvent(input: HubEvent): Promise<HubEventDocument | null> {
+    return this.eventModel
+      .findOneAndUpdate(
+        { eventCode: input.eventCode },
+        { $set: input },
+        { upsert: true, returnDocument: 'after', runValidators: true },
+      )
+      .exec();
+  }
+
+  async assignEventToObservations(
+    observationIds: readonly string[],
+    eventCode: string,
+  ): Promise<void> {
+    await this.observationModel
+      .updateMany(
+        { canonicalId: { $in: observationIds } },
+        { $set: { eventCode } },
+      )
+      .exec();
   }
 
   listSharingPolicies(

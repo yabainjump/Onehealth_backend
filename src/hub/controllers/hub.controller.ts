@@ -23,6 +23,7 @@ import { ListHubConnectorsDto } from '../dto/list-hub-connectors.dto';
 import { ListHubObservationsDto } from '../dto/list-hub-observations.dto';
 import { UpdateHubSharingPolicyDto } from '../dto/update-hub-sharing-policy.dto';
 import { UpdateHubReportStatusDto } from '../dto/update-hub-report-status.dto';
+import { ConsolidateHubEventDto } from '../dto/consolidate-hub-event.dto';
 import { HubAdminGuard } from '../guards/hub-admin.guard';
 import { HubAccessGuard } from '../guards/hub-access.guard';
 import { HubVerifierGuard } from '../guards/hub-verifier.guard';
@@ -32,6 +33,7 @@ import { HubDemoSeedService } from '../services/hub-demo-seed.service';
 import { HubService } from '../services/hub.service';
 import { HubScenarioService } from '../services/hub-scenario.service';
 import { HubReportService } from '../services/hub-report.service';
+import { HubEventService } from '../services/hub-event.service';
 
 @ApiTags('Hub régional CEEAC')
 @ApiBearerAuth('access-token')
@@ -44,6 +46,7 @@ export class HubController {
     private readonly demoSeedService: HubDemoSeedService,
     private readonly scenarioService: HubScenarioService,
     private readonly reportService: HubReportService,
+    private readonly eventService: HubEventService,
   ) {}
 
   @ApiOperation({ summary: 'Indicateurs du Hub selon la portée autorisée' })
@@ -69,6 +72,35 @@ export class HubController {
   @Get('decisions')
   decisions(@Req() request: RequestWithUser) {
     return this.hubService.decisions(request.user);
+  }
+
+  @ApiOperation({ summary: 'Événements One Health consolidés et explicables' })
+  @Get('events')
+  events(@Req() request: RequestWithUser) {
+    return this.eventService.list(request.user);
+  }
+
+  @ApiOperation({
+    summary: "Détail et observations sources d'un événement consolidé",
+  })
+  @Get('events/:eventCode')
+  event(
+    @Req() request: RequestWithUser,
+    @Param('eventCode') eventCode: string,
+  ) {
+    return this.eventService.detail(eventCode, request.user);
+  }
+
+  @ApiOperation({
+    summary: 'Consolider manuellement des observations corrélées',
+  })
+  @UseGuards(HubAnalystGuard)
+  @Post('events')
+  consolidateEvent(
+    @Req() request: RequestWithUser,
+    @Body() dto: ConsolidateHubEventDto,
+  ) {
+    return this.eventService.consolidate(dto.observationIds, request.user);
   }
 
   @ApiOperation({ summary: "Dossier complet d'une observation du Hub" })

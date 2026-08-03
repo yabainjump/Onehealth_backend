@@ -55,6 +55,9 @@ export class HubScenarioRun {
   @Prop({ default: '', trim: true })
   signalCode: string;
 
+  @Prop({ default: '', trim: true })
+  eventCode: string;
+
   @Prop({ required: true, trim: true })
   initiatedBy: string;
 

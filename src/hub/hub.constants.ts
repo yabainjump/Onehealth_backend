@@ -37,6 +37,7 @@ export type HubSignalStatus =
   | 'CLOSED';
 export type HubScenarioStatus = 'READY' | 'RUNNING' | 'COMPLETED' | 'FAILED';
 export type HubReportStatus = 'DRAFT' | 'IN_REVIEW' | 'VALIDATED' | 'PUBLISHED';
+export type HubEventStatus = 'CONSOLIDATED' | 'UNDER_REVIEW' | 'CLOSED';
 
 export const HUB_DYNAMIC_SCENARIO_CODE = 'SCN-CM-TD-CONVERGENCE-01';
 

@@ -52,10 +52,11 @@ describe('HubService', () => {
     createAudit: createAuditMock,
   } as unknown as jest.Mocked<HubRepository>;
   let service: HubService;
+  const eventService = { detail: jest.fn().mockResolvedValue(null) };
 
   beforeEach(() => {
     jest.clearAllMocks();
-    service = new HubService(repository);
+    service = new HubService(repository, eventService as never);
   });
 
   it('limits a Hub user to configured countries', async () => {

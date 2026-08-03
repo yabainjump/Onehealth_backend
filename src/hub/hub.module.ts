@@ -44,6 +44,8 @@ import { HubDemoSeedService } from './services/hub-demo-seed.service';
 import { HubService } from './services/hub.service';
 import { HubScenarioService } from './services/hub-scenario.service';
 import { HubReportService } from './services/hub-report.service';
+import { HubEvent, HubEventSchema } from './schemas/hub-event.schema';
+import { HubEventService } from './services/hub-event.service';
 
 @Module({
   imports: [
@@ -59,6 +61,7 @@ import { HubReportService } from './services/hub-report.service';
         { name: HubIngestionRun.name, schema: HubIngestionRunSchema },
         { name: HubScenarioRun.name, schema: HubScenarioRunSchema },
         { name: HubAlertReport.name, schema: HubAlertReportSchema },
+        { name: HubEvent.name, schema: HubEventSchema },
       ],
       HUB_CONNECTION,
     ),
@@ -72,6 +75,7 @@ import { HubReportService } from './services/hub-report.service';
     HubDemoSeedService,
     HubScenarioService,
     HubReportService,
+    HubEventService,
     HubAdminGuard,
     HubAccessGuard,
     HubVerifierGuard,

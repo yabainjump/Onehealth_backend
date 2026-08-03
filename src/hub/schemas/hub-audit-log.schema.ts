@@ -15,7 +15,8 @@ export class HubAuditLog {
     | 'sharing-policy'
     | 'seed'
     | 'scenario'
-    | 'report';
+    | 'report'
+    | 'event';
 
   @Prop({ required: true, trim: true, index: true })
   entityId: string;
