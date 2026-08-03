@@ -5,12 +5,14 @@ import { HubRepository } from '../repositories/hub.repository';
 import { buildDynamicScenario } from '../scenarios/hub-dynamic-scenario.factory';
 import type { HubScenarioRunDocument } from '../schemas/hub-scenario-run.schema';
 import { HubEventService } from './hub-event.service';
+import { HubDemoSeedService } from './hub-demo-seed.service';
 
 @Injectable()
 export class HubScenarioService {
   constructor(
     private readonly repository: HubRepository,
     private readonly eventService: HubEventService,
+    private readonly demoSeedService: HubDemoSeedService,
   ) {}
 
   async current() {
@@ -39,6 +41,10 @@ export class HubScenarioService {
   async run(user: PublicUser) {
     const now = new Date();
     const scenario = buildDynamicScenario(now);
+    // Le scénario s'appuie toujours sur le socle régional complet. Le seed est
+    // idempotent : il restaure les fiches manquantes sans dupliquer celles qui
+    // existent déjà, puis les quatre observations du scénario sont ajoutées.
+    const baseline = await this.demoSeedService.seed();
     await this.repository.startScenario({
       scenarioCode: scenario.scenarioCode,
       title: scenario.title,
@@ -75,6 +81,7 @@ export class HubScenarioService {
             signalCode: scenario.signal.signalCode,
             countries: ['CM', 'TD'],
             eventCode: event.eventCode,
+            baselineObservations: baseline.observations,
           },
           countryCode: 'CM',
           isDemo: true,

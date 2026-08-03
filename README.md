@@ -180,6 +180,8 @@ Le seed crée 165 données brutes, 165 observations normalisées, 15 signaux, 3 
 
 Le scénario dynamique crée également un événement consolidé séparé des observations sources. Le moteur `CEEAC-SPATIOTEMPORAL-1.0` calcule un score explicable à partir de la diversité sectorielle, de la fenêtre temporelle, de la distance et du caractère transfrontalier. Un regroupement mono-sectoriel ou insuffisamment corrélé est refusé ; ce score ne valide jamais une alerte.
 
+Avant chaque exécution du scénario, le backend réapplique automatiquement le seed régional idempotent. Le socle de 165 observations est ainsi restauré s'il manque dans la base courante, puis les quatre observations propres au scénario sont ajoutées : le jeu complet contient alors 169 observations, sans doublon.
+
 ## Sécurité implémentée (baseline)
 
 - Hash mot de passe avec `bcrypt` (cost factor 12)
