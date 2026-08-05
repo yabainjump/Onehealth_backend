@@ -15,6 +15,7 @@ PUBLIC_API_BASE_URL="${PUBLIC_API_BASE_URL:-https://backend.onehealthnetwork.yab
 VERIFY_PUBLIC_API="${VERIFY_PUBLIC_API:-true}"
 STARTUP_CHECK_ATTEMPTS="${STARTUP_CHECK_ATTEMPTS:-12}"
 STARTUP_CHECK_DELAY_SECONDS="${STARTUP_CHECK_DELAY_SECONDS:-5}"
+SEED_HUB_DEMO="${SEED_HUB_DEMO:-false}"
 
 export PATH="$(dirname "$NODE_BIN"):$NODE_BIN_DIR:$PATH"
 export NODE_BIN PM2_APP_NAME UPLOADS_DIR
@@ -22,6 +23,14 @@ export NODE_BIN PM2_APP_NAME UPLOADS_DIR
 case "$STARTUP_CHECK_ATTEMPTS:$STARTUP_CHECK_DELAY_SECONDS" in
   :*|*:|*[!0-9:]*|0:*|*:0)
     echo "Error: startup check attempts and delay must be positive integers."
+    exit 1
+    ;;
+esac
+
+case "$SEED_HUB_DEMO" in
+  true|false) ;;
+  *)
+    echo "Error: SEED_HUB_DEMO must be true or false."
     exit 1
     ;;
 esac
@@ -91,6 +100,12 @@ else
 fi
 
 "$NPM_BIN" run build
+
+if [ "$SEED_HUB_DEMO" = "true" ]; then
+  echo "Loading the idempotent Hub demonstration dataset..."
+  HUB_DEMO_SEED_CONFIRM="SEED_165_DEMO_RECORDS" \
+    "$NPM_BIN" run hub:seed-demo
+fi
 
 "$PM2_BIN" startOrReload ecosystem.config.cjs --update-env
 

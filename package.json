@@ -18,6 +18,7 @@
     "campaign:reset": "node -r ts-node/register/transpile-only scripts/send-password-reset-campaign.ts",
     "admin:create": "node -r ts-node/register/transpile-only scripts/create-super-admin.ts",
     "admin:grant-hub": "node -r ts-node/register/transpile-only scripts/grant-hub-admin.ts",
+    "hub:seed-demo": "node -r ts-node/register/transpile-only scripts/seed-hub-demo.ts",
     "preview:welcome": "node -r ts-node/register/transpile-only scripts/preview-welcome.ts",
     "lint": "eslint \"{src,apps,libs,test}/**/*.ts\" --fix",
     "test": "jest",

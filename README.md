@@ -178,6 +178,28 @@ Chargement initial du démonstrateur :
 
 Le seed crée 165 données brutes, 165 observations normalisées, 15 signaux, 3 alertes vérifiées et 11 politiques de partage. Toutes portent `isDemo: true`.
 
+### Chargement par ligne de commande ou déploiement
+
+Le seed peut être exécuté sans Swagger et sans mot de passe administrateur. La
+commande utilise directement les connexions MongoDB définies dans `.env` et
+exige une confirmation explicite :
+
+```bash
+HUB_DEMO_SEED_CONFIRM=SEED_165_DEMO_RECORDS npm run hub:seed-demo
+```
+
+Le déploiement peut aussi l'exécuter après le build et avant le redémarrage
+PM2. La valeur par défaut reste `false` pour empêcher toute injection
+accidentelle :
+
+```bash
+SEED_HUB_DEMO=true bash ~/deploy-onehealth-backend.sh
+```
+
+Les écritures sont idempotentes : les 165 observations de référence sont
+créées ou restaurées sans doublon. Les quatre observations d'un scénario déjà
+exécuté ne sont pas supprimées ; dans ce cas le total visible peut être 169.
+
 Le scénario dynamique crée également un événement consolidé séparé des observations sources. Le moteur `CEEAC-SPATIOTEMPORAL-1.0` calcule un score explicable à partir de la diversité sectorielle, de la fenêtre temporelle, de la distance et du caractère transfrontalier. Un regroupement mono-sectoriel ou insuffisamment corrélé est refusé ; ce score ne valide jamais une alerte.
 
 Avant chaque exécution du scénario, le backend réapplique automatiquement le seed régional idempotent. Le socle de 165 observations est ainsi restauré s'il manque dans la base courante, puis les quatre observations propres au scénario sont ajoutées : le jeu complet contient alors 169 observations, sans doublon.
