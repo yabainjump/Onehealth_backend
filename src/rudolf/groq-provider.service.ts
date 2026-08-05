@@ -48,9 +48,12 @@ export class GroqProviderService {
     return this.client !== null;
   }
 
-  async complete(history: RudolfProviderMessage[]): Promise<string> {
+  async complete(
+    history: RudolfProviderMessage[],
+    systemPrompt = RUDOLF_SYSTEM_PROMPT,
+  ): Promise<string> {
     const client = this.requireClient();
-    const messages = this.buildMessages(history);
+    const messages = this.buildMessages(history, systemPrompt);
 
     try {
       const completion = await client.chat.completions.create({
@@ -104,9 +107,10 @@ export class GroqProviderService {
 
   private buildMessages(
     history: RudolfProviderMessage[],
+    systemPrompt = RUDOLF_SYSTEM_PROMPT,
   ): ChatCompletionMessageParam[] {
     return [
-      { role: 'system', content: RUDOLF_SYSTEM_PROMPT },
+      { role: 'system', content: systemPrompt },
       ...history.map((message) => ({
         role: message.role,
         content: message.content,

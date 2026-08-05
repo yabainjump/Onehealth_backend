@@ -16,6 +16,7 @@ export class HubAuditLog {
     | 'seed'
     | 'scenario'
     | 'report'
+    | 'ai-draft'
     | 'event';
 
   @Prop({ required: true, trim: true, index: true })

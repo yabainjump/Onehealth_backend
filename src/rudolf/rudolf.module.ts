@@ -26,6 +26,6 @@ import {
     RudolfRateLimitGuard,
     RudolfService,
   ],
-  exports: [RudolfService],
+  exports: [GroqProviderService, RudolfRateLimitGuard, RudolfService],
 })
 export class RudolfModule {}

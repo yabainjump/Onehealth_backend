@@ -34,6 +34,9 @@ import { HubService } from '../services/hub.service';
 import { HubScenarioService } from '../services/hub-scenario.service';
 import { HubReportService } from '../services/hub-report.service';
 import { HubEventService } from '../services/hub-event.service';
+import { HubAiService } from '../services/hub-ai.service';
+import { HubAiAssistantDto, HubAiScopeDto } from '../dto/hub-ai.dto';
+import { RudolfRateLimitGuard } from '../../rudolf/rudolf-rate-limit.guard';
 
 @ApiTags('Hub régional CEEAC')
 @ApiBearerAuth('access-token')
@@ -47,7 +50,36 @@ export class HubController {
     private readonly scenarioService: HubScenarioService,
     private readonly reportService: HubReportService,
     private readonly eventService: HubEventService,
+    private readonly aiService: HubAiService,
   ) {}
+
+  @ApiOperation({ summary: "Générer une synthèse Rudolf d'un dossier autorisé" })
+  @UseGuards(HubAnalystGuard, RudolfRateLimitGuard)
+  @Post('ai/alerts/:id/summary')
+  aiAlertSummary(@Req() request: RequestWithUser, @Param('id') id: string) {
+    return this.aiService.alertSummary(id, request.user);
+  }
+
+  @ApiOperation({ summary: 'Préparer un projet de rapport avec Rudolf' })
+  @UseGuards(HubAnalystGuard, RudolfRateLimitGuard)
+  @Post('ai/reports/draft')
+  aiReport(@Req() request: RequestWithUser, @Body() dto: HubAiScopeDto) {
+    return this.aiService.reportDraft(dto, request.user);
+  }
+
+  @ApiOperation({ summary: 'Expliquer les rapprochements multisectoriels avec Rudolf' })
+  @UseGuards(HubAnalystGuard, RudolfRateLimitGuard)
+  @Post('ai/analyses/explain')
+  aiAnalysis(@Req() request: RequestWithUser, @Body() dto: HubAiScopeDto) {
+    return this.aiService.analysis(dto, request.user);
+  }
+
+  @ApiOperation({ summary: 'Interroger Rudolf sur les données Hub autorisées' })
+  @UseGuards(HubAnalystGuard, RudolfRateLimitGuard)
+  @Post('ai/assistant')
+  aiAssistant(@Req() request: RequestWithUser, @Body() dto: HubAiAssistantDto) {
+    return this.aiService.assistant(dto, request.user);
+  }
 
   @ApiOperation({ summary: 'Indicateurs du Hub selon la portée autorisée' })
   @Get('summary')

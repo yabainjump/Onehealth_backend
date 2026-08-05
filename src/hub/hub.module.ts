@@ -46,9 +46,12 @@ import { HubScenarioService } from './services/hub-scenario.service';
 import { HubReportService } from './services/hub-report.service';
 import { HubEvent, HubEventSchema } from './schemas/hub-event.schema';
 import { HubEventService } from './services/hub-event.service';
+import { RudolfModule } from '../rudolf/rudolf.module';
+import { HubAiService } from './services/hub-ai.service';
 
 @Module({
   imports: [
+    RudolfModule,
     MongooseModule.forFeature(
       [
         { name: HubRawRecord.name, schema: HubRawRecordSchema },
@@ -76,6 +79,7 @@ import { HubEventService } from './services/hub-event.service';
     HubScenarioService,
     HubReportService,
     HubEventService,
+    HubAiService,
     HubAdminGuard,
     HubAccessGuard,
     HubVerifierGuard,

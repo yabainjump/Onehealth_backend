@@ -58,6 +58,7 @@ export interface HubAuditInput {
     | 'seed'
     | 'scenario'
     | 'report'
+    | 'ai-draft'
     | 'event';
   readonly entityId: string;
   readonly action: string;
