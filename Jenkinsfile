@@ -39,7 +39,7 @@ pipeline {
         sh 'npm run verify:pm2-config'
         sh 'npm audit --audit-level=high'
         sh '''
-          if find dist -print | grep -E '/(\.specify|\.agents|specs|project-docs)(/|$)'; then
+          if find dist -print | grep -E '/([.]specify|[.]agents|specs|project-docs)(/|$)'; then
             echo 'Engineering documents must not be present in dist.'
             exit 1
           fi

@@ -30,6 +30,13 @@ describe('production deployment script', () => {
     expect(script).toContain('[ "$CANDIDATE_REVISION" != "$DEPLOY_REVISION" ]');
   });
 
+  it('keeps the distribution guard compatible with Groovy string parsing', () => {
+    expect(jenkinsfile).toContain(
+      "grep -E '/([.]specify|[.]agents|specs|project-docs)(/|$)'",
+    );
+    expect(jenkinsfile).not.toContain("grep -E '/(\\.specify|\\.agents");
+  });
+
   it('rolls back build, reload or readiness failures to the previous revision', () => {
     expect(script).toContain('rollback_candidate()');
     expect(script).toContain('trap rollback_on_error ERR');
