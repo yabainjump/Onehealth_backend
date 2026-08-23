@@ -5,6 +5,7 @@ const validEnvironment = () => ({
   MONGODB_URI: 'mongodb://database.example.test/onehealth',
   JWT_SECRET: 'j'.repeat(64),
   RATE_LIMIT_KEY_SECRET: 'r'.repeat(64),
+  CLUSTER_SECURITY_READY: true,
 });
 
 describe('environmentValidationSchema', () => {
@@ -17,6 +18,10 @@ describe('environmentValidationSchema', () => {
       MONGODB_MAX_POOL_SIZE: 10,
       HUB_MONGODB_MAX_POOL_SIZE: 10,
       TRUSTED_PROXY_HOPS: 1,
+      READINESS_PROBE_INTERVAL_MS: 2_000,
+      READINESS_PROBE_TIMEOUT_MS: 1_500,
+      READINESS_FAILURE_THRESHOLD: 3,
+      READINESS_RETRY_AFTER_SECONDS: 5,
     });
   });
 
@@ -31,6 +36,35 @@ describe('environmentValidationSchema', () => {
         RATE_LIMIT_KEY_SECRET: validEnvironment().JWT_SECRET,
       }).error,
     ).toBeDefined();
+    expect(
+      environmentValidationSchema.validate({
+        ...validEnvironment(),
+        READINESS_PROBE_INTERVAL_MS: 1_000,
+        READINESS_PROBE_TIMEOUT_MS: 1_000,
+      }).error,
+    ).toBeDefined();
+    expect(
+      environmentValidationSchema.validate({
+        ...validEnvironment(),
+        READINESS_FAILURE_THRESHOLD: 0,
+      }).error,
+    ).toBeDefined();
+  });
+
+  it('blocks multiple production workers until distributed security adapters are approved', () => {
+    expect(
+      environmentValidationSchema.validate({
+        ...validEnvironment(),
+        CLUSTER_SECURITY_READY: false,
+      }).error,
+    ).toBeDefined();
+    expect(
+      environmentValidationSchema.validate({
+        ...validEnvironment(),
+        WEB_CONCURRENCY: 1,
+        CLUSTER_SECURITY_READY: false,
+      }).error,
+    ).toBeUndefined();
   });
 
   it('rejects unsafe pool, proxy and lease bounds', () => {

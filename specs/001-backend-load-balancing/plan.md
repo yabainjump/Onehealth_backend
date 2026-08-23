@@ -18,19 +18,23 @@ them.
 
 **Language/Version**: TypeScript 5.7, Node.js 20.20.x
 
-**Primary Dependencies**: NestJS 11, Mongoose 9, Passport JWT, PM2; no new runtime dependency required
+**Primary Dependencies**: NestJS 11, Mongoose 9, Passport JWT, PM2, Nginx Community and Jenkins Pipeline; no new Node.js runtime dependency required
 
 **Storage**: Primary MongoDB database for coordination state, existing Hub MongoDB connection for Hub data, shared local upload directory on the single production host
 
 **Testing**: Jest 30 unit tests, Nest testing utilities, existing e2e suite and dependency-free Node 20 cluster/load verifiers
 
-**Target Platform**: Linux cPanel production host behind the existing HTTPS reverse proxy; Windows remains supported for local development without cluster signal guarantees
+**Target Platform**: Linux single host with Jenkins, PM2 and Nginx when VPS/root prerequisites are met; the current cPanel/LiteSpeed host requires an explicit web-server coexistence or migration decision before Nginx can own ports 80/443. Windows remains supported for local development without cluster signal guarantees
 
 **Project Type**: Modular REST web service shared by the community application and CEEAC Dashboard
 
 **Performance Goals**: Two ready workers; 95th percentile below 2 seconds during the defined 10-minute/20-client pilot; instance removal within 10 seconds; progressive deploy success of at least 99.9% across ten consecutive reloads
 
 **Constraints**: Preserve current REST contracts and JWT behavior; no additional paid infrastructure; no WebSocket affinity; 512 MB restart ceiling per worker pending host measurement; process failure protection only in increment 1; Spec Kit remains versioned source material and is excluded from `dist/` and public static roots
+
+**Release gate**: `CLUSTER_SECURITY_READY` remains false until US2 and US3 have validated every
+auth/upload/Rudolf quota, the Rudolf conversation lease and the common media path against two real
+workers. The normal deployment script refuses two production workers while this gate is closed.
 
 **Scale/Scope**: Two workers, two logical MongoDB databases, three distributed limiter families, one distributed lease family, three public health routes including the compatibility route
 
@@ -121,12 +125,20 @@ scripts/
 ├── verify-cluster-media-rudolf.ts
 └── verify-pilot-load.ts
 
+ops/
+├── jenkins/
+│   ├── deploy-onehealth-backend
+│   └── onehealth-jenkins.sudoers
+└── nginx/
+    └── onehealth-backend.conf.example
+
 test/
 └── app.e2e-spec.ts
 
 .env.example
 ecosystem.config.cjs
 deploy-onehealth-backend.sh
+Jenkinsfile
 README.md
 ```
 
@@ -142,8 +154,9 @@ the production process serves only the explicit `public/` and upload roots.
 
 The decisions and rejected alternatives are recorded in [research.md](./research.md). The principal
 choices are two PM2 cluster workers, MongoDB-backed coordination, explicit readiness with worker
-self-drain/replacement, ownership-safe leases, bounded graceful reload and single-host shared disk
-for increment 1.
+self-drain/replacement, ownership-safe leases, bounded graceful reload, Nginx as the future TLS
+gateway, Jenkins as a secret-free quality/deployment orchestrator and single-host shared disk for
+increment 1.
 
 ## Phase 1 — Design and Contracts
 
@@ -158,12 +171,14 @@ for increment 1.
 2. Add graceful lifecycle, continuous essential-readiness supervision and PM2 cluster configuration,
    initially fixed at two workers. A worker failing consecutive essential probes self-drains and exits;
    PM2 uses bounded restart delay and anti-flapping limits rather than routing to it indefinitely.
-3. Migrate authentication and upload limits, then Rudolf quotas, preserving current responses.
-4. Replace Rudolf's local promise map with the distributed lease and concurrency tests.
-5. Add safe request correlation and expose the runtime readiness snapshot through health contracts.
-6. Harden deployment verification and automated rollback.
-7. Run sovereignty regression, ten-reload, unit/e2e, cluster and defined pilot-load tests.
-8. Verify `dist/` excludes Spec Kit/project documentation and update operational documentation.
+3. Validate the same-host Jenkins/Nginx prerequisites, install the root-owned deployment wrapper and
+   activate the Nginx virtual host only after resolving the current cPanel/LiteSpeed port ownership.
+4. Migrate authentication and upload limits, then Rudolf quotas, preserving current responses.
+5. Replace Rudolf's local promise map with the distributed lease and concurrency tests.
+6. Add safe request correlation and expose the runtime readiness snapshot through health contracts.
+7. Harden deployment verification and automated rollback.
+8. Run sovereignty regression, ten-reload, unit/e2e, cluster and defined pilot-load tests.
+9. Verify `dist/` excludes Spec Kit/project documentation and update operational documentation.
 
 ## Complexity Tracking
 

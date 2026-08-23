@@ -92,6 +92,11 @@ Expected: one request owns the generation; the other waits briefly then complete
 the documented HTTP 409. The conversation contains no duplicate exchange. Kill the owning worker in
 a second exercise and verify a new operation succeeds after the bounded lease expiry.
 
+The automated non-destructive portion (two-worker discovery, common media reads and concurrent
+Rudolf history validation) is available through `npm run verify:cluster-media-rudolf`. It requires
+`CLUSTER_TEST_CONFIRM=RUN_CLUSTER_MEDIA_RUDOLF_TEST`, `API_URL`, `ADMIN_EMAIL`,
+`OHN_ADMIN_PASSWORD` and the same absolute `UPLOADS_DIR` used by PM2.
+
 ## 7. Media cross-worker verification
 
 Upload one profile image and one message attachment with the test account, then request each resource

@@ -17,6 +17,8 @@ import { AdminModule } from './admin/admin.module';
 import { RudolfModule } from './rudolf/rudolf.module';
 import { HubModule } from './hub/hub.module';
 import { HUB_CONNECTION } from './hub/hub.constants';
+import { RuntimeModule } from './runtime/runtime.module';
+import { ObservabilityModule } from './observability/observability.module';
 
 @Module({
   imports: [
@@ -39,6 +41,8 @@ import { HUB_CONNECTION } from './hub/hub.constants';
         maxPoolSize: configService.get<number>('hubMongodbMaxPoolSize') ?? 10,
       }),
     }),
+    RuntimeModule,
+    ObservabilityModule,
     HealthModule,
     UsersModule,
     AuthModule,

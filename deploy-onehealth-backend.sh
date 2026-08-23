@@ -15,17 +15,25 @@ PUBLIC_API_BASE_URL="${PUBLIC_API_BASE_URL:-https://backend.onehealthnetwork.yab
 VERIFY_PUBLIC_API="${VERIFY_PUBLIC_API:-true}"
 STARTUP_CHECK_ATTEMPTS="${STARTUP_CHECK_ATTEMPTS:-12}"
 STARTUP_CHECK_DELAY_SECONDS="${STARTUP_CHECK_DELAY_SECONDS:-5}"
+LOCAL_READY_ATTEMPTS="${LOCAL_READY_ATTEMPTS:-30}"
+LOCAL_READY_DELAY_SECONDS="${LOCAL_READY_DELAY_SECONDS:-2}"
 SEED_HUB_DEMO="${SEED_HUB_DEMO:-false}"
 
 export PATH="$(dirname "$NODE_BIN"):$NODE_BIN_DIR:$PATH"
 export NODE_BIN PM2_APP_NAME UPLOADS_DIR
 
-case "$STARTUP_CHECK_ATTEMPTS:$STARTUP_CHECK_DELAY_SECONDS" in
-  :*|*:|*[!0-9:]*|0:*|*:0)
-    echo "Error: startup check attempts and delay must be positive integers."
-    exit 1
-    ;;
-esac
+for CHECK_VALUE in \
+  "$STARTUP_CHECK_ATTEMPTS" \
+  "$STARTUP_CHECK_DELAY_SECONDS" \
+  "$LOCAL_READY_ATTEMPTS" \
+  "$LOCAL_READY_DELAY_SECONDS"; do
+  case "$CHECK_VALUE" in
+    *[!0-9]*|''|0)
+      echo "Error: readiness check attempts and delays must be positive integers."
+      exit 1
+      ;;
+  esac
+done
 
 case "$SEED_HUB_DEMO" in
   true|false) ;;
@@ -44,6 +52,11 @@ if [ ! -w "$UPLOADS_DIR" ]; then
 fi
 
 cd "$APP_DIR"
+
+PREVIOUS_REVISION=""
+if [ -d .git ] && git rev-parse --verify HEAD >/dev/null 2>&1; then
+  PREVIOUS_REVISION="$(git rev-parse HEAD)"
+fi
 
 if [ ! -d .git ]; then
   if [ -n "$(ls -A "$APP_DIR" 2>/dev/null)" ]; then
@@ -71,6 +84,8 @@ fi
 git fetch origin "$BRANCH"
 git checkout -f "$BRANCH"
 git reset --hard "origin/$BRANCH"
+CANDIDATE_REVISION="$(git rev-parse HEAD)"
+export APP_VERSION="$CANDIDATE_REVISION"
 
 if [ ! -f .env ]; then
   echo "Error: missing production configuration: $APP_DIR/.env"
@@ -93,27 +108,115 @@ esac
 # read the complete .env file from APP_DIR for all other settings.
 export CORS_ORIGIN="$CORS_NORMALIZED"
 
-if [ -f package-lock.json ]; then
-  "$NPM_BIN" ci
-else
-  "$NPM_BIN" install
+read_env_value() {
+  local name="$1"
+  grep -E "^[[:space:]]*${name}=" .env | tail -n 1 | cut -d= -f2- | \
+    tr -d '[:space:]\"' | tr -d "'"
+}
+
+WEB_CONCURRENCY_VALUE="$(read_env_value WEB_CONCURRENCY || true)"
+WEB_CONCURRENCY_VALUE="${WEB_CONCURRENCY_VALUE:-2}"
+if [ "$WEB_CONCURRENCY_VALUE" != "2" ]; then
+  echo "Error: WEB_CONCURRENCY must be 2 for the validated first cluster increment."
+  exit 1
 fi
 
-"$NPM_BIN" run build
-
-if [ "$SEED_HUB_DEMO" = "true" ]; then
-  echo "Loading the idempotent Hub demonstration dataset..."
-  HUB_DEMO_SEED_CONFIRM="SEED_165_DEMO_RECORDS" \
-    "$NPM_BIN" run hub:seed-demo
+CLUSTER_SECURITY_READY_VALUE="$(read_env_value CLUSTER_SECURITY_READY || true)"
+if [ "$CLUSTER_SECURITY_READY_VALUE" != "true" ]; then
+  echo "Error: CLUSTER_SECURITY_READY=true is required before deploying two workers."
+  echo "Enable it only for the controlled US2/US3 cluster exercises, then keep it after they pass."
+  exit 1
 fi
 
-"$PM2_BIN" startOrReload ecosystem.config.cjs --update-env
+SHUTDOWN_TIMEOUT_VALUE="$(read_env_value SHUTDOWN_TIMEOUT_MS || true)"
+SHUTDOWN_TIMEOUT_VALUE="${SHUTDOWN_TIMEOUT_VALUE:-15000}"
+case "$SHUTDOWN_TIMEOUT_VALUE" in
+  *[!0-9]*|'')
+    echo "Error: SHUTDOWN_TIMEOUT_MS must be an integer."
+    exit 1
+    ;;
+esac
+if [ "$SHUTDOWN_TIMEOUT_VALUE" -lt 5000 ] || [ "$SHUTDOWN_TIMEOUT_VALUE" -gt 120000 ]; then
+  echo "Error: SHUTDOWN_TIMEOUT_MS must be between 5000 and 120000."
+  exit 1
+fi
 
-"$PM2_BIN" save
+PORT_VALUE="$(read_env_value PORT || true)"
+PORT_VALUE="${PORT_VALUE:-3000}"
+case "$PORT_VALUE" in
+  *[!0-9]*|'')
+    echo "Error: PORT must be an integer."
+    exit 1
+    ;;
+esac
+if [ "$PORT_VALUE" -lt 1 ] || [ "$PORT_VALUE" -gt 65535 ]; then
+  echo "Error: PORT must be between 1 and 65535."
+  exit 1
+fi
 
-if [ "$VERIFY_PUBLIC_API" = "true" ]; then
+export WEB_CONCURRENCY="$WEB_CONCURRENCY_VALUE"
+export SHUTDOWN_TIMEOUT_MS="$SHUTDOWN_TIMEOUT_VALUE"
+
+LOCAL_READY_URL="http://127.0.0.1:${PORT_VALUE}/api/health/ready"
+install_and_build() {
+  if [ -f package-lock.json ]; then
+    "$NPM_BIN" ci
+  else
+    "$NPM_BIN" install
+  fi
+  "$NPM_BIN" run build
+}
+
+verify_cluster_ready() {
+  local expected_revision="$1"
+  local ready_instance_ids=""
+  local unique_ready_workers="0"
+  local online_workers="0"
+  export APP_VERSION="$expected_revision"
+
+  for ((attempt = 1; attempt <= LOCAL_READY_ATTEMPTS; attempt += 1)); do
+    local ready_output=""
+    if ready_output="$(curl -sS --connect-timeout 2 --max-time 5 -w $'\n%{http_code}' "$LOCAL_READY_URL")"; then
+      local ready_status="${ready_output##*$'\n'}"
+      local ready_body="${ready_output%$'\n'*}"
+      if [ "$ready_status" = "200" ]; then
+        local ready_instance_id
+        ready_instance_id="$(printf '%s' "$ready_body" | "$NODE_BIN" -e '
+          let body = "";
+          process.stdin.setEncoding("utf8");
+          process.stdin.on("data", chunk => { body += chunk; });
+          process.stdin.on("end", () => {
+            try {
+              const health = JSON.parse(body);
+              if (health.version === process.env.APP_VERSION && typeof health.instanceId === "string" && /^[A-Za-z0-9._:-]{1,96}$/.test(health.instanceId)) process.stdout.write(health.instanceId);
+            } catch {}
+          });
+        ')"
+        if [ -n "$ready_instance_id" ]; then
+          ready_instance_ids="${ready_instance_ids}${ready_instance_id}\n"
+        fi
+      fi
+    fi
+    unique_ready_workers="$(printf '%b' "$ready_instance_ids" | sed '/^$/d' | sort -u | wc -l | tr -d ' ')"
+    online_workers="$("$PM2_BIN" jlist | "$NODE_BIN" -e '
+      let body = "";
+      process.stdin.setEncoding("utf8");
+      process.stdin.on("data", chunk => { body += chunk; });
+      process.stdin.on("end", () => {
+        try { process.stdout.write(String(JSON.parse(body).filter(item => item.name === process.env.PM2_APP_NAME && item.pm2_env && item.pm2_env.status === "online").length)); }
+        catch { process.stdout.write("0"); }
+      });
+    ')"
+    if [ "$unique_ready_workers" -ge 2 ] && [ "$online_workers" -eq 2 ]; then return 0; fi
+    if [ "$attempt" -lt "$LOCAL_READY_ATTEMPTS" ]; then sleep "$LOCAL_READY_DELAY_SECONDS"; fi
+  done
+  echo "Error: expected revision did not become ready on both workers."
+  return 1
+}
+
+verify_public_cors() {
+  if [ "$VERIFY_PUBLIC_API" != "true" ]; then return 0; fi
   CORS_HEADERS="$(mktemp)"
-  trap 'rm -f "$CORS_HEADERS"' EXIT
   CORS_STATUS="000"
   CORS_READY="false"
 
@@ -141,11 +244,50 @@ if [ "$VERIFY_PUBLIC_API" = "true" ]; then
 
   if [ "$CORS_READY" != "true" ]; then
     echo "Error: public API CORS verification failed with HTTP $CORS_STATUS."
-    "$PM2_BIN" describe "$PM2_APP_NAME" || true
-    exit 1
+    rm -f "$CORS_HEADERS"
+    return 1
   fi
   rm -f "$CORS_HEADERS"
-  trap - EXIT
+}
+
+rollback_candidate() {
+  if [ -z "$PREVIOUS_REVISION" ] || [ "$PREVIOUS_REVISION" = "$CANDIDATE_REVISION" ]; then
+    echo "decision=rollback-failed reason=no-previous-revision"
+    return 1
+  fi
+  echo "Candidate failed; restoring the previous revision."
+  git reset --hard "$PREVIOUS_REVISION" || return 1
+  export APP_VERSION="$PREVIOUS_REVISION"
+  install_and_build || return 1
+  "$PM2_BIN" startOrReload ecosystem.config.cjs --update-env || return 1
+  verify_cluster_ready "$PREVIOUS_REVISION" || return 1
+  verify_public_cors || return 1
+  "$PM2_BIN" save || return 1
+  echo "decision=rolled-back candidate=$CANDIDATE_REVISION restored=$PREVIOUS_REVISION"
+}
+
+rollback_on_error() {
+  local failure_status="$?"
+  trap - ERR
+  if ! rollback_candidate; then
+    echo "decision=rollback-failed candidate=$CANDIDATE_REVISION"
+  fi
+  exit "$failure_status"
+}
+
+trap rollback_on_error ERR
+install_and_build
+
+if [ "$SEED_HUB_DEMO" = "true" ]; then
+  echo "Loading the idempotent Hub demonstration dataset..."
+  HUB_DEMO_SEED_CONFIRM="SEED_165_DEMO_RECORDS" "$NPM_BIN" run hub:seed-demo
 fi
 
+"$PM2_BIN" startOrReload ecosystem.config.cjs --update-env
+verify_cluster_ready "$CANDIDATE_REVISION"
+verify_public_cors
+"$PM2_BIN" save
+trap - ERR
+
+echo "decision=promoted candidate=$CANDIDATE_REVISION"
 echo "OneHealth backend deployment completed."

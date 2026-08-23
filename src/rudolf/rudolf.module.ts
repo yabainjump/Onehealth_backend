@@ -9,9 +9,11 @@ import {
   RudolfConversation,
   RudolfConversationSchema,
 } from './schemas/rudolf-conversation.schema';
+import { CoordinationModule } from '../coordination/coordination.module';
 
 @Module({
   imports: [
+    CoordinationModule,
     MongooseModule.forFeature([
       {
         name: RudolfConversation.name,

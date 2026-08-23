@@ -24,6 +24,10 @@ export const environmentValidationSchema = Joi.object({
     .default('onehealth_hub'),
   HUB_MONGODB_MAX_POOL_SIZE: Joi.number().integer().min(1).max(100).default(10),
   WEB_CONCURRENCY: Joi.number().integer().min(1).max(8).default(2),
+  CLUSTER_SECURITY_READY: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
   INSTANCE_ID: Joi.string()
     .trim()
     .min(1)
@@ -36,6 +40,22 @@ export const environmentValidationSchema = Joi.object({
     .min(5_000)
     .max(120_000)
     .default(15_000),
+  READINESS_PROBE_INTERVAL_MS: Joi.number()
+    .integer()
+    .min(500)
+    .max(60_000)
+    .default(2_000),
+  READINESS_PROBE_TIMEOUT_MS: Joi.number()
+    .integer()
+    .min(100)
+    .max(10_000)
+    .default(1_500),
+  READINESS_FAILURE_THRESHOLD: Joi.number().integer().min(1).max(20).default(3),
+  READINESS_RETRY_AFTER_SECONDS: Joi.number()
+    .integer()
+    .min(1)
+    .max(300)
+    .default(5),
   RATE_LIMIT_KEY_SECRET: Joi.string()
     .min(32)
     .max(512)
@@ -131,6 +151,28 @@ export const environmentValidationSchema = Joi.object({
     .default(12),
   RUDOLF_DAILY_LIMIT: Joi.number().integer().min(1).max(10_000).default(100),
 }).custom((environment: Record<string, unknown>, helpers) => {
+  if (
+    environment.NODE_ENV === 'production' &&
+    Number(environment.WEB_CONCURRENCY ?? 2) > 1 &&
+    environment.CLUSTER_SECURITY_READY !== true
+  ) {
+    return helpers.error('any.custom', {
+      message:
+        'CLUSTER_SECURITY_READY must be true before enabling multiple production workers',
+    });
+  }
+
+  const probeInterval = Number(
+    environment.READINESS_PROBE_INTERVAL_MS ?? 2_000,
+  );
+  const probeTimeout = Number(environment.READINESS_PROBE_TIMEOUT_MS ?? 1_500);
+  if (probeTimeout >= probeInterval) {
+    return helpers.error('any.custom', {
+      message:
+        'READINESS_PROBE_TIMEOUT_MS must be shorter than READINESS_PROBE_INTERVAL_MS',
+    });
+  }
+
   const providerTimeout = Number(environment.GROQ_TIMEOUT_MS ?? 30_000);
   const leaseTtl = Number(environment.DISTRIBUTED_LEASE_TTL_MS ?? 75_000);
   if (leaseTtl < providerTimeout + 5_000) {

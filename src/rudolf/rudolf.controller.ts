@@ -1,7 +1,10 @@
 import {
+  ArgumentsHost,
   Body,
+  Catch,
   Controller,
   Delete,
+  ExceptionFilter,
   Get,
   HttpException,
   HttpStatus,
@@ -10,6 +13,7 @@ import {
   Req,
   Res,
   UseGuards,
+  UseFilters,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import type { Response } from 'express';
@@ -18,11 +22,24 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import type { RequestWithUser } from '../users/interfaces/request-with-user.interface';
 import { SendRudolfMessageDto } from './dto/send-rudolf-message.dto';
 import { RudolfRateLimitGuard } from './rudolf-rate-limit.guard';
-import { RudolfService } from './rudolf.service';
+import {
+  RudolfConversationBusyException,
+  RudolfService,
+} from './rudolf.service';
+
+@Catch(RudolfConversationBusyException)
+export class RudolfConversationBusyFilter implements ExceptionFilter {
+  catch(exception: RudolfConversationBusyException, host: ArgumentsHost) {
+    const response = host.switchToHttp().getResponse<Response>();
+    response.setHeader('Retry-After', `${exception.retryAfterSeconds}`);
+    response.status(HttpStatus.CONFLICT).json(exception.getResponse());
+  }
+}
 
 @ApiTags('Rudolf AI')
 @ApiBearerAuth('access-token')
 @UseGuards(JwtAuthGuard)
+@UseFilters(RudolfConversationBusyFilter)
 @Controller('rudolf')
 export class RudolfController {
   constructor(private readonly rudolfService: RudolfService) {}
@@ -74,12 +91,14 @@ export class RudolfController {
     @Body() dto: SendRudolfMessageDto,
     @Res() response: Response,
   ): Promise<void> {
-    response.status(HttpStatus.OK);
     response.setHeader('Content-Type', 'application/x-ndjson; charset=utf-8');
     response.setHeader('Cache-Control', 'no-cache, no-transform');
     response.setHeader('Connection', 'keep-alive');
     response.setHeader('X-Accel-Buffering', 'no');
-    response.flushHeaders();
+    const clientAbort = new AbortController();
+    const abortOnDisconnect = () => clientAbort.abort();
+    request.once('aborted', abortOnDisconnect);
+    response.once('close', abortOnDisconnect);
 
     try {
       const result = await this.rudolfService.streamMessage(
@@ -89,6 +108,7 @@ export class RudolfController {
         async (content) => {
           await this.writeStreamEvent(response, { type: 'delta', content });
         },
+        clientAbort.signal,
       );
       await this.writeStreamEvent(response, { type: 'done', ...result });
     } catch (error) {
@@ -96,13 +116,21 @@ export class RudolfController {
         error instanceof HttpException
           ? error.getStatus()
           : HttpStatus.SERVICE_UNAVAILABLE;
+      if (!response.headersSent) {
+        response.status(status);
+        if (error instanceof RudolfConversationBusyException) {
+          response.setHeader('Retry-After', `${error.retryAfterSeconds}`);
+        }
+      }
       await this.writeStreamEvent(response, {
         type: 'error',
         status,
         code: this.streamErrorCode(status),
       });
     } finally {
-      if (!response.writableEnded) response.end();
+      request.off('aborted', abortOnDisconnect);
+      response.off('close', abortOnDisconnect);
+      if (!response.destroyed && !response.writableEnded) response.end();
     }
   }
 
@@ -160,7 +188,7 @@ export class RudolfController {
     if (status === 429) return 'rate_limit';
     if (status === 404) return 'not_found';
     if (status === 504) return 'timeout';
-    if (status === 409) return 'conversation_limit';
+    if (status === 409) return 'conversation_busy';
     return 'unavailable';
   }
 }

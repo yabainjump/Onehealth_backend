@@ -43,6 +43,15 @@ Voir `.env.example`:
 - `JWT_SECRET`: secret JWT (minimum 32 caractères)
 - `JWT_EXPIRES_IN`: durée token access (ex: `1h`, `15m`)
 - `CORS_ORIGIN`: origines autorisées séparées par virgules
+- `WEB_CONCURRENCY`: fixé à `2` pour le premier cluster validé
+- `CLUSTER_SECURITY_READY`: verrou de production ; reste `false` jusqu'aux exercices cluster des
+  limites partagées, des médias et du bail Rudolf
+- `TRUSTED_PROXY_HOPS`: nombre exact de reverse proxies de confiance (`1` avec Nginx seul)
+- `SHUTDOWN_TIMEOUT_MS`: durée maximale de drainage des requêtes
+- `READINESS_PROBE_INTERVAL_MS`, `READINESS_PROBE_TIMEOUT_MS` et
+  `READINESS_FAILURE_THRESHOLD`: supervision des dépendances essentielles
+- `RATE_LIMIT_KEY_SECRET`: clé HMAC distincte du JWT, obligatoire en production
+- `UPLOADS_DIR`: chemin absolu, inscriptible et commun aux deux workers en production
 
 ## Lancer le backend
 
@@ -58,16 +67,26 @@ npm run start:prod
 ## Scripts utiles
 
 - `npm run build`: compile TypeScript
-- `npm run lint`: lint ESLint (avec fix)
+- `npm run lint`: contrôle ESLint sans modifier les fichiers
+- `npm run lint:fix`: applique explicitement les corrections ESLint sûres
 - `npm run test`: tests unitaires
 - `npm run test:e2e`: smoke test e2e
+- `npm run verify:pm2-config`: vérifie les invariants du cluster à deux workers
+- `npm run verify:cluster-continuity`: test destructif réservé à un environnement jetable
+- `npm run verify:cluster-security`: contrôle les quotas partagés sur un environnement jetable
+- `npm run verify:cluster-media-rudolf`: contrôle deux workers, le média partagé et l'exclusivité
+  d'une conversation Rudolf, avec confirmation explicite et nettoyage automatique
 
 ## Endpoints
 
 ### Health
 
 - `GET /api/health`
-  - Réponse: `{ status: "ok", timestamp: "..." }`
+- `GET /api/health/live`
+  - confirme seulement que le processus HTTP répond
+- `GET /api/health/ready`
+  - renvoie `200` lorsque MongoDB principal, MongoDB Hub et `UPLOADS_DIR` sont accessibles
+  - renvoie `503` et `Retry-After` lorsqu'un worker ne doit pas recevoir de trafic
 
 ### Auth
 
@@ -291,6 +310,12 @@ src/
 ## Notes production
 
 - Générer un `JWT_SECRET` robuste (32+ chars recommandé).
+- Générer un `RATE_LIMIT_KEY_SECRET` différent avec `openssl rand -hex 32`.
 - Mettre `NODE_ENV=production` en prod.
 - Restreindre `CORS_ORIGIN` aux domaines frontend réels.
-- Ajouter rate limiting + helmet + logging structuré selon besoin.
+- Conserver `INSTANCE_ID` vide ou utiliser une base courte : le slot PM2 est ajouté pour garantir
+  l'identité unique de chaque worker.
+- La topologie Jenkins → déploiement, Nginx → PM2 → deux workers est documentée dans
+  `ops/README.md`. Nginx ne doit pas être activé sur le serveur cPanel/LiteSpeed avant validation des
+  ports 80/443 et de l'accès root.
+- Cette étape résiste à la perte d'un worker, pas à la perte de l'hôte unique.

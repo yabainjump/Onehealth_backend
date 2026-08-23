@@ -60,16 +60,18 @@ remain visible.
 
 ### Tests for User Story 1
 
-- [ ] T016 [P] [US1] Add lifecycle and readiness-supervisor tests for startup gating, consecutive essential failures, self-drain, bounded shutdown and anti-flapping behavior in `src/runtime/runtime-lifecycle.service.spec.ts` and `src/runtime/runtime-readiness.service.spec.ts`
+- [X] T016 [P] [US1] Add lifecycle and readiness-supervisor tests for startup gating, consecutive essential failures, self-drain, bounded shutdown and anti-flapping behavior in `src/runtime/runtime-lifecycle.service.spec.ts` and `src/runtime/runtime-readiness.service.spec.ts`
 - [ ] T017 [P] [US1] Add a safe two-worker continuity verifier that refuses production by default, performs ten consecutive reloads, measures removal below 10 seconds and detects infrastructure replay of non-idempotent writes in `scripts/verify-cluster-continuity.ts`
 
 ### Implementation for User Story 1
 
-- [ ] T018 [US1] Implement active-request tracking and bounded shutdown in `src/runtime/runtime-lifecycle.service.ts`, plus continuous essential probes, consecutive-failure self-drain and replacement signaling in `src/runtime/runtime-readiness.service.ts`
-- [ ] T019 [US1] Register shutdown hooks, startup-ready signaling, drain middleware and explicit 503 behavior for new non-health work in `src/main.ts`
-- [ ] T020 [US1] Register runtime lifecycle providers globally in `src/runtime/runtime.module.ts` and `src/app.module.ts`
-- [ ] T021 [US1] Configure two validated PM2 cluster workers, `wait_ready`, `listen_timeout`, `kill_timeout`, bounded restart delay, minimum uptime, restart limit and per-worker identity in `ecosystem.config.cjs`
-- [ ] T022 [US1] Add the continuity verification command without embedding credentials in `package.json`
+- [X] T018 [US1] Implement active-request tracking and bounded shutdown in `src/runtime/runtime-lifecycle.service.ts`, plus continuous essential probes, consecutive-failure self-drain and replacement signaling in `src/runtime/runtime-readiness.service.ts`
+- [X] T019 [US1] Register shutdown hooks, startup-ready signaling, drain middleware and explicit 503 behavior for new non-health work in `src/main.ts`
+- [X] T020 [US1] Register runtime lifecycle providers globally in `src/runtime/runtime.module.ts` and `src/app.module.ts`
+- [X] T021 [US1] Configure two validated PM2 cluster workers, `wait_ready`, `listen_timeout`, `kill_timeout`, bounded restart delay, minimum uptime, restart limit and per-worker identity in `ecosystem.config.cjs`
+- [X] T021A [US1] Add the least-privilege Jenkins pipeline and same-host deploy wrapper in `Jenkinsfile` and `ops/jenkins/`
+- [X] T021B [US1] Add the non-replaying TLS reverse-proxy template and cPanel/LiteSpeed activation gate in `ops/nginx/onehealth-backend.conf.example` and `ops/README.md`
+- [X] T022 [US1] Add the continuity verification command without embedding credentials in `package.json`
 - [ ] T023 [US1] Execute ten reloads and worker-loss/readiness exercises in a disposable environment, then record availability, sub-10-second removal and zero infrastructure-replay evidence in `specs/001-backend-load-balancing/validation/us1-continuity.md`
 
 **Checkpoint**: Process-level failure and progressive reload are survivable on the current host.
@@ -87,18 +89,18 @@ an observable HTTP 503 rather than bypassing protection.
 
 ### Tests for User Story 2
 
-- [ ] T024 [P] [US2] Replace local auth limiter tests with cross-instance and fail-closed cases in `src/auth/middleware/auth-rate-limit.middleware.spec.ts`
-- [ ] T025 [P] [US2] Add cross-instance and fail-closed upload quota cases in `src/upload/upload-rate-limit.middleware.spec.ts`
-- [ ] T026 [P] [US2] Replace Rudolf guard tests with short-window, daily-window and storage-failure cases in `src/rudolf/rudolf-rate-limit.guard.spec.ts`
+- [X] T024 [P] [US2] Replace local auth limiter tests with cross-instance and fail-closed cases in `src/auth/middleware/auth-rate-limit.middleware.spec.ts`
+- [X] T025 [P] [US2] Add cross-instance and fail-closed upload quota cases in `src/upload/upload-rate-limit.middleware.spec.ts`
+- [X] T026 [P] [US2] Replace Rudolf guard tests with short-window, daily-window and storage-failure cases in `src/rudolf/rudolf-rate-limit.guard.spec.ts`
 
 ### Implementation for User Story 2
 
-- [ ] T027 [US2] Replace the in-memory authentication buckets with `DistributedRateLimitService` in `src/auth/middleware/auth-rate-limit.middleware.ts`
-- [ ] T028 [US2] Replace the in-memory upload buckets with `DistributedRateLimitService` in `src/upload/upload-rate-limit.middleware.ts`
-- [ ] T029 [US2] Replace both in-memory Rudolf quota windows with shared pseudonymized buckets in `src/rudolf/rudolf-rate-limit.guard.ts`
-- [ ] T030 [US2] Import `CoordinationModule` through `src/auth/auth.module.ts`, `src/upload/upload.module.ts` and `src/rudolf/rudolf.module.ts`
-- [ ] T031 [US2] Extend the safe cluster verifier with auth, upload and Rudolf aggregate quota checks in `scripts/verify-cluster-security.ts`
-- [ ] T032 [US2] Execute security quota and coordination-failure tests and record sanitized evidence in `specs/001-backend-load-balancing/validation/us2-security.md`
+- [X] T027 [US2] Replace the in-memory authentication buckets with `DistributedRateLimitService` in `src/auth/middleware/auth-rate-limit.middleware.ts`
+- [X] T028 [US2] Replace the in-memory upload buckets with `DistributedRateLimitService` in `src/upload/upload-rate-limit.middleware.ts`
+- [X] T029 [US2] Replace both in-memory Rudolf quota windows with shared pseudonymized buckets in `src/rudolf/rudolf-rate-limit.guard.ts`
+- [X] T030 [US2] Import `CoordinationModule` through `src/auth/auth.module.ts`, `src/upload/upload.module.ts` and `src/rudolf/rudolf.module.ts`
+- [X] T031 [US2] Extend the safe cluster verifier with auth, upload and Rudolf aggregate quota checks in `scripts/verify-cluster-security.ts`
+- [X] T032 [US2] Execute security quota and coordination-failure tests and record sanitized evidence in `specs/001-backend-load-balancing/validation/us2-security.md`
 
 **Checkpoint**: A second worker cannot multiply security or paid-provider allowances.
 
@@ -115,16 +117,16 @@ HTTP 409, no duplicate exchange and recovery after owner death.
 
 ### Tests for User Story 3
 
-- [ ] T033 [P] [US3] Add distributed lease, timeout, disconnect and no-duplicate exchange cases in `src/rudolf/rudolf.service.spec.ts`
-- [ ] T034 [P] [US3] Add shared upload-root accessibility and immutability checks in `src/config/uploads-path.spec.ts`
-- [ ] T035 [P] [US3] Add cross-worker media and Rudolf lease verification paths in `scripts/verify-cluster-media-rudolf.ts`
+- [X] T033 [P] [US3] Add distributed lease, timeout, disconnect and no-duplicate exchange cases in `src/rudolf/rudolf.service.spec.ts`
+- [X] T034 [P] [US3] Add shared upload-root accessibility and immutability checks in `src/config/uploads-path.spec.ts`
+- [X] T035 [P] [US3] Add cross-worker media and Rudolf lease verification paths in `scripts/verify-cluster-media-rudolf.ts`
 
 ### Implementation for User Story 3
 
-- [ ] T036 [US3] Replace `pendingByConversation` with owner-safe `DistributedLeaseService` execution in `src/rudolf/rudolf.service.ts`
-- [ ] T037 [US3] Map bounded lease contention to stable `conversation_busy`, `Retry-After` and HTTP 409 responses in `src/rudolf/rudolf.controller.ts`
-- [ ] T038 [US3] Validate a common absolute writable `UPLOADS_DIR` before accepting traffic in `src/config/uploads-path.ts`
-- [ ] T039 [US3] Propagate abort and shutdown signals through provider streaming without partial persistence in `src/rudolf/groq-provider.service.ts` and `src/rudolf/rudolf.service.ts`
+- [X] T036 [US3] Replace `pendingByConversation` with owner-safe `DistributedLeaseService` execution in `src/rudolf/rudolf.service.ts`
+- [X] T037 [US3] Map bounded lease contention to stable `conversation_busy`, `Retry-After` and HTTP 409 responses in `src/rudolf/rudolf.controller.ts`
+- [X] T038 [US3] Validate a common absolute writable `UPLOADS_DIR` before accepting traffic in `src/config/uploads-path.ts`
+- [X] T039 [US3] Propagate abort and shutdown signals through provider streaming without partial persistence in `src/rudolf/groq-provider.service.ts` and `src/rudolf/rudolf.service.ts`
 - [ ] T040 [US3] Execute media, concurrent Rudolf and killed-owner exercises and record sanitized evidence in `specs/001-backend-load-balancing/validation/us3-media-rudolf.md`
 
 **Checkpoint**: Media and conversation behavior no longer depend on the selected worker.
@@ -142,21 +144,21 @@ within the documented bound.
 
 ### Tests for User Story 4
 
-- [ ] T041 [P] [US4] Add compatibility, liveness, readiness, degraded-provider and no-cache contract tests in `src/health/health.controller.spec.ts`
-- [ ] T042 [P] [US4] Add inbound request-ID validation, generated-ID and redaction tests in `src/observability/request-context.middleware.spec.ts`
-- [ ] T043 [P] [US4] Add Jest-based deployment-script validation and rollback cases without introducing Bats in `src/deployment/deploy-script.spec.ts`
+- [X] T041 [P] [US4] Add compatibility, liveness, readiness, degraded-provider and no-cache contract tests in `src/health/health.controller.spec.ts` and `src/runtime/runtime-readiness.service.spec.ts`
+- [X] T042 [P] [US4] Add inbound request-ID validation, generated-ID and redaction tests in `src/observability/request-context.middleware.spec.ts`
+- [X] T043 [P] [US4] Add Jest-based deployment-script validation and rollback cases without introducing Bats in `src/deployment/deploy-script.spec.ts`
 - [ ] T044 [P] [US4] Add end-to-end checks for `X-Request-Id`, health contracts and unchanged authorization/country scope for every Hub role in `test/app.e2e-spec.ts`
 
 ### Implementation for User Story 4
 
-- [ ] T045 [US4] Implement safe request-ID resolution, response propagation and duration context in `src/observability/request-context.middleware.ts`
-- [ ] T046 [US4] Implement redacted structured request logging with instance identity in `src/observability/request-logger.service.ts`
-- [ ] T047 [US4] Register request context and logging globally in `src/observability/observability.module.ts` and `src/main.ts`
-- [ ] T048 [US4] Expose the runtime essential-readiness snapshot and optional degraded capability reporting in `src/health/health.service.ts`
-- [ ] T049 [US4] Preserve `/api/health` and add `/live` plus `/ready` according to `contracts/health.openapi.yaml` in `src/health/health.controller.ts`
-- [ ] T050 [US4] Inject database connections, upload-path checks and health service dependencies in `src/health/health.module.ts`
-- [ ] T051 [US4] Make production proxy trust explicit and reject invalid topology configuration in `src/main.ts` and `src/config/configuration.ts`
-- [ ] T052 [US4] Add pre-reload revision capture, local readiness, public readiness/CORS, worker-count verification and automatic rollback in `deploy-onehealth-backend.sh`
+- [X] T045 [US4] Implement safe request-ID resolution, response propagation and duration context in `src/observability/request-context.middleware.ts`
+- [X] T046 [US4] Implement redacted structured request logging with instance identity in `src/observability/request-logger.service.ts`
+- [X] T047 [US4] Register request context and logging globally in `src/observability/observability.module.ts` and `src/main.ts`
+- [X] T048 [US4] Expose the runtime essential-readiness snapshot and optional degraded capability reporting in `src/health/health.service.ts`
+- [X] T049 [US4] Preserve `/api/health` and add `/live` plus `/ready` according to `contracts/health.openapi.yaml` in `src/health/health.controller.ts`
+- [X] T050 [US4] Inject database connections, upload-path checks and health service dependencies in `src/health/health.module.ts`
+- [X] T051 [US4] Make production proxy trust explicit and reject invalid topology configuration in `src/main.ts` and `src/config/configuration.ts`
+- [X] T052 [US4] Add pre-reload revision capture, local readiness, public readiness/CORS, worker-count verification and automatic rollback in `deploy-onehealth-backend.sh`
 - [ ] T053 [US4] Run a timed correlation-ID diagnosis and rollback exercise, then record sanitized candidate revision, sub-5-minute trace result, rollback result and timings in `specs/001-backend-load-balancing/validation/us4-operations.md`
 
 **Checkpoint**: Traffic selection is health-aware, incidents are traceable and deployment is reversible.

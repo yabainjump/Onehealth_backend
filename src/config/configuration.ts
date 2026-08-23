@@ -5,9 +5,9 @@ const numberFromEnvironment = (name: string, fallback: number): number =>
 
 const resolveInstanceId = (): string => {
   const configured = process.env.INSTANCE_ID?.trim();
-  if (configured) return configured;
-
   const processSlot = process.env.NODE_APP_INSTANCE?.trim() || `${process.pid}`;
+  if (configured) return `${configured}-${processSlot}`.slice(0, 96);
+
   return `${hostname()}-${processSlot}`.slice(0, 96);
 };
 
@@ -21,9 +21,27 @@ export default () => ({
   hubMongodbDbName: process.env.HUB_MONGODB_DB_NAME ?? 'onehealth_hub',
   hubMongodbMaxPoolSize: numberFromEnvironment('HUB_MONGODB_MAX_POOL_SIZE', 10),
   webConcurrency: numberFromEnvironment('WEB_CONCURRENCY', 2),
+  clusterSecurityReady:
+    (process.env.CLUSTER_SECURITY_READY ?? 'false').toLowerCase() === 'true',
   instanceId: resolveInstanceId(),
   trustedProxyHops: numberFromEnvironment('TRUSTED_PROXY_HOPS', 1),
   shutdownTimeoutMs: numberFromEnvironment('SHUTDOWN_TIMEOUT_MS', 15_000),
+  readinessProbeIntervalMs: numberFromEnvironment(
+    'READINESS_PROBE_INTERVAL_MS',
+    2_000,
+  ),
+  readinessProbeTimeoutMs: numberFromEnvironment(
+    'READINESS_PROBE_TIMEOUT_MS',
+    1_500,
+  ),
+  readinessFailureThreshold: numberFromEnvironment(
+    'READINESS_FAILURE_THRESHOLD',
+    3,
+  ),
+  readinessRetryAfterSeconds: numberFromEnvironment(
+    'READINESS_RETRY_AFTER_SECONDS',
+    5,
+  ),
   rateLimitKeySecret:
     process.env.RATE_LIMIT_KEY_SECRET || process.env.JWT_SECRET || '',
   rateLimitCleanupGraceMs: numberFromEnvironment(

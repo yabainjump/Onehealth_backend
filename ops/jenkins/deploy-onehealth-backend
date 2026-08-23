@@ -1,0 +1,38 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$#" -ne 0 ]; then
+  echo "This deployment command does not accept arguments."
+  exit 2
+fi
+
+if [ "$(id -un)" != "yabain" ]; then
+  echo "This deployment command must run as yabain."
+  exit 2
+fi
+
+readonly DEPLOY_HOME="/home/yabain"
+readonly NODE_VERSION_DIR="$DEPLOY_HOME/.nvm/versions/node/v20.20.2/bin"
+readonly DEPLOY_SCRIPT="$DEPLOY_HOME/deploy-onehealth-backend.sh"
+
+if [ ! -x "$NODE_VERSION_DIR/node" ] || [ ! -x "$NODE_VERSION_DIR/npm" ]; then
+  echo "Node.js 20.20.2 is not installed at the expected path."
+  exit 1
+fi
+
+if [ ! -f "$DEPLOY_SCRIPT" ]; then
+  echo "Missing server-owned deployment script: $DEPLOY_SCRIPT"
+  exit 1
+fi
+
+exec /usr/bin/env -i \
+  HOME="$DEPLOY_HOME" \
+  USER="yabain" \
+  LOGNAME="yabain" \
+  LANG="C.UTF-8" \
+  PATH="$NODE_VERSION_DIR:/usr/local/bin:/usr/bin:/bin" \
+  APP_DIR="$DEPLOY_HOME/apps/onehealth_backend" \
+  NPM_BIN="$NODE_VERSION_DIR/npm" \
+  NODE_BIN="$NODE_VERSION_DIR/node" \
+  PM2_BIN="$NODE_VERSION_DIR/pm2" \
+  bash "$DEPLOY_SCRIPT"

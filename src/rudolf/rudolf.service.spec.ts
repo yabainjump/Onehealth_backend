@@ -1,5 +1,11 @@
-import { ServiceUnavailableException } from '@nestjs/common';
+import { ConflictException, ServiceUnavailableException } from '@nestjs/common';
 import { Model, Types } from 'mongoose';
+import {
+  CoordinationUnavailableError,
+  LeaseBusyError,
+} from '../coordination/coordination.errors';
+import { DistributedLeaseService } from '../coordination/distributed-lease.service';
+import { RuntimeLifecycleService } from '../runtime/runtime-lifecycle.service';
 import {
   GroqProviderService,
   RudolfProviderError,
@@ -26,6 +32,20 @@ describe('RudolfService', () => {
     updatedAt: now,
     lastMessageAt: now,
   };
+
+  const createLease = () => ({
+    acquire: jest.fn().mockResolvedValue({
+      key: 'lease-key',
+      ownerToken: 'owner-token',
+      expiresAt: new Date(Date.now() + 60_000),
+    }),
+    release: jest.fn().mockResolvedValue(true),
+  });
+
+  const createLifecycle = () =>
+    ({
+      shutdownSignal: new AbortController().signal,
+    }) as RuntimeLifecycleService;
 
   function createModel(findResult: unknown = conversation) {
     const findOneQuery = {
@@ -76,7 +96,13 @@ describe('RudolfService', () => {
       model: 'test-model',
       stream,
     } as unknown as GroqProviderService;
-    const service = new RudolfService(model, provider);
+    const lease = createLease();
+    const service = new RudolfService(
+      model,
+      provider,
+      lease as unknown as DistributedLeaseService,
+      createLifecycle(),
+    );
     const deltas: string[] = [];
 
     const result = await service.streamMessage(
@@ -90,10 +116,18 @@ describe('RudolfService', () => {
       _id: conversationId,
       userId: new Types.ObjectId(userId),
     });
-    expect(stream).toHaveBeenCalledWith([
-      { role: 'assistant', content: 'Ancienne réponse' },
-      { role: 'user', content: 'Question One Health' },
-    ]);
+    expect(stream).toHaveBeenCalledWith(
+      [
+        { role: 'assistant', content: 'Ancienne réponse' },
+        { role: 'user', content: 'Question One Health' },
+      ],
+      expect.any(AbortSignal),
+    );
+    expect(lease.acquire).toHaveBeenCalledWith({
+      namespace: 'rudolf-conversation',
+      resource: `${userId}:${conversationId.toString()}`,
+    });
+    expect(lease.release).toHaveBeenCalledTimes(1);
     expect(deltas).toEqual(['Réponse ', 'One Health']);
     expect(result.message).toMatchObject({
       role: 'assistant',
@@ -124,7 +158,13 @@ describe('RudolfService', () => {
         throw new RudolfProviderError('unavailable');
       }),
     } as unknown as GroqProviderService;
-    const service = new RudolfService(model, provider);
+    const lease = createLease();
+    const service = new RudolfService(
+      model,
+      provider,
+      lease as unknown as DistributedLeaseService,
+      createLifecycle(),
+    );
 
     await expect(
       service.streamMessage(
@@ -135,6 +175,100 @@ describe('RudolfService', () => {
       ),
     ).rejects.toBeInstanceOf(ServiceUnavailableException);
     expect(updateOne).not.toHaveBeenCalled();
+    expect(lease.release).toHaveBeenCalledTimes(1);
+  });
+
+  it('returns a stable conflict and retry delay when another worker owns the conversation', async () => {
+    const { model, updateOne } = createModel();
+    const lease = createLease();
+    lease.acquire.mockRejectedValue(new LeaseBusyError(75));
+    const stream = jest.fn();
+    const provider = {
+      isConfigured: true,
+      model: 'test-model',
+      stream,
+    } as unknown as GroqProviderService;
+    const service = new RudolfService(
+      model,
+      provider,
+      lease as unknown as DistributedLeaseService,
+      createLifecycle(),
+    );
+
+    await expect(
+      service.streamMessage(
+        userId,
+        conversationId.toString(),
+        { message: 'Question concurrente' },
+        () => undefined,
+      ),
+    ).rejects.toMatchObject<ConflictException>({
+      retryAfterSeconds: 75,
+    });
+    expect(stream).not.toHaveBeenCalled();
+    expect(updateOne).not.toHaveBeenCalled();
+    expect(lease.release).not.toHaveBeenCalled();
+  });
+
+  it('fails closed when lease storage is unavailable', async () => {
+    const { model } = createModel();
+    const lease = createLease();
+    lease.acquire.mockRejectedValue(new CoordinationUnavailableError());
+    const provider = {
+      isConfigured: true,
+      model: 'test-model',
+    } as unknown as GroqProviderService;
+    const service = new RudolfService(
+      model,
+      provider,
+      lease as unknown as DistributedLeaseService,
+      createLifecycle(),
+    );
+
+    await expect(
+      service.deleteConversation(userId, conversationId.toString()),
+    ).rejects.toBeInstanceOf(ServiceUnavailableException);
+  });
+
+  it('aborts provider streaming and never persists after client disconnect', async () => {
+    const { model, updateOne } = createModel();
+    const lease = createLease();
+    const provider = {
+      isConfigured: true,
+      model: 'test-model',
+      stream: jest.fn().mockImplementation(async function* (
+        _history: unknown,
+        signal: AbortSignal,
+      ) {
+        yield 'Début';
+        await new Promise<void>((_resolve, reject) => {
+          signal.addEventListener(
+            'abort',
+            () => reject(new RudolfProviderError('aborted')),
+            { once: true },
+          );
+        });
+      }),
+    } as unknown as GroqProviderService;
+    const service = new RudolfService(
+      model,
+      provider,
+      lease as unknown as DistributedLeaseService,
+      createLifecycle(),
+    );
+    const client = new AbortController();
+
+    const operation = service.streamMessage(
+      userId,
+      conversationId.toString(),
+      { message: 'Question interrompue' },
+      () => client.abort(),
+      client.signal,
+    );
+
+    await expect(operation).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(updateOne).not.toHaveBeenCalled();
+    expect(lease.release).toHaveBeenCalledTimes(1);
   });
 
   it('lists only the authenticated user conversations', async () => {
@@ -150,7 +284,12 @@ describe('RudolfService', () => {
       isConfigured: true,
       model: 'test-model',
     } as unknown as GroqProviderService;
-    const service = new RudolfService(model, provider);
+    const service = new RudolfService(
+      model,
+      provider,
+      createLease() as unknown as DistributedLeaseService,
+      createLifecycle(),
+    );
 
     const result = await service.listConversations(userId);
 

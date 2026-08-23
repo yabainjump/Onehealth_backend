@@ -1,0 +1,3 @@
+# Install as /etc/sudoers.d/onehealth-jenkins with mode 0440.
+# Jenkins can execute one immutable wrapper as the unprivileged application user.
+jenkins ALL=(yabain) NOPASSWD: /usr/local/sbin/deploy-onehealth-backend

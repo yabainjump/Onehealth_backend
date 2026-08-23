@@ -4,11 +4,21 @@ import {
   HttpException,
   HttpStatus,
   Injectable,
+  Logger,
   NotFoundException,
   ServiceUnavailableException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
+import {
+  CoordinationUnavailableError,
+  LeaseBusyError,
+} from '../coordination/coordination.errors';
+import {
+  DistributedLeaseService,
+  LeaseHandle,
+} from '../coordination/distributed-lease.service';
+import { RuntimeLifecycleService } from '../runtime/runtime-lifecycle.service';
 import { SendRudolfMessageDto } from './dto/send-rudolf-message.dto';
 import {
   GroqProviderService,
@@ -55,14 +65,27 @@ export type RudolfStreamResult = {
   conversation: RudolfConversationSummary;
 };
 
+export class RudolfConversationBusyException extends ConflictException {
+  constructor(readonly retryAfterSeconds: number) {
+    super({
+      statusCode: HttpStatus.CONFLICT,
+      error: 'Conflict',
+      code: 'conversation_busy',
+      message: 'This Rudolf conversation is already processing a request.',
+    });
+  }
+}
+
 @Injectable()
 export class RudolfService {
-  private readonly pendingByConversation = new Map<string, Promise<void>>();
+  private readonly logger = new Logger(RudolfService.name);
 
   constructor(
     @InjectModel(RudolfConversation.name)
     private readonly conversationModel: Model<RudolfConversation>,
     private readonly groqProvider: GroqProviderService,
+    private readonly distributedLease: DistributedLeaseService,
+    private readonly lifecycle: RuntimeLifecycleService,
   ) {}
 
   async listConversations(userId: string) {
@@ -184,6 +207,7 @@ export class RudolfService {
     conversationId: string,
     dto: SendRudolfMessageDto,
     onDelta: (delta: string) => void | Promise<void>,
+    clientSignal?: AbortSignal,
   ): Promise<RudolfStreamResult> {
     const key = this.lockKey(userId, conversationId);
     return this.runExclusive(key, async () => {
@@ -193,19 +217,22 @@ export class RudolfService {
       );
       const context = this.buildContext(conversation.messages, dto.message);
       let answer = '';
+      const signal = this.operationSignal(clientSignal);
 
       try {
-        for await (const delta of this.groqProvider.stream(context)) {
+        for await (const delta of this.groqProvider.stream(context, signal)) {
           const remaining = MAX_ANSWER_CHARACTERS - answer.length;
           if (remaining <= 0) break;
           const safeDelta = delta.slice(0, remaining);
           answer += safeDelta;
           await onDelta(safeDelta);
+          this.throwIfAborted(signal);
         }
       } catch (error) {
         this.rethrowProviderError(error);
       }
 
+      this.throwIfAborted(signal);
       const normalizedAnswer = answer.trim();
       if (!normalizedAnswer) {
         throw new ServiceUnavailableException(
@@ -230,6 +257,7 @@ export class RudolfService {
     userId: string,
     conversationId: string,
     dto: SendRudolfMessageDto,
+    clientSignal?: AbortSignal,
   ) {
     const key = this.lockKey(userId, conversationId);
     return this.runExclusive(key, async () => {
@@ -238,14 +266,16 @@ export class RudolfService {
         conversationId,
       );
       const context = this.buildContext(conversation.messages, dto.message);
+      const signal = this.operationSignal(clientSignal);
 
       let answer: string;
       try {
-        answer = await this.groqProvider.complete(context);
+        answer = await this.groqProvider.complete(context, undefined, signal);
       } catch (error) {
         this.rethrowProviderError(error);
       }
 
+      this.throwIfAborted(signal);
       return this.persistExchange(conversation, userId, dto.message, answer!);
     });
   }
@@ -285,9 +315,18 @@ export class RudolfService {
   }
 
   async resetConversation(userId: string) {
-    await this.conversationModel
-      .deleteMany({ userId: this.toObjectId(userId) })
+    const ownerId = this.toObjectId(userId);
+    const conversations = await this.conversationModel
+      .find({ userId: ownerId })
+      .select({ _id: 1 })
+      .lean<Array<{ _id: Types.ObjectId }>>()
       .exec();
+
+    await Promise.all(
+      conversations.map((conversation) =>
+        this.deleteConversation(userId, conversation._id.toString()),
+      ),
+    );
     return { success: true };
   }
 
@@ -491,6 +530,11 @@ export class RudolfService {
         'Rudolf is temporarily unavailable.',
       );
     }
+    if (error.kind === 'aborted') {
+      throw new ServiceUnavailableException(
+        'Rudolf request was interrupted before completion.',
+      );
+    }
     if (error.kind === 'timeout') {
       throw new GatewayTimeoutException('Rudolf took too long to respond.');
     }
@@ -508,20 +552,49 @@ export class RudolfService {
     throw new ServiceUnavailableException('Rudolf is temporarily unavailable.');
   }
 
-  private runExclusive<T>(key: string, action: () => Promise<T>): Promise<T> {
-    const previous = this.pendingByConversation.get(key) ?? Promise.resolve();
-    const run = previous.then(action);
-    const tracked = run
-      .then(
-        () => undefined,
-        () => undefined,
-      )
-      .finally(() => {
-        if (this.pendingByConversation.get(key) === tracked) {
-          this.pendingByConversation.delete(key);
-        }
+  private async runExclusive<T>(
+    key: string,
+    action: () => Promise<T>,
+  ): Promise<T> {
+    let lease: LeaseHandle;
+    try {
+      lease = await this.distributedLease.acquire({
+        namespace: 'rudolf-conversation',
+        resource: key,
       });
-    this.pendingByConversation.set(key, tracked);
-    return run;
+    } catch (error) {
+      if (error instanceof LeaseBusyError) {
+        throw new RudolfConversationBusyException(error.retryAfterSeconds);
+      }
+      if (error instanceof CoordinationUnavailableError) {
+        throw new ServiceUnavailableException(
+          'Rudolf coordination is temporarily unavailable.',
+        );
+      }
+      throw error;
+    }
+
+    try {
+      return await action();
+    } finally {
+      try {
+        await this.distributedLease.release(lease);
+      } catch {
+        this.logger.warn(
+          'A Rudolf conversation lease could not be released; TTL recovery remains active.',
+        );
+      }
+    }
+  }
+
+  private operationSignal(clientSignal?: AbortSignal): AbortSignal {
+    if (!clientSignal) return this.lifecycle.shutdownSignal;
+    return AbortSignal.any([clientSignal, this.lifecycle.shutdownSignal]);
+  }
+
+  private throwIfAborted(signal: AbortSignal): void {
+    if (signal.aborted) {
+      this.rethrowProviderError(new RudolfProviderError('aborted'));
+    }
   }
 }

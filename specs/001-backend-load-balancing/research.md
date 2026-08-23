@@ -194,3 +194,36 @@ instructions and design documents are neither runtime dependencies nor public ap
 
 - Ignore all Spec Kit content: rejected because GitHub reviews would lose product and architecture decisions.
 - Serve specifications from the backend: rejected because it exposes internal engineering context without user value.
+
+## Decision 14 — Separate Jenkins, PM2 and Nginx responsibilities
+
+**Decision**: Jenkins validates the Git revision and may invoke one root-owned, argument-free deploy
+wrapper as the unprivileged `yabain` user. PM2 owns exactly two Node.js cluster workers, readiness
+promotion, progressive reload and replacement. Nginx owns TLS and reverse proxying, but never retries
+an interrupted upstream request automatically. Application secrets remain only in the server-side
+`.env` read by NestJS.
+
+**Rationale**: This preserves a narrow deployment authority, prevents secrets from entering source
+control or Jenkins build logs, and keeps each failure boundary explicit. Nginx Community cannot run
+per-worker active checks when both PM2 workers share one port; continuous readiness and self-removal
+therefore belong to each NestJS worker. PM2 replaces an exited worker.
+
+**Current-host gate**: The existing production history indicates cPanel/LiteSpeed. Nginx must not be
+enabled on ports 80/443 until root access, available memory and exclusive port ownership are
+confirmed. The repository contains a deployable configuration, not permission to disrupt the
+existing web server.
+
+**Alternatives considered**:
+
+- Store production `.env` in Jenkins credentials: rejected because the build controller does not
+  need application runtime secrets on this same-host model.
+- Give Jenkins unrestricted sudo or direct PM2/root access: rejected as excessive privilege.
+- Enable Nginx automatic upstream retries: rejected because an interrupted non-idempotent write must
+  not be silently replayed.
+- Add NGINX Plus active checks: rejected because it is paid and cannot distinguish PM2 workers behind
+  one shared cluster port in the chosen topology.
+
+**References**: [Jenkins Pipeline syntax](https://www.jenkins.io/doc/book/pipeline/syntax/),
+[Jenkins credential security](https://www.jenkins.io/doc/book/security/credentials/),
+[PM2 graceful start/shutdown](https://pm2.keymetrics.io/docs/usage/signals-clean-restart/), and
+[Nginx proxy behavior](https://nginx.org/en/docs/http/ngx_http_proxy_module.html).

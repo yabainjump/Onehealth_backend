@@ -7,8 +7,10 @@ import {
 import { UploadController } from './upload.controller';
 import { UploadService } from './upload.service';
 import { UploadRateLimitMiddleware } from './upload-rate-limit.middleware';
+import { CoordinationModule } from '../coordination/coordination.module';
 
 @Module({
+  imports: [CoordinationModule],
   controllers: [UploadController],
   providers: [UploadService],
 })

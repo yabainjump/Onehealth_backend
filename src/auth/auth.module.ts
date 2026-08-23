@@ -14,6 +14,7 @@ import { MailModule } from '../mail/mail.module';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { AuthRateLimitMiddleware } from './middleware/auth-rate-limit.middleware';
 import { GoogleAvatarService } from './google-avatar.service';
+import { CoordinationModule } from '../coordination/coordination.module';
 
 function parseJwtExpiresInToSeconds(rawValue?: string): number {
   if (!rawValue) {
@@ -39,6 +40,7 @@ function parseJwtExpiresInToSeconds(rawValue?: string): number {
   imports: [
     UsersModule,
     MailModule,
+    CoordinationModule,
     PassportModule.register({ defaultStrategy: 'jwt' }),
     JwtModule.registerAsync({
       inject: [ConfigService],

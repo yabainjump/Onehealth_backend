@@ -1,0 +1,14 @@
+# Inclusion cPanel du VirtualHost HTTPS de backend.onehealthnetwork.yaba-in.com.
+# Destination serveur :
+# /etc/apache2/conf.d/userdata/ssl/2_4/yabain/backend.onehealthnetwork.yaba-in.com/proxy.conf
+
+ProxyRequests Off
+ProxyPreserveHost On
+ProxyAddHeaders On
+
+# Le backend local utilise HTTP ; SSLProxyEngine n'est donc pas nécessaire.
+ProxyPass "/" "http://127.0.0.1:3000/" connectiontimeout=5 timeout=75 retry=0
+ProxyPassReverse "/" "http://127.0.0.1:3000/"
+
+RequestHeader set X-Forwarded-Proto "https"
+RequestHeader set X-Forwarded-Port "443"

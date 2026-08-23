@@ -1,0 +1,17 @@
+# Inclusion cPanel du VirtualHost HTTP de backend.onehealthnetwork.yaba-in.com.
+# Destination serveur :
+# /etc/apache2/conf.d/userdata/std/2_4/yabain/backend.onehealthnetwork.yaba-in.com/proxy.conf
+
+ProxyRequests Off
+ProxyPreserveHost On
+ProxyAddHeaders On
+
+# Laisser cPanel/AutoSSL traiter le challenge localement.
+ProxyPass "/.well-known/acme-challenge/" "!"
+
+# PM2 cluster partage ce port entre exactement deux workers NestJS.
+ProxyPass "/" "http://127.0.0.1:3000/" connectiontimeout=5 timeout=75 retry=0
+ProxyPassReverse "/" "http://127.0.0.1:3000/"
+
+RequestHeader set X-Forwarded-Proto "http"
+RequestHeader set X-Forwarded-Port "80"

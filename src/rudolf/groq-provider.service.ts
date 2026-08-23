@@ -3,6 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import Groq, {
   APIConnectionTimeoutError,
   APIError,
+  APIUserAbortError,
   AuthenticationError,
   RateLimitError,
 } from 'groq-sdk';
@@ -16,6 +17,7 @@ export type RudolfProviderMessage = {
 
 export type RudolfProviderErrorKind =
   | 'not_configured'
+  | 'aborted'
   | 'timeout'
   | 'rate_limit'
   | 'authentication'
@@ -51,18 +53,22 @@ export class GroqProviderService {
   async complete(
     history: RudolfProviderMessage[],
     systemPrompt = RUDOLF_SYSTEM_PROMPT,
+    signal?: AbortSignal,
   ): Promise<string> {
     const client = this.requireClient();
     const messages = this.buildMessages(history, systemPrompt);
 
     try {
-      const completion = await client.chat.completions.create({
-        model: this.model,
-        messages,
-        temperature: 0.2,
-        max_completion_tokens: 900,
-        top_p: 1,
-      });
+      const completion = await client.chat.completions.create(
+        {
+          model: this.model,
+          messages,
+          temperature: 0.2,
+          max_completion_tokens: 900,
+          top_p: 1,
+        },
+        signal ? { signal } : undefined,
+      );
 
       const content = completion.choices[0]?.message?.content?.trim();
       if (!content) {
@@ -77,21 +83,26 @@ export class GroqProviderService {
 
   async *stream(
     history: RudolfProviderMessage[],
+    signal?: AbortSignal,
   ): AsyncGenerator<string, void, void> {
     const client = this.requireClient();
     const messages = this.buildMessages(history);
 
     try {
-      const stream = await client.chat.completions.create({
-        model: this.model,
-        messages,
-        temperature: 0.2,
-        max_completion_tokens: 900,
-        top_p: 1,
-        stream: true,
-      });
+      const stream = await client.chat.completions.create(
+        {
+          model: this.model,
+          messages,
+          temperature: 0.2,
+          max_completion_tokens: 900,
+          top_p: 1,
+          stream: true,
+        },
+        signal ? { signal } : undefined,
+      );
 
       for await (const chunk of stream) {
+        if (signal?.aborted) throw new RudolfProviderError('aborted');
         const content = chunk.choices[0]?.delta?.content;
         if (content) yield content;
       }
@@ -120,6 +131,9 @@ export class GroqProviderService {
 
   private rethrowProviderError(error: unknown): never {
     if (error instanceof RudolfProviderError) throw error;
+    if (error instanceof APIUserAbortError) {
+      throw new RudolfProviderError('aborted');
+    }
     if (error instanceof APIConnectionTimeoutError) {
       throw new RudolfProviderError('timeout');
     }

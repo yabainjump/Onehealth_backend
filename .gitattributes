@@ -1,3 +1,6 @@
 # Auto detect text files and perform LF normalization
 * text=auto
 *.sh text eol=lf
+Jenkinsfile text eol=lf
+ops/jenkins/deploy-onehealth-backend text eol=lf
+*.conf.example text eol=lf

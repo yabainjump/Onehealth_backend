@@ -1,14 +1,15 @@
 import { NestFactory } from '@nestjs/core';
 import { NextFunction, Request, Response } from 'express';
-import { ValidationPipe } from '@nestjs/common';
+import { Logger, ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
-import { mkdirSync } from 'fs';
 import type { ServerResponse } from 'http';
 import { extname, join } from 'path';
 import { AppModule } from './app.module';
 import { setupSwagger } from './config/swagger';
-import { resolveUploadsRoot } from './config/uploads-path';
+import { ensureUploadsRootReady } from './config/uploads-path';
+import { RuntimeLifecycleService } from './runtime/runtime-lifecycle.service';
+import { RuntimeReadinessService } from './runtime/runtime-readiness.service';
 
 const DEFAULT_DEV_CORS_ORIGINS = [
   'http://localhost:8100',
@@ -40,14 +41,49 @@ function parseAllowedCorsOrigins(
 async function bootstrap() {
   const app = await NestFactory.create<NestExpressApplication>(AppModule);
   const configService = app.get(ConfigService);
+  const lifecycle = app.get(RuntimeLifecycleService);
+  const readiness = app.get(RuntimeReadinessService);
   const nodeEnv = configService.get<string>('NODE_ENV') ?? 'development';
 
   app.disable('x-powered-by');
-  app.set('trust proxy', 1);
+  app.set('trust proxy', configService.get<number>('trustedProxyHops') ?? 1);
   app.setGlobalPrefix('api');
 
-  const uploadsRoot = resolveUploadsRoot();
-  mkdirSync(uploadsRoot, { recursive: true });
+  const corsOrigin = configService.get<string>('CORS_ORIGIN');
+  const allowedCorsOrigins = parseAllowedCorsOrigins(corsOrigin, nodeEnv);
+
+  if (nodeEnv === 'production' && allowedCorsOrigins.length === 0) {
+    throw new Error(
+      'CORS_ORIGIN must be configured in production to prevent permissive cross-origin access.',
+    );
+  }
+
+  app.enableCors({
+    origin: (origin, callback) => {
+      if (!origin) {
+        callback(null, true);
+        return;
+      }
+
+      if (allowedCorsOrigins.includes(origin)) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error('CORS origin not allowed'));
+    },
+    credentials: true,
+    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
+    allowedHeaders: [
+      'Authorization',
+      'Content-Type',
+      'Accept',
+      'Origin',
+      'X-Requested-With',
+    ],
+  });
+
+  const uploadsRoot = ensureUploadsRootReady();
 
   app.useStaticAssets(uploadsRoot, {
     prefix: '/uploads/',
@@ -99,6 +135,31 @@ async function bootstrap() {
     next();
   });
 
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    if (!lifecycle.canAccept(req.originalUrl)) {
+      res.setHeader(
+        'Retry-After',
+        `${configService.get<number>('readinessRetryAfterSeconds') ?? 5}`,
+      );
+      res.status(503).json({
+        statusCode: 503,
+        error: 'Service Unavailable',
+        message: "L'instance ne peut pas accepter de nouvelle requête.",
+      });
+      return;
+    }
+
+    if (lifecycle.isHealthRequest(req.originalUrl)) {
+      next();
+      return;
+    }
+
+    const finish = lifecycle.trackRequest();
+    res.once('finish', finish);
+    res.once('close', finish);
+    next();
+  });
+
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -110,43 +171,25 @@ async function bootstrap() {
     }),
   );
 
-  const corsOrigin = configService.get<string>('CORS_ORIGIN');
-  const allowedCorsOrigins = parseAllowedCorsOrigins(corsOrigin, nodeEnv);
+  setupSwagger(app, configService);
 
-  if (nodeEnv === 'production' && allowedCorsOrigins.length === 0) {
+  app.enableShutdownHooks();
+  await app.listen(configService.get<number>('PORT') ?? 3000);
+
+  if (!(await readiness.initialize())) {
+    await app.close();
     throw new Error(
-      'CORS_ORIGIN must be configured in production to prevent permissive cross-origin access.',
+      'The application started but an essential dependency is not ready.',
     );
   }
 
-  app.enableCors({
-    origin: (origin, callback) => {
-      if (!origin) {
-        callback(null, true);
-        return;
-      }
-
-      if (allowedCorsOrigins.includes(origin)) {
-        callback(null, true);
-        return;
-      }
-
-      callback(new Error('CORS origin not allowed'));
-    },
-    credentials: true,
-    methods: ['GET', 'HEAD', 'PUT', 'PATCH', 'POST', 'DELETE', 'OPTIONS'],
-    allowedHeaders: [
-      'Authorization',
-      'Content-Type',
-      'Accept',
-      'Origin',
-      'X-Requested-With',
-    ],
-  });
-
-  setupSwagger(app, configService);
-
-  await app.listen(configService.get<number>('PORT') ?? 3000);
+  if (typeof process.send === 'function') {
+    process.send('ready');
+  }
 }
 
-void bootstrap();
+void bootstrap().catch((error: unknown) => {
+  const message = error instanceof Error ? error.message : 'Unknown error';
+  Logger.error(message, undefined, 'Bootstrap');
+  process.exitCode = 1;
+});

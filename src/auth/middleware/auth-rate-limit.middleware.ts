@@ -1,70 +1,64 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
-
-interface AttemptBucket {
-  attempts: number;
-  resetAt: number;
-}
+import { CoordinationUnavailableError } from '../../coordination/coordination.errors';
+import { DistributedRateLimitService } from '../../coordination/distributed-rate-limit.service';
+import { RateLimitPolicy } from '../../coordination/schemas/rate-limit-bucket.schema';
 
 const WINDOW_MS = 15 * 60 * 1000;
-const MAX_BUCKETS = 10_000;
-const ROUTE_LIMITS: Record<string, number> = {
-  '/auth/login': 10,
-  '/auth/register': 5,
-  '/auth/google': 10,
-  '/auth/forgot-password': 5,
-  '/auth/reset-password': 10,
+const ROUTE_POLICIES: Record<
+  string,
+  { policy: RateLimitPolicy; limit: number }
+> = {
+  '/auth/login': { policy: 'auth-login', limit: 10 },
+  '/auth/register': { policy: 'auth-register', limit: 5 },
+  '/auth/google': { policy: 'auth-google', limit: 10 },
+  '/auth/forgot-password': { policy: 'auth-forgot-password', limit: 5 },
+  '/auth/reset-password': { policy: 'auth-reset-password', limit: 10 },
 };
 
 @Injectable()
 export class AuthRateLimitMiddleware implements NestMiddleware {
-  private readonly buckets = new Map<string, AttemptBucket>();
+  constructor(
+    private readonly distributedRateLimit: DistributedRateLimitService,
+  ) {}
 
-  use(req: Request, res: Response, next: NextFunction): void {
+  async use(req: Request, res: Response, next: NextFunction): Promise<void> {
     const routeKey = this.resolveRouteKey(req);
-    const maxAttempts = ROUTE_LIMITS[routeKey];
+    const routePolicy = ROUTE_POLICIES[routeKey];
 
-    if (!maxAttempts) {
+    if (!routePolicy) {
       next();
       return;
     }
 
-    const clientId = this.resolveClientId(req);
-    const bucketKey = `${routeKey}:${clientId}`;
-    const now = Date.now();
-
-    const bucket = this.buckets.get(bucketKey);
-    if (!bucket || bucket.resetAt <= now) {
-      this.ensureCapacity(now);
-      this.buckets.set(bucketKey, {
-        attempts: 1,
-        resetAt: now + WINDOW_MS,
+    try {
+      const rateLimit = await this.distributedRateLimit.consume({
+        policy: routePolicy.policy,
+        subject: this.resolveClientId(req),
+        limit: routePolicy.limit,
+        windowMs: WINDOW_MS,
       });
+
+      if (!rateLimit.allowed) {
+        res.setHeader('Retry-After', `${rateLimit.retryAfterSeconds}`);
+        res.status(429).json({
+          statusCode: 429,
+          message: 'Too many attempts. Please try again later.',
+        });
+        return;
+      }
+
       next();
-      return;
+    } catch (error: unknown) {
+      if (error instanceof CoordinationUnavailableError) {
+        res.status(503).json({
+          statusCode: 503,
+          message: 'Security controls temporarily unavailable.',
+        });
+        return;
+      }
+      next(error);
     }
-
-    if (bucket.attempts >= maxAttempts) {
-      const retryAfterSeconds = Math.max(
-        1,
-        Math.ceil((bucket.resetAt - now) / 1000),
-      );
-
-      res.setHeader('Retry-After', `${retryAfterSeconds}`);
-      res.status(429).json({
-        statusCode: 429,
-        message: 'Too many attempts. Please try again later.',
-      });
-      return;
-    }
-
-    bucket.attempts += 1;
-
-    if (Math.random() < 0.01) {
-      this.cleanupExpiredBuckets(now);
-    }
-
-    next();
   }
 
   private resolveRouteKey(request: Request): string {
@@ -79,25 +73,6 @@ export class AuthRateLimitMiddleware implements NestMiddleware {
     // NON usurpable via un header `X-Forwarded-For` falsifie (contrairement a
     // un parsing manuel de l'en-tete, qui prend la valeur la plus a gauche
     // controlee par le client).
-    return request.ip || 'unknown';
-  }
-
-  private cleanupExpiredBuckets(now: number): void {
-    for (const [key, bucket] of this.buckets.entries()) {
-      if (bucket.resetAt <= now) {
-        this.buckets.delete(key);
-      }
-    }
-  }
-
-  private ensureCapacity(now: number): void {
-    this.cleanupExpiredBuckets(now);
-    while (this.buckets.size >= MAX_BUCKETS) {
-      const oldestKey = this.buckets.keys().next().value as string | undefined;
-      if (!oldestKey) {
-        break;
-      }
-      this.buckets.delete(oldestKey);
-    }
+    return request.ip || request.socket.remoteAddress || 'unknown';
   }
 }

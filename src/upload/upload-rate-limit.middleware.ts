@@ -1,58 +1,45 @@
 import { Injectable, NestMiddleware } from '@nestjs/common';
 import { NextFunction, Request, Response } from 'express';
-
-interface UploadBucket {
-  attempts: number;
-  resetAt: number;
-}
+import { CoordinationUnavailableError } from '../coordination/coordination.errors';
+import { DistributedRateLimitService } from '../coordination/distributed-rate-limit.service';
 
 const WINDOW_MS = 15 * 60 * 1000;
 const MAX_UPLOADS_PER_WINDOW = 30;
-const MAX_BUCKETS = 10_000;
 
 @Injectable()
 export class UploadRateLimitMiddleware implements NestMiddleware {
-  private readonly buckets = new Map<string, UploadBucket>();
+  constructor(
+    private readonly distributedRateLimit: DistributedRateLimitService,
+  ) {}
 
-  use(req: Request, res: Response, next: NextFunction): void {
-    const now = Date.now();
-    const key = req.ip || 'unknown';
-    const bucket = this.buckets.get(key);
-
-    if (!bucket || bucket.resetAt <= now) {
-      this.ensureCapacity(now);
-      this.buckets.set(key, { attempts: 1, resetAt: now + WINDOW_MS });
-      next();
-      return;
-    }
-
-    if (bucket.attempts >= MAX_UPLOADS_PER_WINDOW) {
-      const retryAfter = Math.max(1, Math.ceil((bucket.resetAt - now) / 1000));
-      res.setHeader('Retry-After', `${retryAfter}`);
-      res.status(429).json({
-        statusCode: 429,
-        message: 'Too many uploads. Please try again later.',
+  async use(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const rateLimit = await this.distributedRateLimit.consume({
+        policy: 'upload',
+        subject: req.ip || req.socket.remoteAddress || 'unknown',
+        limit: MAX_UPLOADS_PER_WINDOW,
+        windowMs: WINDOW_MS,
       });
-      return;
-    }
 
-    bucket.attempts += 1;
-    next();
-  }
-
-  private ensureCapacity(now: number): void {
-    for (const [key, bucket] of this.buckets.entries()) {
-      if (bucket.resetAt <= now) {
-        this.buckets.delete(key);
+      if (!rateLimit.allowed) {
+        res.setHeader('Retry-After', `${rateLimit.retryAfterSeconds}`);
+        res.status(429).json({
+          statusCode: 429,
+          message: 'Too many uploads. Please try again later.',
+        });
+        return;
       }
-    }
 
-    while (this.buckets.size >= MAX_BUCKETS) {
-      const oldestKey = this.buckets.keys().next().value as string | undefined;
-      if (!oldestKey) {
-        break;
+      next();
+    } catch (error: unknown) {
+      if (error instanceof CoordinationUnavailableError) {
+        res.status(503).json({
+          statusCode: 503,
+          message: 'Security controls temporarily unavailable.',
+        });
+        return;
       }
-      this.buckets.delete(oldestKey);
+      next(error);
     }
   }
 }
