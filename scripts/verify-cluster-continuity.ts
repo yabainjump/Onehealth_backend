@@ -29,6 +29,20 @@ interface ReadyResponse {
 const sleep = (milliseconds: number) =>
   new Promise<void>((resolve) => setTimeout(resolve, milliseconds));
 
+const progress = (
+  step: string,
+  details: Record<string, unknown> = {},
+): void => {
+  console.log(
+    JSON.stringify({
+      type: 'cluster-verification-progress',
+      step,
+      at: new Date().toISOString(),
+      ...details,
+    }),
+  );
+};
+
 const refusesProduction = (): boolean => {
   const productionHost = /(?:^|\.)onehealthnetwork\.yaba-in\.com$/i.test(
     baseUrl.hostname,
@@ -86,13 +100,15 @@ const waitForTwoReadyWorkers = async (
 const reloadUnderReadTraffic = async (): Promise<{
   requests: number;
   failures: number;
+  elapsedMs: number;
 }> => {
+  const startedAt = Date.now();
   let completed = false;
   let reloadError: unknown;
   const reload = execFileAsync(
     pm2Bin,
     ['reload', ecosystemPath, '--only', appName, '--update-env'],
-    { maxBuffer: 4 * 1024 * 1024 },
+    { maxBuffer: 4 * 1024 * 1024, timeout: 90_000 },
   )
     .catch((error: unknown) => {
       reloadError = error;
@@ -112,7 +128,7 @@ const reloadUnderReadTraffic = async (): Promise<{
   if (reloadError) throw reloadError;
   await waitForTwoReadyWorkers(60_000);
 
-  return { requests, failures };
+  return { requests, failures, elapsedMs: Date.now() - startedAt };
 };
 
 const main = async (): Promise<void> => {
@@ -127,26 +143,44 @@ const main = async (): Promise<void> => {
     );
   }
 
+  progress('baseline-waiting');
   const baseline = await waitForTwoReadyWorkers(60_000);
+  progress('baseline-ready', {
+    instanceIds: baseline.instanceIds,
+    elapsedMs: baseline.elapsedMs,
+  });
   const processes = await getProcesses();
   const victim = processes.find(
     (item) => item.pm2_env?.status === 'online' && item.pid && item.pid > 0,
   );
   if (!victim?.pid) throw new Error('No replaceable PM2 worker was found.');
 
+  progress('worker-termination-starting', { pmId: victim.pm_id });
   process.kill(victim.pid, 'SIGKILL');
   const replacement = await waitForTwoReadyWorkers(replacementDeadlineMs);
   const afterReplacement = await getProcesses();
   if (afterReplacement.some((item) => item.pid === victim.pid)) {
     throw new Error('PM2 did not replace the terminated worker process.');
   }
+  progress('worker-replaced', {
+    elapsedMs: replacement.elapsedMs,
+    instanceIds: replacement.instanceIds,
+  });
 
   let requests = 0;
   let failures = 0;
   for (let reload = 1; reload <= 10; reload += 1) {
+    progress('reload-starting', { reload, total: 10 });
     const result = await reloadUnderReadTraffic();
     requests += result.requests;
     failures += result.failures;
+    progress('reload-completed', {
+      reload,
+      total: 10,
+      elapsedMs: result.elapsedMs,
+      readinessRequests: result.requests,
+      readinessFailures: result.failures,
+    });
   }
 
   console.log(

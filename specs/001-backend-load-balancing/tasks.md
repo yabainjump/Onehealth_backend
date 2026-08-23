@@ -61,7 +61,7 @@ remain visible.
 ### Tests for User Story 1
 
 - [X] T016 [P] [US1] Add lifecycle and readiness-supervisor tests for startup gating, consecutive essential failures, self-drain, bounded shutdown and anti-flapping behavior in `src/runtime/runtime-lifecycle.service.spec.ts` and `src/runtime/runtime-readiness.service.spec.ts`
-- [ ] T017 [P] [US1] Add a safe two-worker continuity verifier that refuses production by default, performs ten consecutive reloads, measures removal below 10 seconds and detects infrastructure replay of non-idempotent writes in `scripts/verify-cluster-continuity.ts`
+- [X] T017 [P] [US1] Add a safe two-worker continuity verifier that refuses production by default, performs ten consecutive reloads, measures removal below 10 seconds and detects infrastructure replay of non-idempotent writes in `scripts/verify-cluster-continuity.ts`
 
 ### Implementation for User Story 1
 
