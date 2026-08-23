@@ -59,16 +59,21 @@ depuis la racine du dépôt :
 
 ```bash
 sudo SSH_PORT=1219 \
-  NODE20_BIN_DIR=/opt/cpanel/ea-nodejs20/bin \
   bash ops/jenkins/setup-local-build-agent
 ```
+
+Sur le serveur actuel, le script valide la source NVM
+`/home/yabain/.nvm/versions/node/v20.20.2`, puis installe une copie de build immuable appartenant à
+`root` sous `/opt/onehealth/node-v20.20.2`. L'agent ne reçoit donc aucun droit de traversée dans le
+dossier personnel de `yabain`. Les variables `NODE20_SOURCE_DIR` et `NODE20_RUNTIME_DIR` permettent
+d'adapter explicitement ces deux chemins sur un autre serveur.
 
 Le script ne révèle jamais la clé privée. Dans Jenkins, l'ajouter directement depuis
 `/var/lib/jenkins/.ssh/onehealthci_ed25519` comme identifiant SSH, sans la copier dans une
 conversation ou dans Git. Le nœud permanent utilise `127.0.0.1:1219`, le répertoire distant
 `/home/onehealthci/agent`, un exécuteur, le label `onehealth-node20` et la stratégie de vérification
 `Known hosts file`. Ajouter aussi la propriété de nœud
-`PATH+NODE20=/opt/cpanel/ea-nodejs20/bin`. Une fois le nœud connecté, régler le nombre d'exécuteurs
+`PATH+NODE20=/opt/onehealth/node-v20.20.2/bin`. Une fois le nœud connecté, régler le nombre d'exécuteurs
 du nœud intégré Jenkins à zéro. Après avoir enregistré l'identifiant et confirmé une reconnexion du
 nœud, supprimer les copies de clé du système de fichiers du contrôleur avec
 `sudo rm -f /var/lib/jenkins/.ssh/onehealthci_ed25519*` ; la copie chiffrée gérée par Jenkins reste
