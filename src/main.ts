@@ -4,6 +4,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestExpressApplication } from '@nestjs/platform-express';
 import { mkdirSync } from 'fs';
+import type { ServerResponse } from 'http';
 import { extname, join } from 'path';
 import { AppModule } from './app.module';
 import { setupSwagger } from './config/swagger';
@@ -54,7 +55,7 @@ async function bootstrap() {
     etag: true,
     lastModified: true,
     immutable: true,
-    setHeaders: (res, path) => {
+    setHeaders: (res: ServerResponse, path: string) => {
       res.setHeader('X-Content-Type-Options', 'nosniff');
 
       const extension = extname(path).toLowerCase();

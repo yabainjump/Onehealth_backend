@@ -11,7 +11,6 @@ export function setupSwagger(
     'SWAGGER_ENABLED',
   );
 
-  
   const swaggerEnabled =
     swaggerEnabledRaw === undefined ||
     swaggerEnabledRaw === null ||

@@ -8,7 +8,9 @@ export class AddAlertCommentDto {
     minLength: 1,
     maxLength: 500,
   })
-  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Transform(({ value }: { value: unknown }): unknown =>
+    typeof value === 'string' ? value.trim() : value,
+  )
   @IsString()
   @MinLength(1)
   @MaxLength(500)

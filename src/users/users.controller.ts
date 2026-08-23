@@ -25,6 +25,7 @@ import type { RequestWithUser } from './interfaces/request-with-user.interface';
 import { UsersService } from './users.service';
 import { UpdateProfileDto } from './dto/update-profile.dto';
 import { ListUsersDto } from './dto/list-users.dto';
+import { UserRole } from './schemas/user.schema';
 
 @ApiTags('Users')
 @Controller('users')
@@ -112,7 +113,7 @@ export class UsersController {
     @Body() dto: UpdateProfileDto,
   ) {
     const isSelf = request.user.id === id;
-    const isAdmin = request.user.role === 'admin';
+    const isAdmin = request.user.role === UserRole.ADMIN;
     if (!isSelf && !isAdmin) {
       throw new ForbiddenException('You cannot update this user');
     }

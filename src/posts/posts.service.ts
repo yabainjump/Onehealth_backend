@@ -12,13 +12,18 @@ import { AddCommentDto } from './dto/add-comment.dto';
 import { CreatePostDto } from './dto/create-post.dto';
 import { ListPostsDto } from './dto/list-posts.dto';
 import { UpdatePostDto } from './dto/update-post.dto';
-import { Post, PostDocument } from './schemas/post.schema';
+import { Post, PostComment, PostDocument } from './schemas/post.schema';
 import { NotificationsService } from '../notifications/notifications.service';
 
 type CommentLookupContext = {
   text?: string;
   authorId?: string;
   createdAt?: string;
+};
+
+type LegacyPostComment = PostComment & {
+  _id?: Types.ObjectId | string;
+  id?: Types.ObjectId | string;
 };
 
 @Injectable()
@@ -489,7 +494,7 @@ export class PostsService {
   private normalizeComments(post: PostDocument): boolean {
     let changed = false;
 
-    for (const comment of post.comments || []) {
+    for (const comment of this.commentsOf(post)) {
       if (this.normalizeSingleComment(comment)) {
         changed = true;
       }
@@ -498,30 +503,31 @@ export class PostsService {
     return changed;
   }
 
-  private findCommentByAnyId(post: PostDocument, commentId: string) {
+  private findCommentByAnyId(
+    post: PostDocument,
+    commentId: string,
+  ): LegacyPostComment | undefined {
     const target = this.normalizeCommentKey(commentId);
-    return (post.comments || []).find((item: any) => {
+    return this.commentsOf(post).find((item) => {
       const normalizedCommentId = this.normalizeCommentKey(
-        item?.commentId?.toString?.() ?? '',
+        item.commentId?.toString() ?? '',
       );
       const legacyMongoSubId = this.normalizeCommentKey(
-        item?._id?.toString?.() ?? '',
+        item._id?.toString() ?? '',
       );
-      const legacyIdField = this.normalizeCommentKey(
-        item?.id?.toString?.() ?? '',
-      );
+      const legacyIdField = this.normalizeCommentKey(item.id?.toString() ?? '');
       return (
         normalizedCommentId === target ||
         legacyMongoSubId === target ||
         legacyIdField === target
       );
-    }) as any;
+    });
   }
 
   private findCommentByContext(
     post: PostDocument,
     context?: CommentLookupContext,
-  ) {
+  ): LegacyPostComment | undefined {
     if (!context) {
       return undefined;
     }
@@ -539,20 +545,20 @@ export class PostsService {
       ? new Date(context.createdAt as string).getTime()
       : Number.NaN;
 
-    const matches = (post.comments || []).filter((item: any) => {
-      if (hasText && `${item?.text || ''}`.trim() !== targetText) {
+    const matches = this.commentsOf(post).filter((item) => {
+      if (hasText && `${item.text || ''}`.trim() !== targetText) {
         return false;
       }
 
       const commentAuthorId = this.normalizeCommentKey(
-        item?.authorId?.toString?.() ?? '',
+        item.authorId?.toString() ?? '',
       );
       if (hasAuthorId && commentAuthorId !== targetAuthorId) {
         return false;
       }
 
       if (!Number.isNaN(targetCreatedAtMs)) {
-        const itemCreatedAtMs = new Date(item?.createdAt ?? 0).getTime();
+        const itemCreatedAtMs = new Date(item.createdAt ?? 0).getTime();
         if (itemCreatedAtMs !== targetCreatedAtMs) {
           return false;
         }
@@ -561,11 +567,14 @@ export class PostsService {
       return true;
     });
 
-    return matches.length ? (matches[matches.length - 1] as any) : undefined;
+    return matches.at(-1);
   }
 
-  private ensureCommentId(comment: any, preferredId?: string): boolean {
-    const current = `${comment?.commentId || ''}`.trim();
+  private ensureCommentId(
+    comment: LegacyPostComment,
+    preferredId?: string,
+  ): boolean {
+    const current = `${comment.commentId || ''}`.trim();
     if (current) {
       return false;
     }
@@ -575,7 +584,7 @@ export class PostsService {
     return true;
   }
 
-  private normalizeSingleComment(comment: any): boolean {
+  private normalizeSingleComment(comment: LegacyPostComment): boolean {
     let changed = false;
 
     if (this.ensureCommentId(comment)) {
@@ -602,8 +611,8 @@ export class PostsService {
     currentUserId: string,
     usersMap: Map<string, PublicUser>,
   ) {
-    const comments = (post.comments || []).map((comment) => ({
-      id: comment.commentId || (comment as any)?._id?.toString?.() || '',
+    const comments = this.commentsOf(post).map((comment) => ({
+      id: comment.commentId || comment._id?.toString() || '',
       author: usersMap.get(comment.authorId.toString()) ?? null,
       text: comment.text,
       likesCount: comment.likesCount || 0,
@@ -628,5 +637,9 @@ export class PostsService {
       createdAt: post.createdAt,
       updatedAt: post.updatedAt,
     };
+  }
+
+  private commentsOf(post: PostDocument): LegacyPostComment[] {
+    return post.comments;
   }
 }

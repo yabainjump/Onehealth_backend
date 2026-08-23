@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import type { PublicUser } from '../../users/interfaces/public-user.interface';
 import { HubRole, UserRole } from '../../users/schemas/user.schema';
-import type { HubReportStatus, HubSector } from '../hub.constants';
+import type { HubReportStatus } from '../hub.constants';
 import { resolveHubCountryScope } from '../hub-access-scope';
 import { HubRepository } from '../repositories/hub.repository';
 import type { HubAlertReportDocument } from '../schemas/hub-alert-report.schema';
@@ -50,9 +50,7 @@ export class HubReportService {
     const dossier = [observation, ...related];
     const latest = await this.repository.latestReport(alert.alertCode);
     const version = (latest?.version ?? 0) + 1;
-    const sectors = Array.from(
-      new Set(dossier.map((item) => item.sector)),
-    ) as HubSector[];
+    const sectors = Array.from(new Set(dossier.map((item) => item.sector)));
     const report = await this.repository.createReport({
       reportId: `RPT-${alert.alertCode}-V${version}`,
       alertCode: alert.alertCode,

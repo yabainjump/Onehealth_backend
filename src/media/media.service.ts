@@ -19,6 +19,22 @@ export interface ResolvedMedia {
   contentType: string;
 }
 
+interface FfmpegCommandLike {
+  on(event: 'end', listener: () => void): this;
+  on(event: 'error', listener: (error: Error) => void): this;
+  screenshots(options: {
+    timestamps: string[];
+    filename: string;
+    folder: string;
+    size: string;
+  }): void;
+}
+
+interface FfmpegFactory {
+  (input: string): FfmpegCommandLike;
+  setFfmpegPath(path: string): unknown;
+}
+
 /**
  * Genere a la volee (et met en cache) des miniatures d'images et des posters de
  * videos a partir des fichiers deja stockes dans /uploads. Aucun changement de
@@ -35,7 +51,7 @@ export class MediaService {
   private readonly cacheRoot = join(process.cwd(), '.media-cache');
   // ffmpeg est une dependance OPTIONNELLE : chargee paresseusement, l'app
   // demarre meme si elle est absente (les posters video sont alors desactives).
-  private ffmpegLib: unknown | null | undefined = undefined;
+  private ffmpegLib: FfmpegFactory | null | undefined = undefined;
 
   async getThumbnail(
     rawPath: string,
@@ -212,20 +228,25 @@ export class MediaService {
     }
   }
 
-  private async loadFfmpeg(): Promise<((input: string) => any) | null> {
+  private async loadFfmpeg(): Promise<FfmpegFactory | null> {
     if (this.ffmpegLib !== undefined) {
-      return this.ffmpegLib as ((input: string) => any) | null;
+      return this.ffmpegLib;
     }
 
     try {
-      const ffmpegModule: any = await import('fluent-ffmpeg');
-      const ffmpeg = ffmpegModule.default ?? ffmpegModule;
-      const ffmpegStaticModule: any = await import('ffmpeg-static');
-      const ffmpegStatic = ffmpegStaticModule.default ?? ffmpegStaticModule;
-      if (ffmpegStatic && typeof ffmpeg.setFfmpegPath === 'function') {
+      const ffmpegModule: unknown = await import('fluent-ffmpeg');
+      const ffmpegCandidate = this.defaultExport(ffmpegModule);
+      if (!this.isFfmpegFactory(ffmpegCandidate)) {
+        throw new Error('Invalid fluent-ffmpeg module shape.');
+      }
+
+      const ffmpegStaticModule: unknown = await import('ffmpeg-static');
+      const ffmpegStatic = this.defaultExport(ffmpegStaticModule);
+      if (typeof ffmpegStatic === 'string' && ffmpegStatic.length > 0) {
+        const ffmpeg = ffmpegCandidate;
         ffmpeg.setFfmpegPath(ffmpegStatic);
       }
-      this.ffmpegLib = ffmpeg;
+      this.ffmpegLib = ffmpegCandidate;
     } catch {
       this.logger.warn(
         'ffmpeg indisponible — generation des posters video desactivee.',
@@ -233,7 +254,26 @@ export class MediaService {
       this.ffmpegLib = null;
     }
 
-    return this.ffmpegLib as ((input: string) => any) | null;
+    return this.ffmpegLib;
+  }
+
+  private defaultExport(moduleValue: unknown): unknown {
+    if (
+      (typeof moduleValue === 'object' || typeof moduleValue === 'function') &&
+      moduleValue !== null &&
+      'default' in moduleValue
+    ) {
+      return moduleValue.default;
+    }
+    return moduleValue;
+  }
+
+  private isFfmpegFactory(value: unknown): value is FfmpegFactory {
+    return (
+      typeof value === 'function' &&
+      'setFfmpegPath' in value &&
+      typeof value.setFfmpegPath === 'function'
+    );
   }
 
   private resolveSourcePath(rawPath: string): string {

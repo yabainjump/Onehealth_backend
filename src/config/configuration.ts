@@ -1,9 +1,47 @@
+import { hostname } from 'node:os';
+
+const numberFromEnvironment = (name: string, fallback: number): number =>
+  Number(process.env[name] ?? fallback);
+
+const resolveInstanceId = (): string => {
+  const configured = process.env.INSTANCE_ID?.trim();
+  if (configured) return configured;
+
+  const processSlot = process.env.NODE_APP_INSTANCE?.trim() || `${process.pid}`;
+  return `${hostname()}-${processSlot}`.slice(0, 96);
+};
+
 export default () => ({
   nodeEnv: process.env.NODE_ENV ?? 'development',
-  port: Number(process.env.PORT ?? 3000),
+  port: numberFromEnvironment('PORT', 3000),
   mongodbUri: process.env.MONGODB_URI,
+  mongodbDbName: process.env.MONGODB_DB_NAME ?? 'onehealth',
+  mongodbMaxPoolSize: numberFromEnvironment('MONGODB_MAX_POOL_SIZE', 10),
   hubMongodbUri: process.env.HUB_MONGODB_URI || process.env.MONGODB_URI,
   hubMongodbDbName: process.env.HUB_MONGODB_DB_NAME ?? 'onehealth_hub',
+  hubMongodbMaxPoolSize: numberFromEnvironment('HUB_MONGODB_MAX_POOL_SIZE', 10),
+  webConcurrency: numberFromEnvironment('WEB_CONCURRENCY', 2),
+  instanceId: resolveInstanceId(),
+  trustedProxyHops: numberFromEnvironment('TRUSTED_PROXY_HOPS', 1),
+  shutdownTimeoutMs: numberFromEnvironment('SHUTDOWN_TIMEOUT_MS', 15_000),
+  rateLimitKeySecret:
+    process.env.RATE_LIMIT_KEY_SECRET || process.env.JWT_SECRET || '',
+  rateLimitCleanupGraceMs: numberFromEnvironment(
+    'RATE_LIMIT_CLEANUP_GRACE_MS',
+    3_600_000,
+  ),
+  distributedLeaseTtlMs: numberFromEnvironment(
+    'DISTRIBUTED_LEASE_TTL_MS',
+    75_000,
+  ),
+  distributedLeaseAcquireTimeoutMs: numberFromEnvironment(
+    'DISTRIBUTED_LEASE_ACQUIRE_TIMEOUT_MS',
+    1_500,
+  ),
+  distributedLeaseRetryMs: numberFromEnvironment(
+    'DISTRIBUTED_LEASE_RETRY_MS',
+    75,
+  ),
   jwtSecret: process.env.JWT_SECRET,
   jwtExpiresIn: process.env.JWT_EXPIRES_IN ?? '1h',
   corsOrigin: process.env.CORS_ORIGIN,

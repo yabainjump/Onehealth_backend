@@ -1,0 +1,8 @@
+node_modules/
+dist/
+build/
+coverage/
+.agents/
+.specify/
+specs/
+package-lock.json

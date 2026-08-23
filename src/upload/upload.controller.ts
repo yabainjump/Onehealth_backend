@@ -2,12 +2,12 @@ import {
   BadRequestException,
   Controller,
   Post,
-  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { diskStorage } from 'multer';
 import { randomUUID } from 'crypto';
 import { mkdirSync } from 'fs';
 import { join } from 'path';
@@ -31,9 +31,6 @@ const FILE_UPLOAD_BODY: ApiBodyOptions = {
     properties: { file: { type: 'string', format: 'binary' } },
   },
 };
-
-const multer = require('multer');
-const diskStorage = multer.diskStorage;
 
 const imageMimeTypes = new Set([
   'image/jpeg',
@@ -79,20 +76,28 @@ function ensureDir(dir: string) {
 
 function storageFor(folder: string) {
   return diskStorage({
-    destination: (_req: any, _file: any, cb: any) => {
-      cb(null, ensureDir(join(resolveUploadsRoot(), folder)));
+    destination: (request, file, callback) => {
+      void request;
+      void file;
+      callback(null, ensureDir(join(resolveUploadsRoot(), folder)));
     },
-    filename: (_req: any, _file: any, cb: any) => {
-      cb(null, `${Date.now()}-${randomUUID().replace(/-/g, '')}.uploadtmp`);
+    filename: (request, file, callback) => {
+      void request;
+      void file;
+      callback(
+        null,
+        `${Date.now()}-${randomUUID().replace(/-/g, '')}.uploadtmp`,
+      );
     },
   });
 }
 
 function imageFileFilter(
   _req: Request,
-  file: any,
+  file: Express.Multer.File,
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
+  void _req;
   if (!imageMimeTypes.has((file.mimetype || '').toLowerCase())) {
     cb(new BadRequestException('Only image files are allowed'), false);
     return;
@@ -102,9 +107,10 @@ function imageFileFilter(
 
 function messageFileFilter(
   _req: Request,
-  file: any,
+  file: Express.Multer.File,
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
+  void _req;
   if (!messageAttachmentMimeTypes.has((file.mimetype || '').toLowerCase())) {
     cb(
       new BadRequestException(
@@ -119,9 +125,10 @@ function messageFileFilter(
 
 function postFileFilter(
   _req: Request,
-  file: any,
+  file: Express.Multer.File,
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
+  void _req;
   if (!postAttachmentMimeTypes.has((file.mimetype || '').toLowerCase())) {
     cb(
       new BadRequestException(
@@ -156,7 +163,7 @@ export class UploadController {
       limits: { fileSize: 10 * 1024 * 1024 },
     }),
   )
-  async uploadProfile(@UploadedFile() file: any, @Req() _req: Request) {
+  async uploadProfile(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
@@ -187,7 +194,7 @@ export class UploadController {
       limits: { fileSize: 50 * 1024 * 1024 },
     }),
   )
-  async uploadPost(@UploadedFile() file: any, @Req() _req: Request) {
+  async uploadPost(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
@@ -222,7 +229,7 @@ export class UploadController {
       limits: { fileSize: 50 * 1024 * 1024 },
     }),
   )
-  async uploadMessage(@UploadedFile() file: any, @Req() _req: Request) {
+  async uploadMessage(@UploadedFile() file?: Express.Multer.File) {
     if (!file) {
       throw new BadRequestException('File is required');
     }

@@ -35,52 +35,58 @@ const alert = {
 } as HubAlertDocument;
 
 describe('HubReportService', () => {
+  const findObservation = jest.fn<HubRepository['findObservation']>();
+  const findAlertByObservation =
+    jest.fn<HubRepository['findAlertByObservation']>();
+  const relatedObservations = jest.fn<HubRepository['relatedObservations']>();
+  const latestReport = jest.fn<HubRepository['latestReport']>();
+  const createReport = jest.fn<HubRepository['createReport']>();
+  const createAudit = jest.fn<HubRepository['createAudit']>();
   const repository = {
-    findObservation: jest.fn(),
-    findAlertByObservation: jest.fn(),
-    relatedObservations: jest.fn(),
-    latestReport: jest.fn(),
-    createReport: jest.fn(),
-    createAudit: jest.fn(),
+    findObservation,
+    findAlertByObservation,
+    relatedObservations,
+    latestReport,
+    createReport,
+    createAudit,
     listReports: jest.fn(),
     findReport: jest.fn(),
     updateReportStatus: jest.fn(),
-  } as unknown as jest.Mocked<HubRepository>;
+  } as unknown as HubRepository;
   let service: HubReportService;
 
   beforeEach(() => {
     jest.clearAllMocks();
     service = new HubReportService(repository);
-    repository.findObservation.mockResolvedValue(observation);
-    repository.findAlertByObservation.mockResolvedValue(alert);
-    repository.relatedObservations.mockResolvedValue([]);
-    repository.latestReport.mockResolvedValue(null);
-    repository.createAudit.mockResolvedValue({} as never);
+    findObservation.mockResolvedValue(observation);
+    findAlertByObservation.mockResolvedValue(alert);
+    relatedObservations.mockResolvedValue([]);
+    latestReport.mockResolvedValue(null);
+    createAudit.mockResolvedValue({});
   });
 
   it('creates a new persistent draft version for a verified alert', async () => {
-    repository.createReport.mockImplementation(
-      async (input) =>
-        ({
-          ...input,
-          validatedBy: '',
-          validatedAt: null,
-          publishedBy: '',
-          publishedAt: null,
-        }) as HubAlertReportDocument,
+    createReport.mockImplementation((input) =>
+      Promise.resolve({
+        ...input,
+        validatedBy: '',
+        validatedAt: null,
+        publishedBy: '',
+        publishedAt: null,
+      } as HubAlertReportDocument),
     );
 
     const report = await service.generate(observation.canonicalId, user);
 
     expect(report.reportId).toBe('RPT-ALT-DHIS2-CM-01-V1');
     expect(report.status).toBe('DRAFT');
-    expect(repository.createAudit).toHaveBeenCalledWith(
+    expect(createAudit).toHaveBeenCalledWith(
       expect.objectContaining({ action: 'REPORT_VERSION_GENERATED' }),
     );
   });
 
   it('refuses report generation before human alert verification', async () => {
-    repository.findAlertByObservation.mockResolvedValue(null);
+    findAlertByObservation.mockResolvedValue(null);
 
     await expect(
       service.generate(observation.canonicalId, user),

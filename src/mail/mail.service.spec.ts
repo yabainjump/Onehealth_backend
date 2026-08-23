@@ -11,7 +11,11 @@ describe('MailService HTML escaping', () => {
         MAIL_FROM: 'noreply@example.com',
       }),
     );
-    const sendMail = jest.fn().mockResolvedValue({});
+    let message: { html: string } | undefined;
+    const sendMail = jest.fn((payload: { html: string }) => {
+      message = payload;
+      return Promise.resolve({});
+    });
 
     Object.defineProperty(service, 'transporter', {
       value: { sendMail },
@@ -22,7 +26,8 @@ describe('MailService HTML escaping', () => {
       '<img src=x onerror=alert(1)>',
     );
 
-    const message = sendMail.mock.calls[0][0] as { html: string };
+    expect(message).toBeDefined();
+    if (!message) throw new Error('Expected welcome e-mail payload.');
     expect(message.html).toContain('One &lt;Health&gt;');
     expect(message.html).toContain('&lt;img src=x onerror=alert(1)&gt;');
     expect(message.html).toContain('&lt;script&gt;alert(1)&lt;/script&gt;');

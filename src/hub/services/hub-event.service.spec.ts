@@ -2,7 +2,6 @@ import { BadRequestException } from '@nestjs/common';
 import type { PublicUser } from '../../users/interfaces/public-user.interface';
 import { HubRole, UserRole } from '../../users/schemas/user.schema';
 import type { HubRepository } from '../repositories/hub.repository';
-import type { HubEventDocument } from '../schemas/hub-event.schema';
 import type { HubObservationDocument } from '../schemas/hub-observation.schema';
 import { HubEventService } from './hub-event.service';
 
@@ -38,26 +37,30 @@ function observation(
 }
 
 describe('HubEventService', () => {
+  const findObservationsByIds =
+    jest.fn<HubRepository['findObservationsByIds']>();
+  const upsertEvent = jest.fn<HubRepository['upsertEvent']>();
+  const assignEventToObservations =
+    jest.fn<HubRepository['assignEventToObservations']>();
+  const createAudit = jest.fn<HubRepository['createAudit']>();
   const repository = {
-    findObservationsByIds: jest.fn(),
-    upsertEvent: jest.fn(),
-    assignEventToObservations: jest.fn(),
-    createAudit: jest.fn(),
-  } as unknown as jest.Mocked<HubRepository>;
+    findObservationsByIds,
+    upsertEvent,
+    assignEventToObservations,
+    createAudit,
+  } as unknown as HubRepository;
   let service: HubEventService;
 
   beforeEach(() => {
     jest.clearAllMocks();
     service = new HubEventService(repository);
-    repository.assignEventToObservations.mockResolvedValue();
-    repository.createAudit.mockResolvedValue({} as never);
-    repository.upsertEvent.mockImplementation(
-      async (input) => input as HubEventDocument,
-    );
+    assignEventToObservations.mockResolvedValue();
+    createAudit.mockResolvedValue({});
+    upsertEvent.mockImplementation((input) => Promise.resolve(input));
   });
 
   it('consolidates close multisector and cross-border observations with an explainable score', async () => {
-    repository.findObservationsByIds.mockResolvedValue([
+    findObservationsByIds.mockResolvedValue([
       observation('OBS-CAPC-CM-91', 'environment', 'CM', [14.32, 10.59], 0),
       observation('OBS-ARIS-CM-91', 'animal', 'CM', [14.45, 10.72], 8),
       observation('OBS-DHIS2-CM-91', 'human', 'CM', [14.28, 10.63], 15),
@@ -79,14 +82,14 @@ describe('HubEventService', () => {
     expect(event.sectors).toEqual(['animal', 'environment', 'human']);
     expect(event.countryCodes).toEqual(['CM', 'TD']);
     expect(event.correlationReasons).toHaveLength(5);
-    expect(repository.assignEventToObservations).toHaveBeenCalledWith(
+    expect(assignEventToObservations).toHaveBeenCalledWith(
       expect.arrayContaining(['OBS-DHIS2-CM-91', 'OBS-DHIS2-TD-91']),
       event.eventCode,
     );
   });
 
   it('refuses to present a single-sector cluster as One Health consolidation', async () => {
-    repository.findObservationsByIds.mockResolvedValue([
+    findObservationsByIds.mockResolvedValue([
       observation('OBS-DHIS2-CM-91', 'human', 'CM', [14.28, 10.63], 0),
       observation('OBS-DHIS2-TD-91', 'human', 'TD', [15.03, 10.18], 10),
     ]);

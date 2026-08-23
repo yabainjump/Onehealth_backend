@@ -20,11 +20,11 @@ testable. All commands must run from the `onehealth_backend` repository root.
 
 **Purpose**: Establish validated configuration and module boundaries without changing runtime behavior.
 
-- [ ] T001 Add validated cluster, proxy, pool, coordination and shutdown settings to `src/config/configuration.ts`
-- [ ] T002 [P] Document `WEB_CONCURRENCY`, `INSTANCE_ID`, `RATE_LIMIT_KEY_SECRET`, Mongo pool sizes, `TRUSTED_PROXY_HOPS`, lease durations and shutdown timeout in `.env.example`
-- [ ] T003 [P] Create the shared coordination module skeleton in `src/coordination/coordination.module.ts`
-- [ ] T004 [P] Create the request observability module skeleton in `src/observability/observability.module.ts`
-- [ ] T005 Add explicit primary and Hub Mongo pool settings from validated configuration in `src/app.module.ts`
+- [X] T001 Add validated cluster, proxy, pool, coordination and shutdown settings to `src/config/configuration.ts`
+- [X] T002 [P] Document `WEB_CONCURRENCY`, `INSTANCE_ID`, `RATE_LIMIT_KEY_SECRET`, Mongo pool sizes, `TRUSTED_PROXY_HOPS`, lease durations and shutdown timeout in `.env.example`
+- [X] T003 [P] Create the shared coordination module skeleton in `src/coordination/coordination.module.ts`
+- [X] T004 [P] Create the request observability module skeleton in `src/observability/observability.module.ts`
+- [X] T005 Add explicit primary and Hub Mongo pool settings from validated configuration in `src/app.module.ts`
 
 ---
 
@@ -34,16 +34,16 @@ testable. All commands must run from the `onehealth_backend` repository root.
 
 **CRITICAL**: No user story implementation begins until this phase passes its tests.
 
-- [ ] T006 [P] Define the TTL-indexed `RateLimitBucket` schema without raw identities in `src/coordination/schemas/rate-limit-bucket.schema.ts`
-- [ ] T007 [P] Define the owner-token and TTL-indexed `DistributedLease` schema in `src/coordination/schemas/distributed-lease.schema.ts`
-- [ ] T008 Implement HMAC subject pseudonymization with secret validation and constant output shape in `src/coordination/subject-key.service.ts`
-- [ ] T009 Implement atomic fixed-window consumption and explicit unavailable-state errors in `src/coordination/distributed-rate-limit.service.ts`
-- [ ] T010 Implement atomic acquire, bounded retry, owner-checked release and expiry recovery in `src/coordination/distributed-lease.service.ts`
-- [ ] T011 Register both schemas and export coordination services from `src/coordination/coordination.module.ts`
-- [ ] T012 [P] Add unit tests for deterministic pseudonyms and absence of raw identity leakage in `src/coordination/subject-key.service.spec.ts`
-- [ ] T013 [P] Add concurrency and storage-failure tests for global buckets in `src/coordination/distributed-rate-limit.service.spec.ts`
-- [ ] T014 [P] Add concurrent acquisition, stale-owner release and expiry tests in `src/coordination/distributed-lease.service.spec.ts`
-- [ ] T015 Run `npm run lint`, `npm run build` and focused coordination tests, recording only pass/fail evidence in `specs/001-backend-load-balancing/validation/foundation.md`
+- [X] T006 [P] Define the TTL-indexed `RateLimitBucket` schema without raw identities in `src/coordination/schemas/rate-limit-bucket.schema.ts`
+- [X] T007 [P] Define the owner-token and TTL-indexed `DistributedLease` schema in `src/coordination/schemas/distributed-lease.schema.ts`
+- [X] T008 Implement HMAC subject pseudonymization with secret validation and constant output shape in `src/coordination/subject-key.service.ts`
+- [X] T009 Implement atomic fixed-window consumption and explicit unavailable-state errors in `src/coordination/distributed-rate-limit.service.ts`
+- [X] T010 Implement atomic acquire, bounded retry, owner-checked release and expiry recovery in `src/coordination/distributed-lease.service.ts`
+- [X] T011 Register both schemas and export coordination services from `src/coordination/coordination.module.ts`
+- [X] T012 [P] Add unit tests for deterministic pseudonyms and absence of raw identity leakage in `src/coordination/subject-key.service.spec.ts`
+- [X] T013 [P] Add concurrency and storage-failure tests for global buckets in `src/coordination/distributed-rate-limit.service.spec.ts`
+- [X] T014 [P] Add concurrent acquisition, stale-owner release and expiry tests in `src/coordination/distributed-lease.service.spec.ts`
+- [X] T015 Run `npm run lint`, `npm run build` and focused coordination tests, recording only pass/fail evidence in `specs/001-backend-load-balancing/validation/foundation.md`
 
 **Checkpoint**: Shared coordination is atomic, bounded, secret-safe and testable independently.
 

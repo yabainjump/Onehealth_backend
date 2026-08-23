@@ -24,19 +24,19 @@ import { HUB_CONNECTION } from './hub/hub.constants';
     MongooseModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri: configService.get<string>('MONGODB_URI'),
-        dbName: configService.get<string>('MONGODB_DB_NAME') ?? 'onehealth',
+        uri: configService.getOrThrow<string>('mongodbUri'),
+        dbName: configService.get<string>('mongodbDbName') ?? 'onehealth',
+        maxPoolSize: configService.get<number>('mongodbMaxPoolSize') ?? 10,
       }),
     }),
     MongooseModule.forRootAsync({
       connectionName: HUB_CONNECTION,
       inject: [ConfigService],
       useFactory: (configService: ConfigService) => ({
-        uri:
-          configService.get<string>('HUB_MONGODB_URI') ||
-          configService.get<string>('MONGODB_URI'),
+        uri: configService.getOrThrow<string>('hubMongodbUri'),
         dbName:
-          configService.get<string>('HUB_MONGODB_DB_NAME') ?? 'onehealth_hub',
+          configService.get<string>('hubMongodbDbName') ?? 'onehealth_hub',
+        maxPoolSize: configService.get<number>('hubMongodbMaxPoolSize') ?? 10,
       }),
     }),
     HealthModule,

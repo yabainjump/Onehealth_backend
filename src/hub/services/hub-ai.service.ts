@@ -34,8 +34,13 @@ export class HubAiService {
     const safeId = this.safeId(id);
     const scope = resolveHubCountryScope(user);
     const observation = await this.repository.findObservation(safeId, scope);
-    if (!observation) throw new BadRequestException('Observation inaccessible ou introuvable.');
-    const related = await this.repository.relatedObservations(observation, scope, 6);
+    if (!observation)
+      throw new BadRequestException('Observation inaccessible ou introuvable.');
+    const related = await this.repository.relatedObservations(
+      observation,
+      scope,
+      6,
+    );
     return this.generate(
       'alert',
       `Produis une synthèse décisionnelle du dossier suivant.\n${this.context([observation, ...related])}`,
@@ -52,7 +57,9 @@ export class HubAiService {
       'report',
       `Prépare un projet de rapport institutionnel avec: synthèse exécutive, constats, risques, recommandations et limites.\n${this.context(observations)}`,
       user,
-      dto.countryCode ?? observations[0]?.countryCode ?? this.auditCountry(user),
+      dto.countryCode ??
+        observations[0]?.countryCode ??
+        this.auditCountry(user),
       `REPORT-${dto.countryCode ?? 'REGIONAL'}`,
       observations.map((item) => item.canonicalId),
     );
@@ -64,7 +71,9 @@ export class HubAiService {
       'analysis',
       `Explique les rapprochements humain-animal-environnement. Distingue convergence temporelle, hypothèses et données manquantes; ne conclus jamais à une causalité.\n${this.context(observations)}`,
       user,
-      dto.countryCode ?? observations[0]?.countryCode ?? this.auditCountry(user),
+      dto.countryCode ??
+        observations[0]?.countryCode ??
+        this.auditCountry(user),
       `ANALYSIS-${dto.countryCode ?? 'REGIONAL'}`,
       observations.map((item) => item.canonicalId),
     );
@@ -72,19 +81,26 @@ export class HubAiService {
 
   async assistant(dto: HubAiAssistantDto, user: PublicUser) {
     const question = dto.question.trim();
-    if (!question) throw new BadRequestException('La question est obligatoire.');
+    if (!question)
+      throw new BadRequestException('La question est obligatoire.');
     const observations = await this.scopedObservations(dto, user, 40);
     return this.generate(
       'assistant',
       `Question de l'utilisateur: ${question}\n\nContexte Hub autorisé:\n${this.context(observations)}`,
       user,
-      dto.countryCode ?? observations[0]?.countryCode ?? this.auditCountry(user),
+      dto.countryCode ??
+        observations[0]?.countryCode ??
+        this.auditCountry(user),
       'HUB-ASSISTANT',
       observations.map((item) => item.canonicalId),
     );
   }
 
-  private async scopedObservations(dto: HubAiScopeDto, user: PublicUser, limit = 80) {
+  private async scopedObservations(
+    dto: HubAiScopeDto,
+    user: PublicUser,
+    limit = 80,
+  ) {
     const allowed = resolveHubCountryScope(user);
     if (dto.countryCode && allowed && !allowed.includes(dto.countryCode)) {
       throw new BadRequestException('Pays hors de votre périmètre autorisé.');
@@ -109,7 +125,10 @@ export class HubAiService {
     sourceIds: readonly string[],
   ) {
     try {
-      const content = await this.groq.complete([{ role: 'user', content: prompt }], HUB_AI_PROMPT);
+      const content = await this.groq.complete(
+        [{ role: 'user', content: prompt }],
+        HUB_AI_PROMPT,
+      );
       await this.repository.createAudit({
         entityType: 'ai-draft',
         entityId,
@@ -118,7 +137,10 @@ export class HubAiService {
         actorType: 'USER',
         countryCode,
         isDemo: true,
-        metadata: { model: this.groq.model, sourceIds: sourceIds.slice(0, 100) },
+        metadata: {
+          model: this.groq.model,
+          sourceIds: sourceIds.slice(0, 100),
+        },
       });
       return {
         content,
@@ -130,27 +152,42 @@ export class HubAiService {
       };
     } catch (error) {
       if (error instanceof RudolfProviderError && error.kind === 'timeout') {
-        throw new GatewayTimeoutException('Rudolf a dépassé le délai de réponse.');
+        throw new GatewayTimeoutException(
+          'Rudolf a dépassé le délai de réponse.',
+        );
       }
-      throw new ServiceUnavailableException('Rudolf est indisponible ou non configuré.');
+      throw new ServiceUnavailableException(
+        'Rudolf est indisponible ou non configuré.',
+      );
     }
   }
 
   private context(items: readonly HubObservationDocument[]): string {
-    if (!items.length) return 'Aucune observation disponible pour ce périmètre.';
+    if (!items.length)
+      return 'Aucune observation disponible pour ce périmètre.';
     return items
       .slice(0, 80)
       .map((item) =>
-        [item.canonicalId, item.observedAt.toISOString().slice(0, 10), item.countryCode,
-          item.adminArea, item.sector, item.sourceSystem, item.stage, item.severity,
-          item.title, item.summary.slice(0, 300)].join(' | '),
+        [
+          item.canonicalId,
+          item.observedAt.toISOString().slice(0, 10),
+          item.countryCode,
+          item.adminArea,
+          item.sector,
+          item.sourceSystem,
+          item.stage,
+          item.severity,
+          item.title,
+          item.summary.slice(0, 300),
+        ].join(' | '),
       )
       .join('\n');
   }
 
   private safeId(value: string): string {
     const id = value.trim().toUpperCase();
-    if (!/^[A-Z0-9-]{3,100}$/.test(id)) throw new BadRequestException('Identifiant invalide.');
+    if (!/^[A-Z0-9-]{3,100}$/.test(id))
+      throw new BadRequestException('Identifiant invalide.');
     return id;
   }
 

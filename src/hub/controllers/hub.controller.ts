@@ -53,7 +53,9 @@ export class HubController {
     private readonly aiService: HubAiService,
   ) {}
 
-  @ApiOperation({ summary: "Générer une synthèse Rudolf d'un dossier autorisé" })
+  @ApiOperation({
+    summary: "Générer une synthèse Rudolf d'un dossier autorisé",
+  })
   @UseGuards(HubAnalystGuard, RudolfRateLimitGuard)
   @Post('ai/alerts/:id/summary')
   aiAlertSummary(@Req() request: RequestWithUser, @Param('id') id: string) {
@@ -67,7 +69,9 @@ export class HubController {
     return this.aiService.reportDraft(dto, request.user);
   }
 
-  @ApiOperation({ summary: 'Expliquer les rapprochements multisectoriels avec Rudolf' })
+  @ApiOperation({
+    summary: 'Expliquer les rapprochements multisectoriels avec Rudolf',
+  })
   @UseGuards(HubAnalystGuard, RudolfRateLimitGuard)
   @Post('ai/analyses/explain')
   aiAnalysis(@Req() request: RequestWithUser, @Body() dto: HubAiScopeDto) {

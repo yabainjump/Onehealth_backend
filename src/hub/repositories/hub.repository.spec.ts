@@ -4,7 +4,13 @@ import type { HubAuditLog } from '../schemas/hub-audit-log.schema';
 
 describe('HubRepository audit persistence', () => {
   it('omits auditKey when no idempotency key is provided', async () => {
-    const auditModel = { create: jest.fn().mockResolvedValue({}) };
+    let createdAudit: Record<string, unknown> | undefined;
+    const auditModel = {
+      create: jest.fn((input: Record<string, unknown>) => {
+        createdAudit = input;
+        return Promise.resolve({});
+      }),
+    };
     const unusedModel = {} as never;
     const repository = new HubRepository(
       unusedModel,
@@ -28,8 +34,6 @@ describe('HubRepository audit persistence', () => {
       isDemo: true,
     });
 
-    expect(auditModel.create).toHaveBeenCalledWith(
-      expect.not.objectContaining({ auditKey: expect.anything() }),
-    );
+    expect(createdAudit).not.toHaveProperty('auditKey');
   });
 });
