@@ -1,0 +1,132 @@
+openapi: 3.0.3
+info:
+  title: One Health Backend Health Contract
+  version: 1.0.0
+  description: Public, non-sensitive liveness and readiness contract for traffic management.
+paths:
+  /api/health:
+    get:
+      summary: Backward-compatible service health
+      operationId: getLegacyHealth
+      responses:
+        '200':
+          description: Process is alive. Existing clients may ignore additional fields.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveHealth'
+  /api/health/live:
+    get:
+      summary: Process liveness
+      operationId: getLiveness
+      responses:
+        '200':
+          description: The process event loop can answer HTTP requests.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LiveHealth'
+  /api/health/ready:
+    get:
+      summary: Traffic readiness
+      operationId: getReadiness
+      responses:
+        '200':
+          description: Essential dependencies are ready; optional capabilities may be degraded.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyHealth'
+        '503':
+          description: The instance must not receive new application traffic.
+          headers:
+            X-Request-Id:
+              $ref: '#/components/headers/RequestId'
+            Retry-After:
+              description: Suggested seconds before the next readiness probe.
+              schema:
+                type: integer
+                minimum: 1
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ReadyHealth'
+components:
+  headers:
+    RequestId:
+      description: Safe request correlation identifier.
+      schema:
+        type: string
+        minLength: 8
+        maxLength: 128
+        pattern: '^[A-Za-z0-9._:-]+$'
+  schemas:
+    LiveHealth:
+      type: object
+      additionalProperties: false
+      required: [status, kind, timestamp, version, instanceId]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        kind:
+          type: string
+          enum: [live]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+          maxLength: 80
+        instanceId:
+          type: string
+          maxLength: 80
+    ReadyHealth:
+      type: object
+      additionalProperties: false
+      required: [status, kind, timestamp, version, instanceId, checks, degradedCapabilities]
+      properties:
+        status:
+          type: string
+          enum: [ok, degraded, unavailable]
+        kind:
+          type: string
+          enum: [ready]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+          maxLength: 80
+        instanceId:
+          type: string
+          maxLength: 80
+        checks:
+          type: object
+          additionalProperties: false
+          required: [primaryDatabase, hubDatabase, mediaStorage]
+          properties:
+            primaryDatabase:
+              $ref: '#/components/schemas/CheckState'
+            hubDatabase:
+              $ref: '#/components/schemas/CheckState'
+            mediaStorage:
+              $ref: '#/components/schemas/CheckState'
+        degradedCapabilities:
+          type: array
+          uniqueItems: true
+          items:
+            type: string
+            enum: [rudolf, email]
+    CheckState:
+      type: string
+      enum: [up, down]
