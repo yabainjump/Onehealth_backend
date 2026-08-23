@@ -31,10 +31,11 @@ Date : 2026-08-23
 
 ## Exercice externe restant
 
-L'exercice de perte réelle d'un processus et les dix rechargements successifs n'a pas encore été
-lancé. La tâche T023 reste donc ouverte. Le script `npm run verify:cluster-continuity` refuse de
-s'exécuter sans `CLUSTER_VERIFY_CONFIRM=RUN_DISPOSABLE_CLUSTER_TEST` et refuse la production sans
-autorisation supplémentaire explicite.
+L'exercice de perte réelle d'un processus et les dix rechargements successifs a été relancé avec
+l'autorisation opérateur explicite. L'opérateur a confirmé sa réussite ainsi que le maintien des deux
+workers et de la readiness. Le JSON détaillé n'a pas été recopié dans cette conversation ; aucun délai
+plus précis que les seuils imposés par le vérificateur n'est donc inventé dans ce document. T023 est
+clôturée sur la base du résultat `pass` confirmé.
 
 Une première exécution contrôlée a été interrompue manuellement pendant les rechargements, faute
 d'indication de progression. Pendant cet essai, les compteurs PM2 ont progressé, un worker est resté

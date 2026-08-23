@@ -1,0 +1,96 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+if [ "$(id -u)" -ne 0 ]; then
+  echo "Run this script with sudo from the repository checkout."
+  exit 2
+fi
+
+readonly AGENT_USER="${AGENT_USER:-onehealthci}"
+readonly SSH_PORT="${SSH_PORT:-1219}"
+readonly NODE20_BIN_DIR="${NODE20_BIN_DIR:-/opt/cpanel/ea-nodejs20/bin}"
+readonly JENKINS_HOME="/var/lib/jenkins"
+readonly JENKINS_SSH_DIR="$JENKINS_HOME/.ssh"
+readonly AGENT_HOME="/home/$AGENT_USER"
+readonly AGENT_ROOT="$AGENT_HOME/agent"
+readonly KEY_FILE="$JENKINS_SSH_DIR/${AGENT_USER}_ed25519"
+readonly SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+for command_name in useradd install ssh-keygen ssh-keyscan ssh visudo openssl chpasswd runuser mktemp; do
+  if ! command -v "$command_name" >/dev/null 2>&1; then
+    echo "Missing required command: $command_name"
+    exit 1
+  fi
+done
+
+if ! id jenkins >/dev/null 2>&1; then
+  echo "The Jenkins system account does not exist."
+  exit 1
+fi
+
+if [ ! -x "$NODE20_BIN_DIR/node" ] || [ ! -x "$NODE20_BIN_DIR/npm" ]; then
+  echo "Node.js 20 was not found in $NODE20_BIN_DIR."
+  echo "Set NODE20_BIN_DIR to the server's system-wide Node.js 20 bin directory."
+  exit 1
+fi
+
+if ! id "$AGENT_USER" >/dev/null 2>&1; then
+  useradd --create-home --home-dir "$AGENT_HOME" --shell /bin/bash "$AGENT_USER"
+fi
+
+account_state="$(passwd -S "$AGENT_USER" | awk '{print $2}')"
+if [ "$account_state" = "L" ] || [ "$account_state" = "LK" ] || [ "$account_state" = "NP" ]; then
+  # Keep password authentication technically usable for sshd/PAM account checks,
+  # but assign an unrecoverable high-entropy value. Jenkins uses the local-only key.
+  agent_password="$(openssl rand -base64 48)"
+  printf '%s:%s\n' "$AGENT_USER" "$agent_password" | chpasswd
+  unset agent_password
+fi
+
+install -d -o "$AGENT_USER" -g "$AGENT_USER" -m 0750 "$AGENT_ROOT"
+install -d -o "$AGENT_USER" -g "$AGENT_USER" -m 0700 "$AGENT_HOME/.ssh"
+install -d -o jenkins -g jenkins -m 0700 "$JENKINS_SSH_DIR"
+
+if [ ! -f "$KEY_FILE" ]; then
+  runuser -u jenkins -- ssh-keygen \
+    -q -t ed25519 -N '' -C 'jenkins-onehealth-local-agent' -f "$KEY_FILE"
+fi
+
+authorized_keys_tmp="$(mktemp)"
+trap 'rm -f "$authorized_keys_tmp"' EXIT
+{
+  printf 'from="127.0.0.1,::1",no-agent-forwarding,no-port-forwarding,no-X11-forwarding,no-pty '
+  cat "$KEY_FILE.pub"
+} >"$authorized_keys_tmp"
+install -o "$AGENT_USER" -g "$AGENT_USER" -m 0600 \
+  "$authorized_keys_tmp" "$AGENT_HOME/.ssh/authorized_keys"
+
+known_hosts_tmp="$(mktemp)"
+ssh-keyscan -p "$SSH_PORT" -H 127.0.0.1 >"$known_hosts_tmp" 2>/dev/null
+install -o jenkins -g jenkins -m 0600 "$known_hosts_tmp" "$JENKINS_SSH_DIR/known_hosts"
+rm -f "$known_hosts_tmp"
+
+install -o root -g root -m 0755 \
+  "$SCRIPT_DIR/deploy-onehealth-backend" \
+  /usr/local/sbin/deploy-onehealth-backend
+install -o root -g root -m 0440 \
+  "$SCRIPT_DIR/onehealth-jenkins.sudoers" \
+  /etc/sudoers.d/onehealth-jenkins
+visudo -cf /etc/sudoers.d/onehealth-jenkins
+
+runuser -u jenkins -- ssh \
+  -p "$SSH_PORT" \
+  -i "$KEY_FILE" \
+  -o BatchMode=yes \
+  -o StrictHostKeyChecking=yes \
+  "$AGENT_USER@127.0.0.1" \
+  "/usr/bin/java -version >/dev/null 2>&1 && '$NODE20_BIN_DIR/node' --version && '$NODE20_BIN_DIR/npm' --version"
+
+echo
+echo "The isolated Jenkins build account is ready."
+echo "Agent user: $AGENT_USER"
+echo "Remote root: $AGENT_ROOT"
+echo "SSH endpoint: 127.0.0.1:$SSH_PORT"
+echo "Jenkins credential private key: $KEY_FILE"
+echo "Node.js bin directory for PATH+NODE20: $NODE20_BIN_DIR"
+echo "Do not copy the private key into chat, logs or Git."

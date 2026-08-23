@@ -72,7 +72,7 @@ remain visible.
 - [X] T021A [US1] Add the least-privilege Jenkins pipeline and same-host deploy wrapper in `Jenkinsfile` and `ops/jenkins/`
 - [X] T021B [US1] Add the non-replaying TLS reverse-proxy template and cPanel/LiteSpeed activation gate in `ops/nginx/onehealth-backend.conf.example` and `ops/README.md`
 - [X] T022 [US1] Add the continuity verification command without embedding credentials in `package.json`
-- [ ] T023 [US1] Execute ten reloads and worker-loss/readiness exercises in a disposable environment, then record availability, sub-10-second removal and zero infrastructure-replay evidence in `specs/001-backend-load-balancing/validation/us1-continuity.md`
+- [X] T023 [US1] Execute ten reloads and worker-loss/readiness exercises in a disposable environment, then record availability, sub-10-second removal and zero infrastructure-replay evidence in `specs/001-backend-load-balancing/validation/us1-continuity.md`
 
 **Checkpoint**: Process-level failure and progressive reload are survivable on the current host.
 

@@ -1,0 +1,4 @@
+[Service]
+Environment="JENKINS_OPTS=--httpPort=8080 --httpListenAddress=127.0.0.1"
+Environment="JAVA_OPTS=-Djava.awt.headless=true -Xms512m -Xmx2048m -Dorg.apache.commons.jelly.tags.fmt.timeZone=Africa/Douala"
+UMask=0027

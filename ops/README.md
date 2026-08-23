@@ -47,6 +47,33 @@ sudo install -o root -g root -m 0440 \
 sudo visudo -cf /etc/sudoers.d/onehealth-jenkins
 ```
 
+Le contrôleur Jenkins doit reprendre le modèle
+`ops/jenkins/jenkins-systemd-override.conf.example`, écouter uniquement sur `127.0.0.1:8080` et ne
+posséder aucun exécuteur de build après connexion de l'agent. Les builds sont exécutés sous le compte
+isolé `onehealthci`, avec un seul exécuteur et le label `onehealth-node20`. La règle sudo autorise ce
+compte à lancer uniquement `/usr/local/sbin/deploy-onehealth-backend` en tant que `yabain` ; le compte
+contrôleur `jenkins` ne reçoit aucun droit sudo.
+
+L'installation reproductible du compte, de la clé SSH locale, du wrapper et de la règle sudo se lance
+depuis la racine du dépôt :
+
+```bash
+sudo SSH_PORT=1219 \
+  NODE20_BIN_DIR=/opt/cpanel/ea-nodejs20/bin \
+  bash ops/jenkins/setup-local-build-agent
+```
+
+Le script ne révèle jamais la clé privée. Dans Jenkins, l'ajouter directement depuis
+`/var/lib/jenkins/.ssh/onehealthci_ed25519` comme identifiant SSH, sans la copier dans une
+conversation ou dans Git. Le nœud permanent utilise `127.0.0.1:1219`, le répertoire distant
+`/home/onehealthci/agent`, un exécuteur, le label `onehealth-node20` et la stratégie de vérification
+`Known hosts file`. Ajouter aussi la propriété de nœud
+`PATH+NODE20=/opt/cpanel/ea-nodejs20/bin`. Une fois le nœud connecté, régler le nombre d'exécuteurs
+du nœud intégré Jenkins à zéro. Après avoir enregistré l'identifiant et confirmé une reconnexion du
+nœud, supprimer les copies de clé du système de fichiers du contrôleur avec
+`sudo rm -f /var/lib/jenkins/.ssh/onehealthci_ed25519*` ; la copie chiffrée gérée par Jenkins reste
+disponible.
+
 Créer ensuite un Pipeline Jenkins multibranche pointant vers le dépôt GitHub. L'agent portant le
 label `onehealth-node20` doit avoir Node.js 20 et npm dans son `PATH`. Le paramètre
 `DEPLOY_PRODUCTION` reste désactivé par défaut et le déploiement est refusé hors de `main`.
