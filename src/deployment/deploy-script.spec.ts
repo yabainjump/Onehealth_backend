@@ -6,13 +6,28 @@ describe('production deployment script', () => {
     join(process.cwd(), 'deploy-onehealth-backend.sh'),
     'utf8',
   );
+  const jenkinsWrapper = readFileSync(
+    join(process.cwd(), 'ops', 'jenkins', 'deploy-onehealth-backend'),
+    'utf8',
+  );
+  const jenkinsfile = readFileSync(join(process.cwd(), 'Jenkinsfile'), 'utf8');
 
   it('captures candidate and previous revisions before promotion', () => {
     expect(script).toContain('PREVIOUS_REVISION=');
     expect(script).toContain('CANDIDATE_REVISION=');
     expect(script.indexOf('PREVIOUS_REVISION=')).toBeLessThan(
-      script.indexOf('git reset --hard "origin/$BRANCH"'),
+      script.indexOf('git reset --hard "$DEPLOY_TARGET"'),
     );
+  });
+
+  it('deploys the exact commit tested by Jenkins', () => {
+    expect(jenkinsfile).toContain('DEPLOY_REVISION="$(git rev-parse HEAD)"');
+    expect(jenkinsfile).toContain('test "$DEPLOY_REVISION" = "$GIT_COMMIT"');
+    expect(jenkinsWrapper).toContain('readonly DEPLOY_REVISION="$1"');
+    expect(jenkinsWrapper).toContain('DEPLOY_REVISION="$DEPLOY_REVISION"');
+    expect(script).toContain('git merge-base --is-ancestor');
+    expect(script).toContain('git reset --hard "$DEPLOY_TARGET"');
+    expect(script).toContain('[ "$CANDIDATE_REVISION" != "$DEPLOY_REVISION" ]');
   });
 
   it('rolls back build, reload or readiness failures to the previous revision', () => {

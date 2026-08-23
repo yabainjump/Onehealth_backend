@@ -81,7 +81,10 @@ disponible.
 
 Créer ensuite un Pipeline Jenkins multibranche pointant vers le dépôt GitHub. L'agent portant le
 label `onehealth-node20` doit avoir Node.js 20 et npm dans son `PATH`. Le paramètre
-`DEPLOY_PRODUCTION` reste désactivé par défaut et le déploiement est refusé hors de `main`.
+`DEPLOY_PRODUCTION` reste désactivé par défaut et le déploiement est refusé hors de `main`. Le
+pipeline transmet au wrapper la révision Git complète qu'il vient de tester ; le déploiement refuse
+une révision invalide ou absente de `origin/main` et contrôle que la révision effectivement extraite
+est strictement identique.
 
 ## Intégration au Nginx existant
 

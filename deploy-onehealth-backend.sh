@@ -4,6 +4,7 @@ set -euo pipefail
 APP_DIR="${APP_DIR:-$HOME/apps/onehealth_backend}"
 REPO_URL="${REPO_URL:-https://github.com/yabainjump/Onehealth_backend.git}"
 BRANCH="${BRANCH:-main}"
+DEPLOY_REVISION="${DEPLOY_REVISION:-}"
 NODE_BIN_DIR="${NODE_BIN_DIR:-/opt/cpanel/ea-nodejs20/bin}"
 NPM_BIN="${NPM_BIN:-$NODE_BIN_DIR/npm}"
 NODE_BIN="${NODE_BIN:-$NODE_BIN_DIR/node}"
@@ -42,6 +43,19 @@ case "$SEED_HUB_DEMO" in
     exit 1
     ;;
 esac
+
+if [ -n "$DEPLOY_REVISION" ]; then
+  if [ "${#DEPLOY_REVISION}" -ne 40 ]; then
+    echo "Error: DEPLOY_REVISION must be a complete 40-character lowercase Git commit SHA."
+    exit 1
+  fi
+  case "$DEPLOY_REVISION" in
+    *[!0-9a-f]*)
+      echo "Error: DEPLOY_REVISION must be a complete 40-character lowercase Git commit SHA."
+      exit 1
+      ;;
+  esac
+fi
 
 mkdir -p "$APP_DIR"
 mkdir -p "$UPLOADS_DIR"/{profile,post,message}
@@ -83,8 +97,24 @@ fi
 # overwritten by merge" failures on pull.
 git fetch origin "$BRANCH"
 git checkout -f "$BRANCH"
-git reset --hard "origin/$BRANCH"
+DEPLOY_TARGET="origin/$BRANCH"
+if [ -n "$DEPLOY_REVISION" ]; then
+  if ! git rev-parse --verify "${DEPLOY_REVISION}^{commit}" >/dev/null 2>&1; then
+    echo "Error: requested deployment revision is not available from origin/$BRANCH."
+    exit 1
+  fi
+  if ! git merge-base --is-ancestor "$DEPLOY_REVISION" "origin/$BRANCH"; then
+    echo "Error: requested deployment revision does not belong to origin/$BRANCH."
+    exit 1
+  fi
+  DEPLOY_TARGET="$DEPLOY_REVISION"
+fi
+git reset --hard "$DEPLOY_TARGET"
 CANDIDATE_REVISION="$(git rev-parse HEAD)"
+if [ -n "$DEPLOY_REVISION" ] && [ "$CANDIDATE_REVISION" != "$DEPLOY_REVISION" ]; then
+  echo "Error: checked out revision does not match the requested deployment revision."
+  exit 1
+fi
 export APP_VERSION="$CANDIDATE_REVISION"
 
 if [ ! -f .env ]; then

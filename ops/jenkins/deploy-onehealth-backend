@@ -1,10 +1,22 @@
 #!/usr/bin/env bash
 set -euo pipefail
 
-if [ "$#" -ne 0 ]; then
-  echo "This deployment command does not accept arguments."
+if [ "$#" -ne 1 ]; then
+  echo "This deployment command requires exactly one tested Git commit SHA."
   exit 2
 fi
+
+readonly DEPLOY_REVISION="$1"
+if [ "${#DEPLOY_REVISION}" -ne 40 ]; then
+  echo "The deployment revision must be a complete 40-character lowercase Git commit SHA."
+  exit 2
+fi
+case "$DEPLOY_REVISION" in
+  *[!0-9a-f]*)
+    echo "The deployment revision must be a complete 40-character lowercase Git commit SHA."
+    exit 2
+    ;;
+esac
 
 if [ "$(id -un)" != "yabain" ]; then
   echo "This deployment command must run as yabain."
@@ -31,6 +43,7 @@ exec /usr/bin/env -i \
   LOGNAME="yabain" \
   LANG="C.UTF-8" \
   PATH="$NODE_VERSION_DIR:/usr/local/bin:/usr/bin:/bin" \
+  DEPLOY_REVISION="$DEPLOY_REVISION" \
   APP_DIR="$DEPLOY_HOME/apps/onehealth_backend" \
   NPM_BIN="$NODE_VERSION_DIR/npm" \
   NODE_BIN="$NODE_VERSION_DIR/node" \

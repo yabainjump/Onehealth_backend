@@ -57,7 +57,12 @@ pipeline {
         }
       }
       steps {
-        sh 'sudo -n -u yabain /usr/local/sbin/deploy-onehealth-backend'
+        sh '''
+          set -eu
+          DEPLOY_REVISION="$(git rev-parse HEAD)"
+          test "$DEPLOY_REVISION" = "$GIT_COMMIT"
+          sudo -n -u yabain /usr/local/sbin/deploy-onehealth-backend "$DEPLOY_REVISION"
+        '''
       }
     }
   }
