@@ -214,6 +214,67 @@ verify_cluster_ready() {
   return 1
 }
 
+has_expected_cluster_shape() {
+  "$PM2_BIN" jlist | "$NODE_BIN" -e '
+    let body = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", chunk => { body += chunk; });
+    process.stdin.on("end", () => {
+      try {
+        const apps = JSON.parse(body).filter(item => item.name === process.env.PM2_APP_NAME);
+        const valid = apps.length === 2 && apps.every(item =>
+          item.pm2_env && item.pm2_env.exec_mode === "cluster_mode"
+        );
+        process.exit(valid ? 0 : 1);
+      } catch {
+        process.exit(1);
+      }
+    });
+  '
+}
+
+start_or_reload_cluster() {
+  if has_expected_cluster_shape; then
+    "$PM2_BIN" startOrReload ecosystem.config.cjs --update-env
+    return
+  fi
+
+  echo "Migrating the existing PM2 process to the validated two-worker cluster."
+  "$PM2_BIN" delete "$PM2_APP_NAME" >/dev/null 2>&1 || true
+  "$PM2_BIN" start ecosystem.config.cjs --update-env
+}
+
+verify_legacy_runtime() {
+  local legacy_health_url="http://127.0.0.1:${PORT_VALUE}/api/health"
+
+  for ((attempt = 1; attempt <= LOCAL_READY_ATTEMPTS; attempt += 1)); do
+    local legacy_status="000"
+    if ! legacy_status="$(curl -sS --connect-timeout 2 --max-time 5 \
+      -o /dev/null -w '%{http_code}' "$legacy_health_url")"; then
+      legacy_status="000"
+    fi
+
+    if [ "$legacy_status" = "200" ]; then return 0; fi
+    if [ "$attempt" -lt "$LOCAL_READY_ATTEMPTS" ]; then
+      sleep "$LOCAL_READY_DELAY_SECONDS"
+    fi
+  done
+
+  echo "Error: the restored legacy revision did not become healthy."
+  return 1
+}
+
+restore_previous_runtime() {
+  # A revision created before the cluster rollout may expose only /api/health.
+  # Recreate it from its own ecosystem file, then prefer the strict cluster
+  # proof and accept the compatibility probe only for this rollback path.
+  "$PM2_BIN" delete "$PM2_APP_NAME" >/dev/null 2>&1 || true
+  "$PM2_BIN" start ecosystem.config.cjs --update-env
+
+  if verify_cluster_ready "$PREVIOUS_REVISION"; then return 0; fi
+  verify_legacy_runtime
+}
+
 verify_public_cors() {
   if [ "$VERIFY_PUBLIC_API" != "true" ]; then return 0; fi
   CORS_HEADERS="$(mktemp)"
@@ -259,8 +320,7 @@ rollback_candidate() {
   git reset --hard "$PREVIOUS_REVISION" || return 1
   export APP_VERSION="$PREVIOUS_REVISION"
   install_and_build || return 1
-  "$PM2_BIN" startOrReload ecosystem.config.cjs --update-env || return 1
-  verify_cluster_ready "$PREVIOUS_REVISION" || return 1
+  restore_previous_runtime || return 1
   verify_public_cors || return 1
   "$PM2_BIN" save || return 1
   echo "decision=rolled-back candidate=$CANDIDATE_REVISION restored=$PREVIOUS_REVISION"
@@ -283,7 +343,7 @@ if [ "$SEED_HUB_DEMO" = "true" ]; then
   HUB_DEMO_SEED_CONFIRM="SEED_165_DEMO_RECORDS" "$NPM_BIN" run hub:seed-demo
 fi
 
-"$PM2_BIN" startOrReload ecosystem.config.cjs --update-env
+start_or_reload_cluster
 verify_cluster_ready "$CANDIDATE_REVISION"
 verify_public_cors
 "$PM2_BIN" save

@@ -48,9 +48,14 @@ import { HubEvent, HubEventSchema } from './schemas/hub-event.schema';
 import { HubEventService } from './services/hub-event.service';
 import { RudolfModule } from '../rudolf/rudolf.module';
 import { HubAiService } from './services/hub-ai.service';
+import { CoordinationModule } from '../coordination/coordination.module';
 
 @Module({
   imports: [
+    // HubController references RudolfRateLimitGuard directly. Nest resolves a
+    // route guard in the controller module context, so its distributed quota
+    // dependency must also be visible from HubModule.
+    CoordinationModule,
     RudolfModule,
     MongooseModule.forFeature(
       [
