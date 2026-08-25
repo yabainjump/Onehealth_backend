@@ -12,6 +12,7 @@ import { ListMessagesDto } from './dto/list-messages.dto';
 import { SendMessageDto } from './dto/send-message.dto';
 import { ChatMessage } from './schemas/chat-message.schema';
 import { ChatRoom, ChatRoomDocument } from './schemas/chat-room.schema';
+import { MediaSignatureService } from '../media-access/media-signature.service';
 
 @Injectable()
 export class ChatService {
@@ -22,6 +23,7 @@ export class ChatService {
     @InjectModel(ChatMessage.name)
     private readonly messageModel: Model<ChatMessage>,
     private readonly usersService: UsersService,
+    private readonly mediaSignature: MediaSignatureService,
   ) {}
 
   async createRoom(currentUserId: string, dto: CreateRoomDto) {
@@ -229,8 +231,10 @@ export class ChatService {
       roomId: message.roomId.toString(),
       senderId: message.senderId.toString(),
       text: message.text,
-      imageUrl: message.imageUrl,
-      fileUrl: message.fileUrl ?? '',
+      // Pieces jointes privees : l'URL n'est lisible que signee, et seulement
+      // par un membre de la conversation, qui est le seul a la recevoir.
+      imageUrl: this.mediaSignature.sign(message.imageUrl ?? ''),
+      fileUrl: this.mediaSignature.sign(message.fileUrl ?? ''),
       fileName: message.fileName ?? '',
       fileMimeType: message.fileMimeType ?? '',
       fileSize: message.fileSize ?? 0,

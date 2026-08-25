@@ -80,7 +80,8 @@ export class AdminService {
   /** Liste paginée des utilisateurs avec recherche et filtres. */
   async listUsers(query: ListAdminUsersQuery) {
     const limit = Math.min(Math.max(query.limit ?? 20, 1), 100);
-    const page = Math.max(query.page ?? 1, 1);
+    // Borne haute : un `skip` arbitrairement profond coute O(n) a MongoDB.
+    const page = Math.min(Math.max(query.page ?? 1, 1), 1000);
 
     const filter: Record<string, unknown> = {};
     const search = `${query.search ?? ''}`.trim();

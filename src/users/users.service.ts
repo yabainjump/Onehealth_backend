@@ -418,6 +418,7 @@ export class UsersService {
         {
           $set: {
             passwordHash: newPasswordHash,
+            passwordChangedAt: now,
             isOnline: false,
             lastSeenAt: now,
           },

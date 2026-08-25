@@ -49,6 +49,11 @@ export class User {
   @Prop({ type: Date, default: null, select: false })
   passwordResetRequestedAt: Date | null;
 
+  // Tout jeton emis avant cette date est refuse : une reinitialisation doit
+  // fermer les sessions ouvertes, y compris celle d'un voleur de jeton.
+  @Prop({ type: Date, default: null })
+  passwordChangedAt: Date | null;
+
   @Prop({ required: true, trim: true, minlength: 3, maxlength: 40 })
   username: string;
 

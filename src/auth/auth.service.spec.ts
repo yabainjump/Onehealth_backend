@@ -8,6 +8,7 @@ import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
 import { UserRole } from '../users/schemas/user.schema';
 import { GoogleAvatarService } from './google-avatar.service';
+import { DistributedRateLimitService } from '../coordination/distributed-rate-limit.service';
 
 jest.mock('bcrypt', () => ({
   hash: jest.fn(),
@@ -36,6 +37,17 @@ describe('AuthService', () => {
     sendPasswordReset: jest.fn().mockResolvedValue(true),
   };
 
+  const rateLimitMock = {
+    consume: jest.fn().mockResolvedValue({
+      allowed: true,
+      count: 1,
+      limit: 20,
+      remaining: 19,
+      resetAt: new Date(Date.now() + 60_000),
+      retryAfterSeconds: 60,
+    }),
+  };
+
   const googleAvatarServiceMock = {
     mirror: jest.fn(),
     isGoogleHostedURL: jest.fn(),
@@ -56,6 +68,10 @@ describe('AuthService', () => {
         {
           provide: GoogleAvatarService,
           useValue: googleAvatarServiceMock,
+        },
+        {
+          provide: DistributedRateLimitService,
+          useValue: rateLimitMock,
         },
       ],
     }).compile();
@@ -113,6 +129,81 @@ describe('AuthService', () => {
         password: 'wrong-password',
       }),
     ).rejects.toBeInstanceOf(UnauthorizedException);
+  });
+
+  // La limitation du middleware est par IP : un bourrage reparti sur de
+  // nombreuses IP la contourne. Les echecs sont donc aussi comptes par compte.
+  describe('comptage des echecs par compte', () => {
+    it('compte un echec de connexion sur le compte vise', async () => {
+      usersServiceMock.findByEmail.mockResolvedValue({
+        passwordHash: 'hashed-password',
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+
+      await expect(
+        authService.login({
+          email: 'John.Doe@Example.com ',
+          password: 'wrong-password',
+        }),
+      ).rejects.toBeInstanceOf(UnauthorizedException);
+
+      expect(rateLimitMock.consume).toHaveBeenCalledWith(
+        expect.objectContaining({
+          policy: 'auth-login-account',
+          subject: 'john.doe@example.com',
+        }),
+      );
+    });
+
+    it('renvoie 429 quand le compte a epuise ses tentatives', async () => {
+      usersServiceMock.findByEmail.mockResolvedValue({
+        passwordHash: 'hashed-password',
+      });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(false);
+      rateLimitMock.consume.mockResolvedValueOnce({
+        allowed: false,
+        count: 21,
+        limit: 20,
+        remaining: 0,
+        resetAt: new Date(Date.now() + 60_000),
+        retryAfterSeconds: 60,
+      });
+
+      await expect(
+        authService.login({
+          email: 'john.doe@example.com',
+          password: 'wrong-password',
+        }),
+      ).rejects.toMatchObject({ status: 429 });
+    });
+
+    // Sans cette garantie, un tiers pourrait verrouiller le compte d'autrui en
+    // brulant ses tentatives : le mot de passe correct doit toujours passer.
+    it('laisse passer le mot de passe correct meme apres saturation', async () => {
+      usersServiceMock.findByEmail.mockResolvedValue({
+        _id: { toString: () => 'user-id-1' },
+        email: 'john.doe@example.com',
+        passwordHash: 'hashed-password',
+      });
+      usersServiceMock.toPublicUser.mockReturnValue({ id: 'user-id-1' });
+      (bcrypt.compare as jest.Mock).mockResolvedValue(true);
+      rateLimitMock.consume.mockResolvedValue({
+        allowed: false,
+        count: 99,
+        limit: 20,
+        remaining: 0,
+        resetAt: new Date(Date.now() + 60_000),
+        retryAfterSeconds: 60,
+      });
+
+      const result = await authService.login({
+        email: 'john.doe@example.com',
+        password: 'clear-password',
+      });
+
+      expect(result.accessToken).toBe('mocked-token');
+      expect(rateLimitMock.consume).not.toHaveBeenCalled();
+    });
   });
 
   it('migrates a legacy Google avatar to local storage on login', async () => {

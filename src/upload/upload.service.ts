@@ -5,6 +5,7 @@ import { promises as fs } from 'fs';
 import { extname, join } from 'path';
 import sharp from 'sharp';
 import { resolveUploadsRoot } from '../config/uploads-path';
+import { MediaSignatureService } from '../media-access/media-signature.service';
 
 export type UploadKind = 'profile' | 'post' | 'message';
 
@@ -155,7 +156,10 @@ const FILE_RULES: FileRule[] = [
 export class UploadService {
   private readonly uploadsRoot = resolveUploadsRoot();
 
-  constructor(private readonly configService: ConfigService) {}
+  constructor(
+    private readonly configService: ConfigService,
+    private readonly mediaSignature: MediaSignatureService,
+  ) {}
 
   async finalizeUploadedFile(
     file: UploadedFileLike,
@@ -226,7 +230,9 @@ export class UploadService {
       return {
         filename: finalFilename,
         relativePath,
-        url: this.buildFileUrl(relativePath),
+        // Signee si le dossier est prive, afin que l'expediteur voie sa piece
+        // jointe immediatement, avant le rechargement de la conversation.
+        url: this.mediaSignature.sign(this.buildFileUrl(relativePath)),
         originalName: file.originalname,
         mimetype: outputMime,
         size: outputSize,

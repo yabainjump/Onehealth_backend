@@ -94,6 +94,14 @@ export const environmentValidationSchema = Joi.object({
     .uri({ scheme: ['http', 'https'] })
     .optional(),
   UPLOADS_DIR: Joi.string().trim().min(1).optional(),
+  // Signature des medias prives. Absente, elle est derivee de JWT_SECRET par
+  // separation de domaine : aucun changement de deploiement n'est requis.
+  MEDIA_URL_SECRET: Joi.string().min(32).optional(),
+  MEDIA_URL_TTL_MS: Joi.number()
+    .integer()
+    .min(60_000)
+    .max(2_592_000_000)
+    .default(604_800_000),
   FRONTEND_PUBLIC_URL: Joi.string()
     .uri({ scheme: ['http', 'https'] })
     .optional(),

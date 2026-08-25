@@ -120,7 +120,7 @@ export function buildShareHtml(metadata: SharePageMetadata): string {
       ? `
   <script>
     (() => {
-      const targetUrl = ${JSON.stringify(metadata.redirectUrl)};
+      const targetUrl = ${escapeScriptLiteral(metadata.redirectUrl)};
       if (!targetUrl) return;
       setTimeout(() => {
         window.location.replace(targetUrl);
@@ -241,6 +241,20 @@ function decodeHtmlEntities(value: string): string {
   });
 
   return output;
+}
+
+/**
+ * Serialise une valeur pour un litteral JavaScript inline. `JSON.stringify`
+ * seul ne neutralise ni `</script>` ni les separateurs de ligne U+2028/U+2029 :
+ * une valeur hostile pourrait fermer la balise et injecter du script. La valeur
+ * est aujourd'hui construite par le serveur ; cette barriere evite qu'une
+ * evolution future ne transforme la page de partage en XSS.
+ */
+function escapeScriptLiteral(value: string): string {
+  return JSON.stringify(`${value || ''}`).replace(
+    /[<>\u2028\u2029]/g,
+    (char) => `\\u${char.charCodeAt(0).toString(16).padStart(4, '0')}`,
+  );
 }
 
 function escapeHtml(value: string): string {

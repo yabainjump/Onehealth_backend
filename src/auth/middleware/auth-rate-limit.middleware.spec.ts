@@ -105,6 +105,29 @@ describe('AuthRateLimitMiddleware', () => {
     expect(next).not.toHaveBeenCalled();
   });
 
+  // Express atteint le contrôleur de connexion quelle que soit la casse, une
+  // barre oblique finale ou un segment « . ». Chaque variante doit donc être
+  // comptée dans le même compartiment, sinon la limite est contournable.
+  it.each([
+    ['/api/auth/login/', 'auth-login'],
+    ['/api/AUTH/LOGIN', 'auth-login'],
+    ['/api/Auth/Login', 'auth-login'],
+    ['/api/auth/./login', 'auth-login'],
+    ['/api/auth//login', 'auth-login'],
+    ['/api/AUTH/FORGOT-PASSWORD', 'auth-forgot-password'],
+    ['/api/auth/register/', 'auth-register'],
+  ])('rate limits the equivalent route %s', async (path, policy) => {
+    const consume = jest.fn().mockResolvedValue(decision(1, 10));
+    const limiter = { consume } as unknown as DistributedRateLimitService;
+    const middleware = new AuthRateLimitMiddleware(limiter);
+    const next = jest.fn() as NextFunction;
+
+    await middleware.use(createRequest(path), createResponse().response, next);
+
+    expect(consume).toHaveBeenCalledWith(expect.objectContaining({ policy }));
+    expect(next).toHaveBeenCalledTimes(1);
+  });
+
   it('does not rate limit unrelated routes', async () => {
     const consume = jest.fn();
     const limiter = { consume } as unknown as DistributedRateLimitService;

@@ -44,6 +44,7 @@ export default () => ({
   ),
   rateLimitKeySecret:
     process.env.RATE_LIMIT_KEY_SECRET || process.env.JWT_SECRET || '',
+  mediaUrlTtlMs: numberFromEnvironment('MEDIA_URL_TTL_MS', 604_800_000),
   rateLimitCleanupGraceMs: numberFromEnvironment(
     'RATE_LIMIT_CLEANUP_GRACE_MS',
     3_600_000,

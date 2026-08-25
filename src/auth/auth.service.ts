@@ -1,6 +1,8 @@
 import {
   BadRequestException,
   ConflictException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
   NotImplementedException,
@@ -25,6 +27,7 @@ import {
   GoogleAvatarService,
   MirroredGoogleAvatar,
 } from './google-avatar.service';
+import { DistributedRateLimitService } from '../coordination/distributed-rate-limit.service';
 
 export interface AuthResponse {
   accessToken: string;
@@ -43,6 +46,8 @@ export interface ForgotPasswordResponse {
 @Injectable()
 export class AuthService {
   private static readonly DEFAULT_RESET_TOKEN_TTL_MINUTES = 30;
+  private static readonly FAILED_LOGINS_PER_ACCOUNT = 20;
+  private static readonly FAILED_LOGIN_WINDOW_MS = 15 * 60 * 1000;
   private readonly logger = new Logger(AuthService.name);
   private googleClient: OAuth2Client | null = null;
 
@@ -52,6 +57,7 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly mailService: MailService,
     private readonly googleAvatarService: GoogleAvatarService,
+    private readonly distributedRateLimit: DistributedRateLimitService,
   ) {}
 
   async register(registerDto: RegisterDto): Promise<AuthResponse> {
@@ -88,20 +94,57 @@ export class AuthService {
   async login(loginDto: LoginDto): Promise<AuthResponse> {
     const user = await this.usersService.findByEmail(loginDto.email, true);
 
-    if (!user || !user.passwordHash) {
-      throw new UnauthorizedException('Invalid credentials');
+    const isPasswordValid =
+      !!user?.passwordHash &&
+      (await bcrypt.compare(loginDto.password, user.passwordHash));
+
+    // Un mot de passe correct passe toujours : le comptage ne porte que sur les
+    // echecs, ce qui bloque le bourrage d'identifiants distribue sans permettre
+    // a un tiers de verrouiller le compte d'un utilisateur legitime.
+    if (isPasswordValid && user) {
+      return this.buildAuthResponse(user);
     }
 
-    const isPasswordValid = await bcrypt.compare(
-      loginDto.password,
-      user.passwordHash,
-    );
+    await this.countFailedLoginAttempt(loginDto.email);
+    throw new UnauthorizedException('Invalid credentials');
+  }
 
-    if (!isPasswordValid) {
-      throw new UnauthorizedException('Invalid credentials');
+  /**
+   * La limitation du middleware est par adresse IP : elle ne freine pas un
+   * bourrage d'identifiants reparti sur de nombreuses IP. On compte donc aussi
+   * les echecs par compte vise, toutes IP confondues.
+   */
+  private async countFailedLoginAttempt(email: string): Promise<void> {
+    const subject = `${email || ''}`.toLowerCase().trim();
+    if (!subject) {
+      return;
     }
 
-    return this.buildAuthResponse(user);
+    try {
+      const decision = await this.distributedRateLimit.consume({
+        policy: 'auth-login-account',
+        subject,
+        limit: AuthService.FAILED_LOGINS_PER_ACCOUNT,
+        windowMs: AuthService.FAILED_LOGIN_WINDOW_MS,
+      });
+
+      if (!decision.allowed) {
+        throw new HttpException(
+          {
+            statusCode: HttpStatus.TOO_MANY_REQUESTS,
+            message: 'Too many failed attempts for this account.',
+          },
+          HttpStatus.TOO_MANY_REQUESTS,
+        );
+      }
+    } catch (error: unknown) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      // La coordination est deja exigee, en echec ferme, par le middleware
+      // amont : ici on n'ajoute pas de mode degrade supplementaire.
+      this.logger.warn('Failed-login accounting unavailable.');
+    }
   }
 
   /**

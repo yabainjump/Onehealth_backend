@@ -33,11 +33,12 @@ export class ListHubObservationsDto {
   @IsIn(['observation', 'signal', 'verified-alert'])
   stage?: 'observation' | 'signal' | 'verified-alert';
 
-  @ApiPropertyOptional({ minimum: 1, default: 1 })
+  @ApiPropertyOptional({ minimum: 1, maximum: 1000, default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
+  @Max(1000)
   page = 1;
 
   @ApiPropertyOptional({ minimum: 1, maximum: 100, default: 20 })

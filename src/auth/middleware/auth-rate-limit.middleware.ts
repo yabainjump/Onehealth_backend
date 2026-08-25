@@ -61,10 +61,30 @@ export class AuthRateLimitMiddleware implements NestMiddleware {
     }
   }
 
+  /**
+   * Express route sans tenir compte de la casse, des barres obliques
+   * redondantes ni des segments « . » : `/api/AUTH/LOGIN`, `/api/auth/login/`
+   * et `/api/auth/./login` atteignent tous le contrôleur de connexion. La clé
+   * de politique doit être normalisée de la même façon, sinon ces variantes
+   * traversent le middleware sans aucune limitation de débit.
+   */
   private resolveRouteKey(request: Request): string {
     const url = request.originalUrl || request.url || '';
     const [pathWithoutQuery] = url.split('?');
-    return pathWithoutQuery.replace(/^\/api/, '');
+    const segments: string[] = [];
+
+    for (const segment of pathWithoutQuery.toLowerCase().split('/')) {
+      if (!segment || segment === '.') {
+        continue;
+      }
+      if (segment === '..') {
+        segments.pop();
+        continue;
+      }
+      segments.push(segment);
+    }
+
+    return `/${segments.join('/')}`.replace(/^\/api(?=\/|$)/, '') || '/';
   }
 
   private resolveClientId(request: Request): string {

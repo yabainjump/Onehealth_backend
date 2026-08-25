@@ -3,12 +3,14 @@ import {
   Injectable,
   Logger,
   NotFoundException,
+  ServiceUnavailableException,
 } from '@nestjs/common';
 import { createHash } from 'crypto';
 import { existsSync, promises as fs } from 'fs';
 import { dirname, extname, join, normalize, sep } from 'path';
 import sharp from 'sharp';
 import { resolveUploadsRoot } from '../config/uploads-path';
+import { MediaSignatureService } from '../media-access/media-signature.service';
 
 const IMAGE_EXTENSIONS = new Set(['.jpg', '.jpeg', '.png', '.webp', '.gif']);
 const VIDEO_EXTENSIONS = new Set(['.mp4', '.mov', '.webm', '.mkv']);
@@ -42,6 +44,13 @@ interface FfmpegFactory {
  */
 @Injectable()
 export class MediaService {
+  // `/api/media/*` est public et non authentifie. Servir un fichier deja en
+  // cache est bon marche, mais chaque generation mobilise sharp ou ffmpeg. On
+  // borne les generations simultanees pour qu'un afflux de requetes ne puisse
+  // pas saturer le CPU de l'hote mutualise ; au-dela, on renvoie 503 et le
+  // client retombe sur le media d'origine.
+  private static readonly MAX_CONCURRENT_GENERATIONS = 4;
+
   private static readonly MIN_WIDTH = 16;
   private static readonly MAX_WIDTH = 1600;
   private static readonly DEFAULT_WIDTH = 800;
@@ -78,6 +87,7 @@ export class MediaService {
       return { filePath: cacheFile, contentType: 'image/webp' };
     }
 
+    this.beginGeneration();
     try {
       await fs.mkdir(cacheDir, { recursive: true });
       await sharp(sourcePath, { animated: extension === '.gif' })
@@ -95,6 +105,8 @@ export class MediaService {
         filePath: sourcePath,
         contentType: this.imageContentType(extension),
       };
+    } finally {
+      this.endGeneration();
     }
   }
 
@@ -128,6 +140,7 @@ export class MediaService {
 
     await fs.mkdir(cacheDir, { recursive: true });
 
+    this.beginGeneration();
     try {
       await new Promise<void>((resolve, reject) => {
         ffmpeg(sourcePath)
@@ -145,6 +158,8 @@ export class MediaService {
         `Poster generation failed for ${sourcePath}: ${this.errorMessage(error)}`,
       );
       return this.createFallbackPoster(fallbackFile);
+    } finally {
+      this.endGeneration();
     }
 
     if (!existsSync(cacheFile)) {
@@ -207,6 +222,7 @@ export class MediaService {
       return { filePath: cacheFile, contentType: 'image/jpeg' };
     }
 
+    this.beginGeneration();
     try {
       await fs.mkdir(cacheDir, { recursive: true });
       await sharp(sourcePath, { animated: false })
@@ -225,6 +241,8 @@ export class MediaService {
         filePath: sourcePath,
         contentType: this.imageContentType(extension),
       };
+    } finally {
+      this.endGeneration();
     }
   }
 
@@ -290,6 +308,15 @@ export class MediaService {
 
     // Empeche toute traversee de repertoire (../).
     const safeRelative = normalize(relative).replace(/^(\.\.(\/|\\|$))+/, '');
+    // Les pieces jointes privees ne passent pas par la generation d'images :
+    // sinon `/api/media/thumb` renverrait une copie redimensionnee d'un media
+    // que le service statique protege pourtant par signature. `sep` est
+    // normalise en `/` pour que le prefixe se compare aussi sous Windows.
+    const posixRelative = safeRelative.split(sep).join('/');
+    if (MediaSignatureService.isProtectedPath(`/uploads/${posixRelative}`)) {
+      throw new BadRequestException('Invalid media path');
+    }
+
     const absolutePath = join(this.uploadsRoot, safeRelative);
 
     if (
@@ -312,6 +339,19 @@ export class MediaService {
       CACHEABLE_WIDTHS.find((candidate) => candidate >= clamped) ??
       CACHEABLE_WIDTHS[CACHEABLE_WIDTHS.length - 1]
     );
+  }
+
+  private activeGenerations = 0;
+
+  private beginGeneration(): void {
+    if (this.activeGenerations >= MediaService.MAX_CONCURRENT_GENERATIONS) {
+      throw new ServiceUnavailableException('Media generation is saturated');
+    }
+    this.activeGenerations += 1;
+  }
+
+  private endGeneration(): void {
+    this.activeGenerations = Math.max(0, this.activeGenerations - 1);
   }
 
   private hash(value: string): string {

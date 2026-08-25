@@ -3,6 +3,7 @@ import { HydratedDocument } from 'mongoose';
 
 export const RATE_LIMIT_POLICIES = [
   'auth-login',
+  'auth-login-account',
   'auth-register',
   'auth-google',
   'auth-forgot-password',

@@ -19,6 +19,7 @@ import { HubModule } from './hub/hub.module';
 import { HUB_CONNECTION } from './hub/hub.constants';
 import { RuntimeModule } from './runtime/runtime.module';
 import { ObservabilityModule } from './observability/observability.module';
+import { MediaAccessModule } from './media-access/media-access.module';
 
 @Module({
   imports: [
@@ -41,6 +42,7 @@ import { ObservabilityModule } from './observability/observability.module';
         maxPoolSize: configService.get<number>('hubMongodbMaxPoolSize') ?? 10,
       }),
     }),
+    MediaAccessModule,
     RuntimeModule,
     ObservabilityModule,
     HealthModule,
