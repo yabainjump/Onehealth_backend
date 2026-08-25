@@ -21,7 +21,10 @@ Date : 2026-08-24
 | `/api/media/*` : chemin privé refusé, y compris en casse différente | PASS |
 | `/api/media/*` : chemins publics toujours acceptés | PASS |
 | Confinement des chemins source sur 8 entrées hostiles | PASS |
-| Tests ciblés `media-access` et `media` | PASS — 2 suites, 25 tests |
+| Média privé valide : réponse `private, no-store, max-age=0` | PASS |
+| Média public : aucune surcharge du cache statique | PASS |
+| Chemin avec encodage invalide : HTTP 400 contrôlé | PASS |
+| Tests ciblés `media-access`, `media`, stratégie JWT et utilisateurs | PASS — 4 suites, 29 tests |
 
 ## Rejeu de la barrière statique
 
@@ -40,6 +43,9 @@ un serveur Express minimal reproduisant l'ordre d'enregistrement (barrière avan
 
 Aucune identité, aucun secret et aucune donnée personnelle n'apparaissent dans ces preuves : une
 autorisation ne contient qu'un chemin et une échéance.
+
+Le 25 août 2026, le contrôle final a également validé `npm run lint`, `npm run build`, l'intégralité
+des 43 suites (188 tests) et `npm audit --audit-level=high --omit=dev` sans vulnérabilité.
 
 ## Reste à exercer avant mise en service
 

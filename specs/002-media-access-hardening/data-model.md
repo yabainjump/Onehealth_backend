@@ -28,6 +28,8 @@ authorisation to another file; binding the expiry prevents extending it after is
 - Verification is constant-time over the digest.
 - The secret is identical on every worker, so an authorisation issued by one instance verifies on
   another (feature 001, FR-009).
+- A successful private response is non-cacheable; public upload prefixes retain the existing static
+  cache policy.
 
 ### Protected prefixes
 
@@ -51,6 +53,8 @@ cannot bypass it.
 - A session whose issue date precedes `passwordChangedAt` MUST be refused.
 - A session without an issue date MUST be refused when `passwordChangedAt` is set.
 - A one-second tolerance absorbs the second boundary between issuing and comparison.
+- Presence is updated by the same conditional database operation that verifies the ban and password
+  change boundary, preventing a rejected or concurrently revoked session from marking the user online.
 - Existing accounts keep `null` and are unaffected until their next reset, so deployment invalidates
   no session on its own.
 

@@ -28,11 +28,14 @@ reaches a caller already entitled to the content.
 
 | Condition | Response |
 |---|---|
-| Valid, unexpired authorisation matching the requested path | `200` with the file |
+| Valid, unexpired authorisation matching the requested path | `200` with the file and `Cache-Control: private, no-store, max-age=0` |
 | Missing, malformed, expired, replayed on another path, or expiry altered | `403` with `Cache-Control: no-store` |
 | Public prefix | `200`, no authorisation required |
+| Path with invalid percent encoding | `400` with `Cache-Control: no-store` |
 
 The `403` body carries a generic message and MUST NOT confirm whether the file exists.
+The static 30-day immutable cache remains limited to public uploads; it MUST NOT override the
+private response header.
 
 ## Derived representations
 

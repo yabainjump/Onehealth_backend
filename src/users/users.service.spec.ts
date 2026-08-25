@@ -89,3 +89,39 @@ describe('UsersService profile photo ownership', () => {
     );
   });
 });
+
+describe('UsersService atomic session presence', () => {
+  it('filtre atomiquement les comptes bannis et les sessions révoquées', async () => {
+    const exec = jest.fn().mockResolvedValue(null);
+    const findOneAndUpdate = jest.fn().mockReturnValue({ exec });
+    const service = new UsersService(
+      { findOneAndUpdate } as never,
+      {} as never,
+      {} as never,
+    );
+    const sessionUpperBound = new Date('2026-08-25T10:00:01.000Z');
+
+    await service.touchPresenceForValidSession('user-1', sessionUpperBound);
+
+    expect(findOneAndUpdate).toHaveBeenCalledTimes(1);
+    const [filter, update, options] = findOneAndUpdate.mock
+      .calls[0] as unknown as [
+      Record<string, unknown>,
+      { isOnline: boolean; lastSeenAt: Date },
+      Record<string, unknown>,
+    ];
+
+    expect(filter).toEqual({
+      _id: 'user-1',
+      isBanned: { $ne: true },
+      $or: [
+        { passwordChangedAt: null },
+        { passwordChangedAt: { $exists: false } },
+        { passwordChangedAt: { $lt: sessionUpperBound } },
+      ],
+    });
+    expect(update.isOnline).toBe(true);
+    expect(update.lastSeenAt).toBeInstanceOf(Date);
+    expect(options).toEqual({ returnDocument: 'after' });
+  });
+});

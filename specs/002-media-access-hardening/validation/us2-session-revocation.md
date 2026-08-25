@@ -12,7 +12,9 @@ Date : 2026-08-24
 | Session refusée quand elle ne porte pas de date d'émission et qu'un changement existe | PASS |
 | Compte banni toujours refusé (comportement antérieur préservé) | PASS |
 | Compte introuvable toujours refusé (comportement antérieur préservé) | PASS |
-| Tests ciblés `auth` (4 suites, dont la stratégie de session) | PASS — 29 tests |
+| Session refusée : aucune mise à jour de présence | PASS |
+| Validation et présence : filtre MongoDB atomique | PASS |
+| Tests ciblés session, utilisateur et médias privés | PASS — 4 suites, 29 tests |
 
 ## Points de conception vérifiés
 
@@ -22,6 +24,10 @@ Date : 2026-08-24
   que le changement.
 - L'état est lu en base à chaque requête protégée, comme le bannissement et les rôles : la révocation
   prend donc effet sur toutes les instances sans état de processus.
+- La présence n'est mise à jour que par une opération conditionnelle excluant atomiquement les
+  comptes bannis et les sessions antérieures au changement de mot de passe.
+
+Le 25 août 2026, le contrôle final a validé `npm run lint`, `npm run build`, 43 suites et 188 tests.
 
 ## Reste à exercer avant mise en service
 

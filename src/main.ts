@@ -11,6 +11,7 @@ import { ensureUploadsRootReady } from './config/uploads-path';
 import { RuntimeLifecycleService } from './runtime/runtime-lifecycle.service';
 import { RuntimeReadinessService } from './runtime/runtime-readiness.service';
 import { MediaSignatureService } from './media-access/media-signature.service';
+import { createPrivateMediaAccessMiddleware } from './media-access/private-media-access.middleware';
 
 const DEFAULT_DEV_CORS_ORIGINS = [
   'http://localhost:8100',
@@ -91,29 +92,7 @@ async function bootstrap() {
   // limitee, emise cote serveur pour un membre de la conversation. Ce
   // middleware doit rester AVANT `useStaticAssets`, qui sert sans controle.
   const mediaSignature = app.get(MediaSignatureService);
-  app.use((req: Request, res: Response, next: NextFunction) => {
-    const pathname = decodeURIComponent((req.path || '').toLowerCase());
-    if (!MediaSignatureService.isProtectedPath(pathname)) {
-      next();
-      return;
-    }
-
-    const query = req.query as Record<string, unknown>;
-    const expiresAt = typeof query.exp === 'string' ? query.exp : undefined;
-    const signature = typeof query.sig === 'string' ? query.sig : undefined;
-
-    if (!mediaSignature.verify(pathname, expiresAt, signature)) {
-      res.setHeader('Cache-Control', 'no-store');
-      res.status(403).json({
-        statusCode: 403,
-        error: 'Forbidden',
-        message: 'Lien de media expire ou invalide.',
-      });
-      return;
-    }
-
-    next();
-  });
+  app.use(createPrivateMediaAccessMiddleware(mediaSignature));
 
   app.useStaticAssets(uploadsRoot, {
     prefix: '/uploads/',

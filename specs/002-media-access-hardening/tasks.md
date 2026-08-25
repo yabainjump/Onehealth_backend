@@ -145,3 +145,16 @@ password.
 
 Constitution principle IX requires lint, build and relevant tests before a change is complete; the
 delivery gates additionally require configuration validation. Results are recorded in `validation/`.
+
+---
+
+## Phase 9: Correctifs de non-régression après audit
+
+- [X] T033 [US1] Extraire la barrière statique dans `src/media-access/private-media-access.middleware.ts`
+- [X] T034 [US1] Interdire le cache des réponses privées valides sans modifier celui des médias publics
+- [X] T035 [US1] Retourner HTTP 400 pour un chemin dont l'encodage pourcent est invalide
+- [X] T036 [P] [US1] Tester les médias publics, privés valides, privés invalides et les chemins mal encodés
+- [X] T037 [US2] Rendre atomiques la validation de session et la mise à jour de présence dans `src/users/users.service.ts`
+- [X] T038 [P] [US2] Vérifier que les sessions révoquées et comptes bannis ne peuvent pas modifier la présence
+- [X] T039 Corriger le formatage du setup Jest afin de restaurer le passage du contrôle lint Jenkins
+- [X] T040 Enregistrer les résultats finaux lint, build et tests dans `validation/`

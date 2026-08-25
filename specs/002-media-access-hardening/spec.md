@@ -36,6 +36,7 @@ le fichier au cours de sa lecture normale.
 2. **Given** un membre ouvre la conversation, **When** l'application affiche la pièce jointe, **Then** le contenu s'affiche sans action supplémentaire de l'utilisateur.
 3. **Given** une autorisation d'accès a été obtenue légitimement, **When** elle est présentée pour un autre fichier ou après son échéance, **Then** la demande est refusée.
 4. **Given** une pièce jointe privée existe, **When** un tiers demande sa transformation par le service de vignettes, **Then** la demande est refusée au lieu de produire une copie lisible.
+5. **Given** un lien privé valide est utilisé, **When** le fichier est servi, **Then** la réponse interdit sa conservation dans un cache partagé ou navigateur au-delà de l'autorisation.
 
 ---
 
@@ -114,6 +115,7 @@ champ acceptant un média ; la valeur doit être refusée à la validation.
 - Un compte historique porte une adresse de photo hébergée sur un hôte que le produit n'a jamais utilisé.
 - Deux instances traitent respectivement l'émission et la vérification d'une même autorisation d'accès.
 - Une variante de casse ou de forme du chemin d'une route soumise à quota atteint le contrôleur.
+- Un chemin HTTP contient un encodage pourcent invalide et ne peut pas être décodé sans erreur.
 
 ## Requirements *(mandatory)*
 
@@ -135,6 +137,8 @@ champ acceptant un média ; la valeur doit être refusée à la validation.
 - **FR-014**: Une valeur sérialisée dans un script généré côté serveur MUST NOT pouvoir clore la balise qui la contient.
 - **FR-015**: Le secret d'autorisation des médias MUST provenir de l'environnement, MUST être identique pour toutes les instances et MUST NOT être exigé au démarrage, une dérivation par séparation de domaine étant admise à défaut.
 - **FR-016**: Aucun changement de cette fonctionnalité MUST élargir un périmètre pays, modifier une transition de cycle de vie sanitaire, ni rendre Rudolf décisionnaire.
+- **FR-017**: Une réponse contenant un média privé MUST interdire son stockage en cache, tandis que les médias publics MUST conserver leur politique de cache performante.
+- **FR-018**: Un chemin HTTP dont l'encodage est invalide MUST produire une réponse contrôlée `400` et MUST NOT provoquer une erreur serveur non gérée.
 
 ### Key Entities
 
@@ -156,6 +160,8 @@ champ acceptant un média ; la valeur doit être refusée à la validation.
 - **SC-007**: Dans 100 % des variantes équivalentes d'une route soumise à quota, le compteur appliqué est identique à celui de la forme canonique.
 - **SC-008**: Une autorisation émise par une instance est acceptée par l'autre instance dans 100 % des vérifications.
 - **SC-009**: Le lint, la compilation et l'intégralité des tests automatisés du dépôt passent après la modification.
+- **SC-010**: Dans 100 % des réponses réussies de média privé, `Cache-Control` interdit le stockage ; un média public conserve le cache statique existant.
+- **SC-011**: Dans 100 % des requêtes portant un encodage de chemin invalide, le serveur répond `400` sans interrompre le processus.
 
 ## Assumptions
 

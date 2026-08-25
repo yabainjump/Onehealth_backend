@@ -358,10 +358,41 @@ export class UsersService {
       .exec();
   }
 
-  async touchPresence(id: string): Promise<UserDocument | null> {
+  /**
+   * Met à jour la présence uniquement si le compte et la session sont encore
+   * autorisés. Le filtre et l'écriture sont atomiques : une réinitialisation
+   * ou un bannissement concurrent ne peut donc pas rendre le compte en ligne.
+   */
+  async touchPresenceForValidSession(
+    id: string,
+    passwordChangeBeforeExclusive?: Date,
+  ): Promise<UserDocument | null> {
+    const passwordCondition = passwordChangeBeforeExclusive
+      ? {
+          $or: [
+            { passwordChangedAt: null },
+            { passwordChangedAt: { $exists: false } },
+            {
+              passwordChangedAt: {
+                $lt: passwordChangeBeforeExclusive,
+              },
+            },
+          ],
+        }
+      : {
+          $or: [
+            { passwordChangedAt: null },
+            { passwordChangedAt: { $exists: false } },
+          ],
+        };
+
     return this.userModel
-      .findByIdAndUpdate(
-        id,
+      .findOneAndUpdate(
+        {
+          _id: id,
+          isBanned: { $ne: true },
+          ...passwordCondition,
+        },
         {
           isOnline: true,
           lastSeenAt: new Date(),

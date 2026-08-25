@@ -19,7 +19,25 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: JwtPayload) {
-    const user = await this.usersService.touchPresence(payload.sub);
+    const passwordChangeBeforeExclusive =
+      typeof payload.iat === 'number'
+        ? new Date(payload.iat * 1000 + 1000)
+        : undefined;
+    const activeUser = await this.usersService.touchPresenceForValidSession(
+      payload.sub,
+      passwordChangeBeforeExclusive,
+    );
+
+    if (activeUser) {
+      return this.usersService.toPublicUser(
+        activeUser,
+        activeUser._id.toString(),
+      );
+    }
+
+    // Le filtre atomique n'a rien modifié. Cette lecture sert uniquement à
+    // conserver les réponses historiques sans exposer davantage d'information.
+    const user = await this.usersService.findById(payload.sub);
 
     if (!user) {
       throw new UnauthorizedException('Invalid token');
@@ -31,7 +49,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException('Session expired, please sign in again');
     }
 
-    return this.usersService.toPublicUser(user, user._id.toString());
+    throw new UnauthorizedException('Invalid token');
   }
 
   /**

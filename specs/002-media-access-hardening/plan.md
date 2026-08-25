@@ -102,7 +102,8 @@ insufficient. Corrective action is task T032: both entry points now name the con
    authorised response, no client change is needed and no separate authorisation endpoint is exposed.
 3. **Verifying** — a middleware placed *before* the static file handler recomputes the signature over
    the requested path and its expiry. The static handler performs no authorisation of its own, so the
-   barrier must remain ahead of it.
+   barrier must remain ahead of it. A successful private response is explicitly non-cacheable, while
+   public upload prefixes retain their long static cache.
 4. **Derived paths** — the image transformation service refuses private paths outright, since it
    reads from disk directly and would otherwise return a readable copy of protected content.
 
@@ -114,6 +115,7 @@ as an identity, and it appears in no audit or log record as personal data.
 | Failure | Behaviour | Rationale |
 |---|---|---|
 | Signature absent, malformed, expired, replayed on another file, or expiry extended | HTTP 403 with `Cache-Control: no-store` | An error must never be cached by a proxy, and the four cases are indistinguishable to the caller |
+| Percent-encoded path cannot be decoded | HTTP 400 with `Cache-Control: no-store` | Malformed input is controlled instead of becoming an unhandled middleware error |
 | Shared quota store unavailable during a failed login | The upstream middleware already fails closed with HTTP 503 before reaching the service; the per-account counter therefore logs and lets the ordinary 401 stand rather than adding a second degraded mode | Feature 001 FR-006 requires one explicit policy per sensitivity level, not two competing ones |
 | Session token without an issue date, on an account with a recorded password change | Rejected | The token cannot be situated relative to the change, so it cannot be proven to postdate it |
 | Media generation ceiling reached | HTTP 503; clients already fall back to the original media | Degrades one image rather than the request |
@@ -127,6 +129,10 @@ as an identity, and it appears in no audit or log record as personal data.
   the conversation is reloaded. This is expected and self-healing.
 - **Rollback**: reverting the code restores public static serving. Signed addresses remain valid URLs
   with extra ignored query parameters, so no stored data becomes unusable in either direction.
+
+Session validation and presence update use one conditional MongoDB operation. A banned account, a
+missing issue date after password reset, or a session predating the reset cannot satisfy the update
+filter and therefore cannot be marked online, including during a concurrent account change.
 
 ## Observability
 
@@ -164,6 +170,7 @@ src/
 │   ├── media-signature.service.ts
 │   └── media-signature.service.spec.ts
 ├── main.ts                           # barrier registered before static assets
+├── media-access/private-media-access.middleware.ts # decoding, signature and private cache policy
 ├── chat/chat.service.ts              # signs attachments in the response presenter
 ├── upload/upload.service.ts          # signs the address returned after upload
 ├── media/media.service.ts            # refuses private paths; generation ceiling
