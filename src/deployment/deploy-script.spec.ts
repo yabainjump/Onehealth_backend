@@ -11,6 +11,10 @@ describe('production deployment script', () => {
     'utf8',
   );
   const jenkinsfile = readFileSync(join(process.cwd(), 'Jenkinsfile'), 'utf8');
+  const ecosystem = readFileSync(
+    join(process.cwd(), 'ecosystem.config.cjs'),
+    'utf8',
+  );
 
   it('captures candidate and previous revisions before promotion', () => {
     expect(script).toContain('PREVIOUS_REVISION=');
@@ -64,5 +68,18 @@ describe('production deployment script', () => {
     expect(script).not.toMatch(
       /echo\s+[^\n]*(JWT_SECRET|RATE_LIMIT_KEY_SECRET)/,
     );
+  });
+
+  it('propagates the exact candidate revision to every PM2 worker', () => {
+    expect(script).toContain('export APP_VERSION="$CANDIDATE_REVISION"');
+    expect(ecosystem).toContain(
+      "APP_VERSION: process.env.APP_VERSION || '0.0.1'",
+    );
+  });
+
+  it('reports observed worker revisions when strict readiness fails', () => {
+    expect(script).toContain('Observed ready workers:');
+    expect(script).toContain('PM2 application state:');
+    expect(script).toContain('item.pm2_env?.APP_VERSION || "missing"');
   });
 });

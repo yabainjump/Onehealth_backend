@@ -171,6 +171,9 @@ within the documented bound.
 
 - [ ] T054 [P] Synchronize deployment topology, failure boundaries and future multi-host storage gate in `project-docs/ARCHITECTURE.md`
 - [ ] T055 [P] Add the operational two-worker runbook, rollback procedure and degraded-mode interpretation in `project-docs/ARCHITECTURE-ESSENTIALS.md`
+- [X] T056 [US4] Propager explicitement `APP_VERSION` dans `ecosystem.config.cjs` lors d'un rechargement PM2
+- [X] T057 [P] [US4] Afficher les versions et identifiants réellement observés lorsqu'une promotion échoue
+- [ ] T058 [US4] Rejouer le déploiement de production et consigner la promotion des deux workers
 - [ ] T056 [P] Document all new configuration, health routes and single-host limitation in `README.md`
 - [ ] T057 Calculate and document maximum Mongo connections as workers × logical connections × configured pool size in `specs/001-backend-load-balancing/validation/capacity.md`
 - [ ] T058 Run `npm run lint`, `npm run build`, `npm test -- --runInBand` and `npm run test:e2e`, assert that `dist/` contains no `.specify`, `.agents`, `specs` or `project-docs` path, and record sanitized results in `specs/001-backend-load-balancing/validation/release.md`

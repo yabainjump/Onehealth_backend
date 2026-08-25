@@ -200,6 +200,7 @@ install_and_build() {
 verify_cluster_ready() {
   local expected_revision="$1"
   local ready_instance_ids=""
+  local observed_ready_workers=""
   local unique_ready_workers="0"
   local online_workers="0"
   export APP_VERSION="$expected_revision"
@@ -210,20 +211,29 @@ verify_cluster_ready() {
       local ready_status="${ready_output##*$'\n'}"
       local ready_body="${ready_output%$'\n'*}"
       if [ "$ready_status" = "200" ]; then
-        local ready_instance_id
-        ready_instance_id="$(printf '%s' "$ready_body" | "$NODE_BIN" -e '
+        local ready_worker
+        ready_worker="$(printf '%s' "$ready_body" | "$NODE_BIN" -e '
           let body = "";
           process.stdin.setEncoding("utf8");
           process.stdin.on("data", chunk => { body += chunk; });
           process.stdin.on("end", () => {
             try {
               const health = JSON.parse(body);
-              if (health.version === process.env.APP_VERSION && typeof health.instanceId === "string" && /^[A-Za-z0-9._:-]{1,96}$/.test(health.instanceId)) process.stdout.write(health.instanceId);
+              const version = typeof health.version === "string" ? health.version : "unknown";
+              const instanceId = typeof health.instanceId === "string" && /^[A-Za-z0-9._:-]{1,96}$/.test(health.instanceId)
+                ? health.instanceId
+                : "invalid-instance";
+              process.stdout.write(`${version}|${instanceId}`);
             } catch {}
           });
         ')"
-        if [ -n "$ready_instance_id" ]; then
-          ready_instance_ids="${ready_instance_ids}${ready_instance_id}\n"
+        if [ -n "$ready_worker" ]; then
+          observed_ready_workers="${observed_ready_workers}${ready_worker}\n"
+          local ready_version="${ready_worker%%|*}"
+          local ready_instance_id="${ready_worker#*|}"
+          if [ "$ready_version" = "$expected_revision" ] && [ "$ready_instance_id" != "invalid-instance" ]; then
+            ready_instance_ids="${ready_instance_ids}${ready_instance_id}\n"
+          fi
         fi
       fi
     fi
@@ -241,6 +251,29 @@ verify_cluster_ready() {
     if [ "$attempt" -lt "$LOCAL_READY_ATTEMPTS" ]; then sleep "$LOCAL_READY_DELAY_SECONDS"; fi
   done
   echo "Error: expected revision did not become ready on both workers."
+  echo "Expected revision: $expected_revision"
+  echo "Observed ready workers:"
+  printf '%b' "$observed_ready_workers" | sed '/^$/d' | sort -u
+  echo "PM2 application state:"
+  "$PM2_BIN" jlist | "$NODE_BIN" -e '
+    let body = "";
+    process.stdin.setEncoding("utf8");
+    process.stdin.on("data", chunk => { body += chunk; });
+    process.stdin.on("end", () => {
+      try {
+        const apps = JSON.parse(body)
+          .filter(item => item.name === process.env.PM2_APP_NAME)
+          .map(item => ({
+            id: item.pm_id,
+            status: item.pm2_env?.status || "unknown",
+            version: item.pm2_env?.APP_VERSION || "missing",
+            instance: item.pm2_env?.NODE_APP_INSTANCE || "missing"
+          }));
+        process.stdout.write(JSON.stringify(apps));
+      } catch { process.stdout.write("unavailable"); }
+    });
+  '
+  echo
   return 1
 }
 

@@ -27,3 +27,23 @@ vérification préalable recommandée sur AlmaLinux.
 
 T053 reste ouvert jusqu'au test d'une révision volontairement non prête sur un environnement
 jetable. Il faut enregistrer uniquement les hashes Git, la décision et les durées, jamais le `.env`.
+
+## Incident de déploiement du 25 août 2026
+
+La candidate `fd307d2afbed55219b17f00069befcf22e7f15ce` a compilé et démarré deux workers,
+mais le contrôle strict n'a pas observé cette révision sur les deux réponses readiness. Le rollback
+automatique a fonctionné et restauré `7409571f42ee881d09b25d0bc78167134c3d2b04`.
+
+Le correctif déclare désormais `APP_VERSION` explicitement dans `ecosystem.config.cjs`, afin que
+`startOrReload --update-env` la propage aux deux workers. En cas de nouvel échec, le script affiche
+les couples version/instance observés et l'état PM2 sans exposer l'environnement complet.
+
+| Contrôle après correctif | Résultat |
+|---|---|
+| Contrats du script de déploiement | PASS — 1 suite, 8 tests |
+| Syntaxe Bash | PASS — Git Bash `bash -n` |
+| ESLint | PASS |
+| Build NestJS | PASS |
+
+T058 reste ouvert jusqu'au redéploiement et à l'observation de deux workers portant la même nouvelle
+révision.

@@ -1,7 +1,9 @@
 const boundedInteger = (name, fallback, minimum, maximum) => {
   const value = Number(process.env[name] || fallback);
   if (!Number.isInteger(value) || value < minimum || value > maximum) {
-    throw new Error(`${name} must be an integer between ${minimum} and ${maximum}`);
+    throw new Error(
+      `${name} must be an integer between ${minimum} and ${maximum}`,
+    );
   }
   return value;
 };
@@ -36,6 +38,9 @@ module.exports = {
       time: true,
       env: {
         NODE_ENV: 'production',
+        // Doit être explicite pour qu'un `startOrReload --update-env`
+        // remplace bien la révision annoncée par les deux workers.
+        APP_VERSION: process.env.APP_VERSION || '0.0.1',
         WEB_CONCURRENCY: `${instances}`,
         SHUTDOWN_TIMEOUT_MS: `${shutdownTimeoutMs}`,
         PM2_KILL_SIGNAL: 'SIGINT',
