@@ -17,6 +17,12 @@ ses sous-dossiers et contrôler leur disponibilité, mais ne doit jamais nettoye
 synchroniser depuis `$APP_DIR/uploads` ni supprimer son contenu. Les sauvegardes de ce répertoire ont
 un cycle distinct de Git et des déploiements applicatifs.
 
+Une récupération depuis un ancien dossier ou une sauvegarde est une opération de maintenance
+exceptionnelle, jamais une étape de déploiement. Elle commence par un `rsync --dry-run`, copie
+uniquement les fichiers absents avec `--ignore-existing`, conserve la source et se termine par la
+vérification HTTP des médias restaurés. Le dossier historique ne doit pas être supprimé avant une
+sauvegarde et une validation fonctionnelle complètes.
+
 ## Préconditions importantes
 
 - Le serveur doit être un VPS avec accès `root` ou `sudo`.
