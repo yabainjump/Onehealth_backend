@@ -126,6 +126,7 @@ HTTP 409, no duplicate exchange and recovery after owner death.
 - [X] T036 [US3] Replace `pendingByConversation` with owner-safe `DistributedLeaseService` execution in `src/rudolf/rudolf.service.ts`
 - [X] T037 [US3] Map bounded lease contention to stable `conversation_busy`, `Retry-After` and HTTP 409 responses in `src/rudolf/rudolf.controller.ts`
 - [X] T038 [US3] Validate a common absolute writable `UPLOADS_DIR` before accepting traffic in `src/config/uploads-path.ts`
+- [X] T038A [US3] Reject deployment when production `UPLOADS_DIR` resolves inside `APP_DIR`, preserving media independently from Git resets, builds and rollbacks in `deploy-onehealth-backend.sh`
 - [X] T039 [US3] Propagate abort and shutdown signals through provider streaming without partial persistence in `src/rudolf/groq-provider.service.ts` and `src/rudolf/rudolf.service.ts`
 - [ ] T040 [US3] Execute media, concurrent Rudolf and killed-owner exercises and record sanitized evidence in `specs/001-backend-load-balancing/validation/us3-media-rudolf.md`
 

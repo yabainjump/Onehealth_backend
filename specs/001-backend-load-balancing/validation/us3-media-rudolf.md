@@ -16,6 +16,7 @@ Date : 2026-08-23
 | Échange utilisateur/assistant écrit dans une seule opération MongoDB | PASS |
 | `UPLOADS_DIR` absolu obligatoire en production | PASS |
 | Dossier média créé et validé lisible/inscriptible avant le trafic | PASS |
+| Déploiement refusé si le stockage média se trouve dans `APP_DIR` | PASS |
 | Fichier à la place d'un dossier média refusé au démarrage | PASS |
 | Vérificateur externe refuse de s'exécuter sans confirmation | PASS |
 | ESLint et build | PASS |

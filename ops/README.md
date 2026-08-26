@@ -11,6 +11,12 @@ Cette première étape tolère la perte d'un worker Node.js, mais pas la perte d
 MongoDB reste l'état partagé et `UPLOADS_DIR` doit pointer vers le même dossier absolu pour les deux
 workers.
 
+`/home/yabain/apps/onehealth-data/uploads` est le stockage média persistant et l'unique source de
+vérité en production. Il se trouve volontairement hors du dépôt applicatif. Un déploiement peut créer
+ses sous-dossiers et contrôler leur disponibilité, mais ne doit jamais nettoyer, remplacer,
+synchroniser depuis `$APP_DIR/uploads` ni supprimer son contenu. Les sauvegardes de ce répertoire ont
+un cycle distinct de Git et des déploiements applicatifs.
+
 ## Préconditions importantes
 
 - Le serveur doit être un VPS avec accès `root` ou `sudo`.

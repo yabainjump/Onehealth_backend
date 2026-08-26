@@ -60,6 +60,16 @@ fi
 mkdir -p "$APP_DIR"
 mkdir -p "$UPLOADS_DIR"/{profile,post,message}
 
+APP_DIR_REAL="$(cd "$APP_DIR" && pwd -P)"
+UPLOADS_DIR_REAL="$(cd "$UPLOADS_DIR" && pwd -P)"
+case "$UPLOADS_DIR_REAL" in
+  "$APP_DIR_REAL"|"$APP_DIR_REAL"/*)
+    echo "Error: UPLOADS_DIR must stay outside APP_DIR."
+    echo "Use a persistent path such as $HOME/apps/onehealth-data/uploads."
+    exit 1
+    ;;
+esac
+
 if [ ! -w "$UPLOADS_DIR" ]; then
   echo "Error: upload directory is not writable: $UPLOADS_DIR"
   exit 1
