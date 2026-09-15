@@ -23,6 +23,9 @@ temp/
 .env.*
 !.env.example
 secrets/
+# Local load credentials and measurement artifacts (never deployed or committed)
+scripts/load/*.identities.json
+scripts/load/results/
 *.pem
 *.key
 *.crt

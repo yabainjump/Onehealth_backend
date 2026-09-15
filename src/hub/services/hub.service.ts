@@ -38,6 +38,7 @@ export class HubService {
     const page = Math.max(query.page, 1);
     const limit = Math.min(Math.max(query.limit, 1), 100);
     const result = await this.repository.listObservations({
+      view: query.view,
       search: query.search,
       countryCode: query.countryCode,
       sector: query.sector,

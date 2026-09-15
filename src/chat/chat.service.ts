@@ -13,6 +13,7 @@ import { SendMessageDto } from './dto/send-message.dto';
 import { ChatMessage } from './schemas/chat-message.schema';
 import { ChatRoom, ChatRoomDocument } from './schemas/chat-room.schema';
 import { MediaSignatureService } from '../media-access/media-signature.service';
+import { UserDocument } from '../users/schemas/user.schema';
 
 @Injectable()
 export class ChatService {
@@ -62,8 +63,23 @@ export class ChatService {
       .limit(100)
       .exec();
 
+    const participantIds = [
+      ...new Set(
+        rooms.flatMap((room) =>
+          room.members.map(String).filter((id) => id !== currentUserId),
+        ),
+      ),
+    ];
+    const users = participantIds.length
+      ? await this.usersService.findByIds(participantIds)
+      : [];
+    const participants = new Map(
+      users.map((user) => [user._id.toString(), user]),
+    );
     return Promise.all(
-      rooms.map((room) => this.toRoomResponse(room, currentUserId)),
+      rooms.map((room) =>
+        this.toRoomResponse(room, currentUserId, participants),
+      ),
     );
   }
 
@@ -183,13 +199,19 @@ export class ChatService {
     return room;
   }
 
-  private async toRoomResponse(room: ChatRoomDocument, currentUserId: string) {
+  private async toRoomResponse(
+    room: ChatRoomDocument,
+    currentUserId: string,
+    participants?: ReadonlyMap<string, UserDocument>,
+  ) {
     const otherUserId = room.members
       .map((member) => member.toString())
       .find((memberId) => memberId !== currentUserId);
 
     const otherUser = otherUserId
-      ? await this.usersService.findById(otherUserId)
+      ? participants
+        ? (participants.get(otherUserId) ?? null)
+        : await this.usersService.findById(otherUserId)
       : null;
 
     const unreadCounts = this.toPlainUnreadCounts(room.unreadCounts);

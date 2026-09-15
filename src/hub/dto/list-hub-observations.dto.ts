@@ -12,6 +12,11 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import { CEEAC_COUNTRY_CODES } from '../hub.constants';
 
 export class ListHubObservationsDto {
+  @ApiPropertyOptional({ enum: ['all', 'priority', 'country'] })
+  @IsOptional()
+  @IsIn(['all', 'priority', 'country'])
+  view?: 'all' | 'priority' | 'country';
+
   @ApiPropertyOptional({ maxLength: 100 })
   @IsOptional()
   @IsString()

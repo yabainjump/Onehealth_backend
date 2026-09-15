@@ -38,6 +38,7 @@ import type { HubReportStatus } from '../hub.constants';
 import { HubEvent, HubEventDocument } from '../schemas/hub-event.schema';
 
 export interface HubObservationListFilter {
+  readonly view?: 'all' | 'priority' | 'country';
   readonly search?: string;
   readonly countryCode?: string;
   readonly sector?: HubSector;
@@ -102,6 +103,10 @@ export class HubRepository {
     );
     if (filter.sector) mongoFilter.sector = filter.sector;
     if (filter.stage) mongoFilter.stage = filter.stage;
+    // Intersection, not replacement: an observation filter in priority view is empty.
+    if (filter.view === 'priority') {
+      mongoFilter.$and = [{ stage: { $in: ['signal', 'verified-alert'] } }];
+    }
 
     const search = filter.search?.trim();
     if (search) {
@@ -113,63 +118,76 @@ export class HubRepository {
         { title: regex },
         { countryName: regex },
         { adminArea: regex },
+        { sourceSystem: regex },
       ];
     }
 
     const [items, total] = await Promise.all([
       this.observationModel
         .find(mongoFilter)
-        .sort({ observedAt: -1, canonicalId: 1 })
+        .sort(
+          filter.view === 'country'
+            ? { countryName: 1, observedAt: -1, canonicalId: 1 }
+            : { observedAt: -1, canonicalId: 1 },
+        )
         .skip((filter.page - 1) * filter.limit)
         .limit(filter.limit)
+        .maxTimeMS(5000)
         .exec(),
-      this.observationModel.countDocuments(mongoFilter).exec(),
+      this.observationModel.countDocuments(mongoFilter).maxTimeMS(5000).exec(),
     ]);
     return { items, total };
   }
 
   async summary(allowedCountryCodes: readonly string[] | null) {
-    const baseFilter = this.observationFilter(allowedCountryCodes);
-    const [
-      total,
-      countries,
-      human,
-      animal,
-      environment,
-      observations,
-      signals,
-      alerts,
-    ] = await Promise.all([
-      this.observationModel.countDocuments(baseFilter).exec(),
-      this.observationModel.distinct('countryCode', baseFilter).exec(),
-      this.observationModel
-        .countDocuments({ ...baseFilter, sector: 'human' })
-        .exec(),
-      this.observationModel
-        .countDocuments({ ...baseFilter, sector: 'animal' })
-        .exec(),
-      this.observationModel
-        .countDocuments({ ...baseFilter, sector: 'environment' })
-        .exec(),
-      this.observationModel
-        .countDocuments({ ...baseFilter, stage: 'observation' })
-        .exec(),
-      this.observationModel
-        .countDocuments({ ...baseFilter, stage: 'signal' })
-        .exec(),
-      this.observationModel
-        .countDocuments({ ...baseFilter, stage: 'verified-alert' })
-        .exec(),
-    ]);
-
+    // One scoped aggregation rather than eight scans per registry opening.
+    const rows = await this.observationModel
+      .aggregate<{
+        total: number;
+        countries: string[];
+        human: number;
+        animal: number;
+        environment: number;
+        observations: number;
+        signals: number;
+        alerts: number;
+      }>([
+        { $match: this.observationFilter(allowedCountryCodes) },
+        {
+          $group: {
+            _id: null,
+            total: { $sum: 1 },
+            countries: { $addToSet: '$countryCode' },
+            human: { $sum: { $cond: [{ $eq: ['$sector', 'human'] }, 1, 0] } },
+            animal: { $sum: { $cond: [{ $eq: ['$sector', 'animal'] }, 1, 0] } },
+            environment: {
+              $sum: { $cond: [{ $eq: ['$sector', 'environment'] }, 1, 0] },
+            },
+            observations: {
+              $sum: { $cond: [{ $eq: ['$stage', 'observation'] }, 1, 0] },
+            },
+            signals: { $sum: { $cond: [{ $eq: ['$stage', 'signal'] }, 1, 0] } },
+            alerts: {
+              $sum: { $cond: [{ $eq: ['$stage', 'verified-alert'] }, 1, 0] },
+            },
+          },
+        },
+      ])
+      .option({ maxTimeMS: 5000 })
+      .exec();
+    const row = rows[0];
     return {
-      total,
-      countries: countries.length,
-      bySector: { human, animal, environment },
+      total: row?.total ?? 0,
+      countries: row?.countries.length ?? 0,
+      bySector: {
+        human: row?.human ?? 0,
+        animal: row?.animal ?? 0,
+        environment: row?.environment ?? 0,
+      },
       byStage: {
-        observation: observations,
-        signal: signals,
-        'verified-alert': alerts,
+        observation: row?.observations ?? 0,
+        signal: row?.signals ?? 0,
+        'verified-alert': row?.alerts ?? 0,
       },
     };
   }
