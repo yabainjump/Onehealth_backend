@@ -23,6 +23,93 @@ export class HubScenarioStep {
 
 const HubScenarioStepSchema = SchemaFactory.createForClass(HubScenarioStep);
 
+@Schema({ _id: false })
+export class HubScenarioReportCountry {
+  @Prop({ required: true, trim: true, minlength: 2, maxlength: 2 })
+  countryCode: string;
+
+  @Prop({ required: true, trim: true, maxlength: 100 })
+  countryName: string;
+}
+
+const HubScenarioReportCountrySchema = SchemaFactory.createForClass(
+  HubScenarioReportCountry,
+);
+
+@Schema({ _id: false })
+export class HubScenarioSimulationReport {
+  @Prop({ required: true, trim: true, maxlength: 100 })
+  reportId: string;
+
+  @Prop({ required: true, enum: ['SIMULATION'] })
+  reportType: 'SIMULATION';
+
+  @Prop({ required: true, trim: true, maxlength: 200 })
+  title: string;
+
+  @Prop({ required: true, trim: true, maxlength: 2500 })
+  executiveSummary: string;
+
+  @Prop({ required: true, trim: true, maxlength: 1000 })
+  objective: string;
+
+  @Prop({ type: [HubScenarioReportCountrySchema], default: [] })
+  countries: HubScenarioReportCountry[];
+
+  @Prop({
+    type: [String],
+    enum: ['human', 'animal', 'environment'],
+    default: [],
+  })
+  sectors: ('human' | 'animal' | 'environment')[];
+
+  @Prop({ type: [String], default: [] })
+  sourceSystems: string[];
+
+  @Prop({ required: true, min: 0 })
+  observationCount: number;
+
+  @Prop({ required: true, min: 0 })
+  signalCount: number;
+
+  @Prop({ required: true, min: 0 })
+  eventCount: number;
+
+  @Prop({ required: true, min: 0, max: 1 })
+  confidenceScore: number;
+
+  @Prop({ type: [String], default: [] })
+  findings: string[];
+
+  @Prop({ type: [String], default: [] })
+  recommendations: string[];
+
+  @Prop({ type: [String], default: [] })
+  limitations: string[];
+
+  @Prop({ type: [String], default: [] })
+  observationIds: string[];
+
+  @Prop({ required: true, trim: true })
+  signalCode: string;
+
+  @Prop({ required: true, trim: true })
+  eventCode: string;
+
+  @Prop({ required: true })
+  generatedAt: Date;
+
+  @Prop({ required: true, default: false })
+  official: false;
+
+  @Prop({ required: true, default: true })
+  simulated: true;
+}
+
+const HubScenarioSimulationReportSchema = SchemaFactory.createForClass(
+  HubScenarioSimulationReport,
+);
+
 @Schema({
   collection: 'hub_scenario_runs',
   timestamps: true,
@@ -66,6 +153,9 @@ export class HubScenarioRun {
 
   @Prop({ type: Date, default: null })
   completedAt: Date | null;
+
+  @Prop({ type: HubScenarioSimulationReportSchema, default: null })
+  simulationReport: HubScenarioSimulationReport | null;
 
   @Prop({ required: true, default: true, index: true })
   isDemo: boolean;

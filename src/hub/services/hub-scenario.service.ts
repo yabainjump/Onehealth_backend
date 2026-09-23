@@ -1,9 +1,17 @@
-import { Injectable } from '@nestjs/common';
+import {
+  ConflictException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import type { PublicUser } from '../../users/interfaces/public-user.interface';
 import { HUB_DYNAMIC_SCENARIO_CODE } from '../hub.constants';
 import { HubRepository } from '../repositories/hub.repository';
 import { buildDynamicScenario } from '../scenarios/hub-dynamic-scenario.factory';
-import type { HubScenarioRunDocument } from '../schemas/hub-scenario-run.schema';
+import { buildScenarioSimulationReport } from '../scenarios/hub-scenario-report.factory';
+import type {
+  HubScenarioRunDocument,
+  HubScenarioSimulationReport,
+} from '../schemas/hub-scenario-run.schema';
 import { HubEventService } from './hub-event.service';
 import { HubDemoSeedService } from './hub-demo-seed.service';
 
@@ -34,8 +42,36 @@ export class HubScenarioService {
       initiatedBy: null,
       startedAt: null,
       completedAt: null,
+      reportAvailable: false,
+      reportId: null,
       simulated: true,
     };
+  }
+
+  async report(scenarioCode: string) {
+    if (scenarioCode !== HUB_DYNAMIC_SCENARIO_CODE) {
+      throw new NotFoundException('Scénario de démonstration introuvable.');
+    }
+    const run = await this.repository.findScenario(scenarioCode);
+    if (!run) {
+      throw new NotFoundException(
+        'Aucune exécution de ce scénario n’a été trouvée.',
+      );
+    }
+    if (run.status !== 'COMPLETED' || !run.completedAt || !run.eventCode) {
+      throw new ConflictException(
+        'Le rapport sera disponible après une exécution complète du scénario.',
+      );
+    }
+
+    const report =
+      run.simulationReport ??
+      buildScenarioSimulationReport(
+        buildDynamicScenario(run.completedAt),
+        run.eventCode,
+        run.completedAt,
+      );
+    return this.presentReport(report, run);
   }
 
   async run(user: PublicUser) {
@@ -62,11 +98,17 @@ export class HubScenarioService {
         scenario.scenarioCode,
       );
       const completedAt = new Date();
+      const simulationReport = buildScenarioSimulationReport(
+        scenario,
+        event.eventCode,
+        completedAt,
+      );
       const run = await this.repository.completeScenario({
         scenarioCode: scenario.scenarioCode,
         observationIds: scenario.observations.map((item) => item.canonicalId),
         signalCode: scenario.signal.signalCode,
         eventCode: event.eventCode,
+        simulationReport,
         completedAt,
       });
       await Promise.all([
@@ -81,6 +123,7 @@ export class HubScenarioService {
             signalCode: scenario.signal.signalCode,
             countries: ['CM', 'TD'],
             eventCode: event.eventCode,
+            reportId: simulationReport.reportId,
             baselineObservations: baseline.observations,
           },
           countryCode: 'CM',
@@ -95,6 +138,22 @@ export class HubScenarioService {
           metadata: {
             scenarioCode: scenario.scenarioCode,
             confidenceScore: scenario.signal.confidenceScore,
+          },
+          countryCode: 'CM',
+          isDemo: true,
+        }),
+        this.repository.createAudit({
+          entityType: 'report',
+          entityId: simulationReport.reportId,
+          action: 'SIMULATION_REPORT_GENERATED',
+          actorId: user.id,
+          actorType: 'USER',
+          metadata: {
+            scenarioCode: scenario.scenarioCode,
+            eventCode: event.eventCode,
+            signalCode: scenario.signal.signalCode,
+            official: false,
+            countries: ['CM', 'TD'],
           },
           countryCode: 'CM',
           isDemo: true,
@@ -126,7 +185,50 @@ export class HubScenarioService {
       initiatedBy: run.initiatedBy,
       startedAt: run.startedAt,
       completedAt: run.completedAt,
+      reportAvailable: run.status === 'COMPLETED' && Boolean(run.eventCode),
+      reportId:
+        run.simulationReport?.reportId ??
+        (run.status === 'COMPLETED' ? `SIM-${run.scenarioCode}` : null),
       simulated: run.isDemo,
+    };
+  }
+
+  private presentReport(
+    report: HubScenarioSimulationReport,
+    run: HubScenarioRunDocument,
+  ) {
+    return {
+      reportId: report.reportId,
+      reportType: report.reportType,
+      scenarioCode: run.scenarioCode,
+      title: report.title,
+      executiveSummary: report.executiveSummary,
+      objective: report.objective,
+      countries: report.countries.map((country) => ({
+        countryCode: country.countryCode,
+        countryName: country.countryName,
+      })),
+      sectors: report.sectors,
+      sourceSystems: report.sourceSystems,
+      observationCount: report.observationCount,
+      signalCount: report.signalCount,
+      eventCount: report.eventCount,
+      confidenceScore: report.confidenceScore,
+      findings: report.findings,
+      recommendations: report.recommendations,
+      limitations: report.limitations,
+      chronology: run.steps.map((step) => ({
+        code: step.code,
+        label: step.label,
+        status: step.status,
+        completedAt: step.completedAt,
+      })),
+      observationIds: report.observationIds,
+      signalCode: report.signalCode,
+      eventCode: report.eventCode,
+      generatedAt: report.generatedAt,
+      official: false,
+      simulated: true,
     };
   }
 }

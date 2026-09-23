@@ -237,6 +237,16 @@ export class HubController {
     return this.scenarioService.run(request.user);
   }
 
+  @ApiOperation({
+    summary: 'Consulter le rapport non officiel de la dernière simulation',
+  })
+  @ApiParam({ name: 'scenarioCode', example: 'SCN-CM-TD-CONVERGENCE-01' })
+  @UseGuards(HubAdminGuard)
+  @Get('demo/scenarios/:scenarioCode/report')
+  scenarioReport(@Param('scenarioCode') scenarioCode: string) {
+    return this.scenarioService.report(scenarioCode);
+  }
+
   @ApiOperation({ summary: "Versions de rapport d'une alerte vérifiée" })
   @Get('alerts/:observationId/reports')
   reports(

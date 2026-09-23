@@ -29,6 +29,7 @@ import { HubSignal, HubSignalDocument } from '../schemas/hub-signal.schema';
 import {
   HubScenarioRun,
   HubScenarioRunDocument,
+  HubScenarioSimulationReport,
 } from '../schemas/hub-scenario-run.schema';
 import {
   HubAlertReport,
@@ -313,6 +314,7 @@ export class HubRepository {
             observationIds: [],
             signalCode: '',
             eventCode: '',
+            simulationReport: null,
             initiatedBy: input.initiatedBy,
             startedAt: input.startedAt,
             completedAt: null,
@@ -329,6 +331,7 @@ export class HubRepository {
     observationIds: readonly string[];
     signalCode: string;
     eventCode: string;
+    simulationReport: HubScenarioSimulationReport;
     completedAt: Date;
   }) {
     return this.scenarioRunModel
@@ -340,6 +343,7 @@ export class HubRepository {
             observationIds: input.observationIds,
             signalCode: input.signalCode,
             eventCode: input.eventCode,
+            simulationReport: input.simulationReport,
             completedAt: input.completedAt,
             'steps.$[].status': 'COMPLETED',
             'steps.$[].completedAt': input.completedAt,
