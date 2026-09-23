@@ -22,8 +22,10 @@ validation humaine. Il porte durablement les marqueurs `simulated: true` et
   rapport ; un scénario inconnu ou non terminé ne renvoie aucun faux document.
 - Le tableau de bord affiche un appel à l’action seulement lorsque le rapport est
   disponible.
+- Pendant l’exécution, un modal plein écran bloque les doubles soumissions, rend le
+  fond inerte et affiche le logo ; au résultat, il propose Continuer/Afficher le
+  rapport ou Fermer/Réessayer en cas d’échec.
 - La page du rapport présente synthèse, indicateurs, chronologie, constats,
   recommandations, traçabilité et limites, puis permet impression/PDF et export
   HTML avec échappement des données.
 - Le rapport officiel d’alerte et ses transitions restent inchangés.
-

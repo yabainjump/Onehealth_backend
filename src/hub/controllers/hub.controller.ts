@@ -37,6 +37,7 @@ import { HubEventService } from '../services/hub-event.service';
 import { HubAiService } from '../services/hub-ai.service';
 import { HubAiAssistantDto, HubAiScopeDto } from '../dto/hub-ai.dto';
 import { RudolfRateLimitGuard } from '../../rudolf/rudolf-rate-limit.guard';
+import { RunHubScenarioDto } from '../dto/run-hub-scenario.dto';
 
 @ApiTags('Hub régional CEEAC')
 @ApiBearerAuth('access-token')
@@ -233,8 +234,8 @@ export class HubController {
   @ApiOperation({ summary: 'Exécuter le scénario dynamique intersectoriel' })
   @UseGuards(HubAdminGuard)
   @Post('demo/scenario/run')
-  runScenario(@Req() request: RequestWithUser) {
-    return this.scenarioService.run(request.user);
+  runScenario(@Req() request: RequestWithUser, @Body() dto: RunHubScenarioDto) {
+    return this.scenarioService.run(request.user, dto);
   }
 
   @ApiOperation({

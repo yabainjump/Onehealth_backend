@@ -8,6 +8,8 @@
 - Dashboard `npm run lint` : réussi.
 - Dashboard `npm run build` : réussi ; chunk lazy
   `scenario-report-page` produit.
+- Modal scénario : lint et build réussis avec fond `inert`, focus explicite, verrou
+  de scroll et réduction des animations selon la préférence système.
 - Dashboard `npm test -- --watch=false --browsers=ChromeHeadless` : les bundles de
   tests, dont `scenario-report-presenter.spec`, compilent ; ChromeHeadless ne démarre
   pas sur ce poste Windows car son processus GPU termine avec

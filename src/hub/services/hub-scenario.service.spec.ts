@@ -15,6 +15,13 @@ const admin = {
   hubCountryCodes: [],
 } as PublicUser;
 
+const configurableScenario = {
+  sourceCountryCode: 'CM',
+  comparisonCountryCode: 'TD',
+  dateFrom: '2020-01-01',
+  dateTo: '2020-01-30',
+} as const;
+
 describe('HubScenarioService', () => {
   it('restores the 165-record baseline before adding the dynamic scenario', async () => {
     type CompleteScenarioInput = Parameters<
@@ -78,7 +85,7 @@ describe('HubScenarioService', () => {
       seedService,
     );
 
-    const result = await service.run(admin);
+    const result = await service.run(admin, configurableScenario);
 
     expect(seed).toHaveBeenCalledTimes(1);
     expect(upsertScenarioData).toHaveBeenCalledTimes(1);
@@ -88,14 +95,14 @@ describe('HubScenarioService', () => {
     expect(result.observationIds).toHaveLength(4);
     expect(result.eventCode).toBe('EVT-CM-TD-TEST0001');
     expect(result.reportAvailable).toBe(true);
-    expect(result.reportId).toBe('SIM-SCN-CM-TD-CONVERGENCE-01');
+    expect(result.reportId).toBe('SIM-SCN-CM-TD-20200101-20200130');
     const completedAudit = auditInputs.find(
       (input) => input.action === 'SCENARIO_COMPLETED',
     );
     expect(completedAudit).toBeDefined();
     expect(completedAudit?.metadata).toMatchObject({
       baselineObservations: 165,
-      reportId: 'SIM-SCN-CM-TD-CONVERGENCE-01',
+      reportId: 'SIM-SCN-CM-TD-20200101-20200130',
     });
     expect(
       auditInputs.some(
@@ -169,5 +176,45 @@ describe('HubScenarioService', () => {
     await expect(
       service.report('SCN-CM-TD-CONVERGENCE-01'),
     ).rejects.toMatchObject({ status: 409 });
+  });
+
+  it('rejects an invalid country pair before seeding any data', async () => {
+    const seed = jest.fn();
+    const service = new HubScenarioService(
+      {} as HubRepository,
+      {} as HubEventService,
+      { seed } as unknown as HubDemoSeedService,
+    );
+
+    await expect(
+      service.run(admin, {
+        ...configurableScenario,
+        comparisonCountryCode: 'CM',
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(seed).not.toHaveBeenCalled();
+  });
+
+  it('rejects future and overlong periods before any write', async () => {
+    const service = new HubScenarioService(
+      {} as HubRepository,
+      {} as HubEventService,
+      {} as HubDemoSeedService,
+    );
+
+    await expect(
+      service.run(admin, {
+        ...configurableScenario,
+        dateFrom: '2999-01-01',
+        dateTo: '2999-01-02',
+      }),
+    ).rejects.toMatchObject({ status: 400 });
+    await expect(
+      service.run(admin, {
+        ...configurableScenario,
+        dateFrom: '2020-01-01',
+        dateTo: '2020-04-01',
+      }),
+    ).rejects.toMatchObject({ status: 400 });
   });
 });

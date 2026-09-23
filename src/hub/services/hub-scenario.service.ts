@@ -1,19 +1,28 @@
 import {
+  BadRequestException,
   ConflictException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import type { PublicUser } from '../../users/interfaces/public-user.interface';
+import type { RunHubScenarioDto } from '../dto/run-hub-scenario.dto';
 import { HUB_DYNAMIC_SCENARIO_CODE } from '../hub.constants';
 import { HubRepository } from '../repositories/hub.repository';
 import { buildDynamicScenario } from '../scenarios/hub-dynamic-scenario.factory';
+import {
+  defaultHubScenarioConfiguration,
+  HUB_SCENARIO_ANALYSIS_TYPE,
+  HUB_SCENARIO_SECTORS,
+  HUB_SCENARIO_SOURCE_SYSTEMS,
+  type HubScenarioConfigurationSnapshot,
+} from '../scenarios/hub-scenario-configuration';
 import { buildScenarioSimulationReport } from '../scenarios/hub-scenario-report.factory';
 import type {
   HubScenarioRunDocument,
   HubScenarioSimulationReport,
 } from '../schemas/hub-scenario-run.schema';
-import { HubEventService } from './hub-event.service';
 import { HubDemoSeedService } from './hub-demo-seed.service';
+import { HubEventService } from './hub-event.service';
 
 @Injectable()
 export class HubScenarioService {
@@ -24,7 +33,7 @@ export class HubScenarioService {
   ) {}
 
   async current() {
-    const run = await this.repository.findScenario(HUB_DYNAMIC_SCENARIO_CODE);
+    const run = await this.repository.findLatestScenario();
     if (run) return this.present(run);
     const scenario = buildDynamicScenario();
     return {
@@ -32,6 +41,7 @@ export class HubScenarioService {
       title: scenario.title,
       description: scenario.description,
       status: 'READY',
+      configuration: scenario.configuration,
       steps: scenario.steps.map((step) => ({
         ...step,
         status: 'PENDING',
@@ -39,6 +49,7 @@ export class HubScenarioService {
       })),
       observationIds: [],
       signalCode: null,
+      eventCode: null,
       initiatedBy: null,
       startedAt: null,
       completedAt: null,
@@ -49,7 +60,7 @@ export class HubScenarioService {
   }
 
   async report(scenarioCode: string) {
-    if (scenarioCode !== HUB_DYNAMIC_SCENARIO_CODE) {
+    if (!this.isScenarioCode(scenarioCode)) {
       throw new NotFoundException('Scénario de démonstration introuvable.');
     }
     const run = await this.repository.findScenario(scenarioCode);
@@ -67,24 +78,27 @@ export class HubScenarioService {
     const report =
       run.simulationReport ??
       buildScenarioSimulationReport(
-        buildDynamicScenario(run.completedAt),
+        buildDynamicScenario(
+          run.completedAt,
+          this.configurationFromRun(run) ?? undefined,
+        ),
         run.eventCode,
         run.completedAt,
       );
     return this.presentReport(report, run);
   }
 
-  async run(user: PublicUser) {
+  async run(user: PublicUser, dto: RunHubScenarioDto) {
     const now = new Date();
-    const scenario = buildDynamicScenario(now);
-    // Le scénario s'appuie toujours sur le socle régional complet. Le seed est
-    // idempotent : il restaure les fiches manquantes sans dupliquer celles qui
-    // existent déjà, puis les quatre observations du scénario sont ajoutées.
+    const configuration = this.validateConfiguration(dto, now);
+    const scenario = buildDynamicScenario(now, configuration);
+    // Le seed idempotent restaure le socle régional sans dupliquer les fiches.
     const baseline = await this.demoSeedService.seed();
     await this.repository.startScenario({
       scenarioCode: scenario.scenarioCode,
       title: scenario.title,
       description: scenario.description,
+      configuration,
       steps: scenario.steps,
       initiatedBy: user.id,
       startedAt: now,
@@ -111,6 +125,10 @@ export class HubScenarioService {
         simulationReport,
         completedAt,
       });
+      const countries = [
+        configuration.sourceCountryCode,
+        configuration.comparisonCountryCode,
+      ];
       await Promise.all([
         this.repository.createAudit({
           entityType: 'scenario',
@@ -121,12 +139,13 @@ export class HubScenarioService {
           metadata: {
             observations: scenario.observations.length,
             signalCode: scenario.signal.signalCode,
-            countries: ['CM', 'TD'],
+            countries,
+            configuration,
             eventCode: event.eventCode,
             reportId: simulationReport.reportId,
             baselineObservations: baseline.observations,
           },
-          countryCode: 'CM',
+          countryCode: configuration.sourceCountryCode,
           isDemo: true,
         }),
         this.repository.createAudit({
@@ -138,8 +157,9 @@ export class HubScenarioService {
           metadata: {
             scenarioCode: scenario.scenarioCode,
             confidenceScore: scenario.signal.confidenceScore,
+            configuration,
           },
-          countryCode: 'CM',
+          countryCode: configuration.sourceCountryCode,
           isDemo: true,
         }),
         this.repository.createAudit({
@@ -153,9 +173,10 @@ export class HubScenarioService {
             eventCode: event.eventCode,
             signalCode: scenario.signal.signalCode,
             official: false,
-            countries: ['CM', 'TD'],
+            countries,
+            configuration,
           },
-          countryCode: 'CM',
+          countryCode: configuration.sourceCountryCode,
           isDemo: true,
         }),
       ]);
@@ -173,6 +194,9 @@ export class HubScenarioService {
       title: run.title,
       description: run.description,
       status: run.status,
+      configuration:
+        this.configurationFromRun(run) ??
+        defaultHubScenarioConfiguration(run.startedAt),
       steps: run.steps.map((step) => ({
         code: step.code,
         label: step.label,
@@ -204,6 +228,9 @@ export class HubScenarioService {
       title: report.title,
       executiveSummary: report.executiveSummary,
       objective: report.objective,
+      configuration:
+        this.configurationFromRun(run) ??
+        defaultHubScenarioConfiguration(run.completedAt ?? run.startedAt),
       countries: report.countries.map((country) => ({
         countryCode: country.countryCode,
         countryName: country.countryName,
@@ -229,6 +256,98 @@ export class HubScenarioService {
       generatedAt: report.generatedAt,
       official: false,
       simulated: true,
+    };
+  }
+
+  private validateConfiguration(
+    dto: RunHubScenarioDto,
+    now: Date,
+  ): HubScenarioConfigurationSnapshot {
+    if (dto.sourceCountryCode === dto.comparisonCountryCode) {
+      throw new BadRequestException(
+        'Le pays source et le pays comparé doivent être différents.',
+      );
+    }
+    const dateFrom = this.parseDate(dto.dateFrom, 'dateFrom');
+    const dateTo = this.parseDate(dto.dateTo, 'dateTo');
+    if (dateFrom.getTime() > dateTo.getTime()) {
+      throw new BadRequestException(
+        'La date de début doit précéder ou égaler la date de fin.',
+      );
+    }
+    const today = this.parseDate(this.dateInDouala(now), 'today');
+    if (dateTo.getTime() > today.getTime()) {
+      throw new BadRequestException(
+        'La période du scénario ne peut pas se terminer dans le futur.',
+      );
+    }
+    const days =
+      Math.floor((dateTo.getTime() - dateFrom.getTime()) / 86_400_000) + 1;
+    if (days > 90) {
+      throw new BadRequestException(
+        'La période du scénario est limitée à 90 jours inclus.',
+      );
+    }
+
+    return {
+      sourceCountryCode: dto.sourceCountryCode,
+      comparisonCountryCode: dto.comparisonCountryCode,
+      dateFrom: dto.dateFrom,
+      dateTo: dto.dateTo,
+      sectors: HUB_SCENARIO_SECTORS,
+      sourceSystems: HUB_SCENARIO_SOURCE_SYSTEMS,
+      analysisType: HUB_SCENARIO_ANALYSIS_TYPE,
+    };
+  }
+
+  private parseDate(value: string, field: string): Date {
+    const parsed = new Date(`${value}T00:00:00.000Z`);
+    if (
+      !/^\d{4}-\d{2}-\d{2}$/.test(value) ||
+      Number.isNaN(parsed.getTime()) ||
+      parsed.toISOString().slice(0, 10) !== value
+    ) {
+      throw new BadRequestException(
+        `${field} doit être une date valide au format YYYY-MM-DD.`,
+      );
+    }
+    return parsed;
+  }
+
+  private dateInDouala(value: Date): string {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'Africa/Douala',
+      year: 'numeric',
+      month: '2-digit',
+      day: '2-digit',
+    }).formatToParts(value);
+    const part = (type: Intl.DateTimeFormatPartTypes) =>
+      parts.find((item) => item.type === type)?.value ?? '';
+    return `${part('year')}-${part('month')}-${part('day')}`;
+  }
+
+  private isScenarioCode(value: string): boolean {
+    return (
+      value === HUB_DYNAMIC_SCENARIO_CODE ||
+      /^SCN-[A-Z]{2}-[A-Z]{2}-\d{8}-\d{8}$/.test(value)
+    );
+  }
+
+  private configurationFromRun(
+    run: HubScenarioRunDocument,
+  ): HubScenarioConfigurationSnapshot | null {
+    const configuration = run.configuration;
+    if (!configuration) return null;
+    return {
+      sourceCountryCode:
+        configuration.sourceCountryCode as HubScenarioConfigurationSnapshot['sourceCountryCode'],
+      comparisonCountryCode:
+        configuration.comparisonCountryCode as HubScenarioConfigurationSnapshot['comparisonCountryCode'],
+      dateFrom: configuration.dateFrom,
+      dateTo: configuration.dateTo,
+      sectors: [...configuration.sectors],
+      sourceSystems: [...configuration.sourceSystems],
+      analysisType: HUB_SCENARIO_ANALYSIS_TYPE,
     };
   }
 }

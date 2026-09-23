@@ -37,6 +37,7 @@ import {
 } from '../schemas/hub-alert-report.schema';
 import type { HubReportStatus } from '../hub.constants';
 import { HubEvent, HubEventDocument } from '../schemas/hub-event.schema';
+import type { HubScenarioConfigurationSnapshot } from '../scenarios/hub-scenario-configuration';
 
 export interface HubObservationListFilter {
   readonly view?: 'all' | 'priority' | 'country';
@@ -290,10 +291,18 @@ export class HubRepository {
     return this.scenarioRunModel.findOne({ scenarioCode }).exec();
   }
 
+  findLatestScenario(): Promise<HubScenarioRunDocument | null> {
+    return this.scenarioRunModel
+      .findOne({ isDemo: true })
+      .sort({ startedAt: -1 })
+      .exec();
+  }
+
   async startScenario(input: {
     scenarioCode: string;
     title: string;
     description: string;
+    configuration: HubScenarioConfigurationSnapshot;
     steps: readonly { code: string; label: string }[];
     initiatedBy: string;
     startedAt: Date;
@@ -305,6 +314,7 @@ export class HubRepository {
           $set: {
             title: input.title,
             description: input.description,
+            configuration: input.configuration,
             status: 'RUNNING',
             steps: input.steps.map((step) => ({
               ...step,

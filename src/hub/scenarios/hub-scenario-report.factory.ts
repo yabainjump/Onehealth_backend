@@ -20,13 +20,16 @@ export function buildScenarioSimulationReport(
   const sectors = [
     ...new Set(scenario.observations.map((item) => item.sector)),
   ];
+  const [sourceCountry, comparisonCountry] = countries;
+  const sourceName = sourceCountry?.countryName ?? 'le pays source';
+  const comparisonName =
+    comparisonCountry?.countryName ?? 'le pays de comparaison';
 
   return {
     reportId: `SIM-${scenario.scenarioCode}`,
     reportType: 'SIMULATION',
     title: `Rapport de simulation — ${scenario.title}`,
-    executiveSummary:
-      'Le scénario met en évidence une convergence temporelle et géographique entre une anomalie hydroclimatique, une mortalité animale inhabituelle et une hausse de syndromes fébriles humains dans le bassin transfrontalier du Logone. Le rapprochement produit un signal à vérifier ; il ne constitue pas une alerte sanitaire officielle.',
+    executiveSummary: `La simulation du ${scenario.configuration.dateFrom} au ${scenario.configuration.dateTo} met en évidence une convergence temporelle entre une anomalie hydroclimatique, une mortalité animale inhabituelle et une hausse de syndromes fébriles humains en ${sourceName}, avec une tendance concordante en ${comparisonName}. Le rapprochement produit un signal à vérifier ; il ne constitue pas une alerte sanitaire officielle.`,
     objective:
       'Démontrer la capacité du Hub CEEAC à ingérer, normaliser et rapprocher des données multisectorielles souveraines sans dupliquer les systèmes nationaux.',
     countries,
@@ -37,14 +40,14 @@ export function buildScenarioSimulationReport(
     eventCount: 1,
     confidenceScore: scenario.signal.confidenceScore,
     findings: [
-      'CAPC-AC simule une anomalie de pluie de 64 % et 18 km² de zones inondées dans l’Extrême-Nord du Cameroun.',
-      'ARIS 3 simule 87 animaux symptomatiques répartis dans 6 foyers proches des zones inondées.',
-      'DHIS2 simule 43 cas suspects côté camerounais et 19 cas concordants côté tchadien.',
-      'La proximité temporelle, géographique et sectorielle justifie l’ouverture d’une vérification experte transfrontalière.',
+      `CAPC-AC simule une anomalie de pluie de 64 % et 18 km² de zones affectées en ${sourceName}.`,
+      `ARIS 3 simule 87 animaux symptomatiques répartis dans 6 foyers en ${sourceName}.`,
+      `DHIS2 simule 43 cas suspects en ${sourceName} et 19 cas concordants en ${comparisonName}.`,
+      'La proximité temporelle et sectorielle justifie l’ouverture d’une vérification experte coordonnée entre les deux États.',
     ],
     recommendations: [
       'Contrôler la qualité, la complétude et la date des fiches sources auprès des points focaux nationaux.',
-      'Organiser une vérification conjointe santé humaine–santé animale–environnement dans le bassin du Logone.',
+      `Organiser une vérification conjointe santé humaine–santé animale–environnement entre ${sourceName} et ${comparisonName}.`,
       'Documenter la décision experte dans le Hub avant toute qualification en alerte ou diffusion institutionnelle.',
     ],
     limitations: [

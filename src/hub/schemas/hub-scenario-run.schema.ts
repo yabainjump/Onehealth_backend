@@ -1,6 +1,16 @@
 import { Prop, Schema, SchemaFactory } from '@nestjs/mongoose';
 import { HydratedDocument } from 'mongoose';
-import type { HubScenarioStatus } from '../hub.constants';
+import {
+  CEEAC_COUNTRY_CODES,
+  type HubScenarioStatus,
+  type HubSector,
+  type HubSourceSystem,
+} from '../hub.constants';
+import {
+  HUB_SCENARIO_ANALYSIS_TYPE,
+  HUB_SCENARIO_SECTORS,
+  HUB_SCENARIO_SOURCE_SYSTEMS,
+} from '../scenarios/hub-scenario-configuration';
 
 @Schema({ _id: false })
 export class HubScenarioStep {
@@ -22,6 +32,34 @@ export class HubScenarioStep {
 }
 
 const HubScenarioStepSchema = SchemaFactory.createForClass(HubScenarioStep);
+
+@Schema({ _id: false })
+export class HubScenarioConfiguration {
+  @Prop({ required: true, enum: CEEAC_COUNTRY_CODES })
+  sourceCountryCode: string;
+
+  @Prop({ required: true, enum: CEEAC_COUNTRY_CODES })
+  comparisonCountryCode: string;
+
+  @Prop({ required: true, trim: true, minlength: 10, maxlength: 10 })
+  dateFrom: string;
+
+  @Prop({ required: true, trim: true, minlength: 10, maxlength: 10 })
+  dateTo: string;
+
+  @Prop({ type: [String], enum: HUB_SCENARIO_SECTORS, default: [] })
+  sectors: HubSector[];
+
+  @Prop({ type: [String], enum: HUB_SCENARIO_SOURCE_SYSTEMS, default: [] })
+  sourceSystems: HubSourceSystem[];
+
+  @Prop({ type: String, required: true, enum: [HUB_SCENARIO_ANALYSIS_TYPE] })
+  analysisType: typeof HUB_SCENARIO_ANALYSIS_TYPE;
+}
+
+const HubScenarioConfigurationSchema = SchemaFactory.createForClass(
+  HubScenarioConfiguration,
+);
 
 @Schema({ _id: false })
 export class HubScenarioReportCountry {
@@ -135,6 +173,9 @@ export class HubScenarioRun {
 
   @Prop({ type: [HubScenarioStepSchema], default: [] })
   steps: HubScenarioStep[];
+
+  @Prop({ type: HubScenarioConfigurationSchema, default: null })
+  configuration: HubScenarioConfiguration | null;
 
   @Prop({ type: [String], default: [] })
   observationIds: string[];
