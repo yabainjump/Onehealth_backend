@@ -1,0 +1,530 @@
+openapi: 3.1.0
+info:
+  title: One Health Convergence Hub Dashboard API
+  version: 1.0.0
+  description: >-
+    Versioned wire contract consumed by the regional Angular dashboard. Simulated fields identify
+    demonstration data and must never be interpreted as official institutional alerts.
+servers:
+  - url: /api
+security:
+  - bearerAuth: []
+paths:
+  /hub/summary:
+    get:
+      operationId: getHubSummary
+      responses:
+        '200': { description: Summary, content: { application/json: { schema: { $ref: '#/components/schemas/HubSummary' } } } }
+  /hub/observations:
+    get:
+      operationId: listHubObservations
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { in: query, name: search, schema: { type: string } }
+        - { in: query, name: countryCode, schema: { type: string } }
+        - { in: query, name: sector, schema: { $ref: '#/components/schemas/HealthSector' } }
+        - { in: query, name: stage, schema: { $ref: '#/components/schemas/ObservationStage' } }
+      responses:
+        '200': { description: Paginated observations, content: { application/json: { schema: { $ref: '#/components/schemas/HubObservationPage' } } } }
+  /hub/observations/{id}:
+    get:
+      operationId: getHubObservation
+      parameters: [{ in: path, name: id, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Observation detail, content: { application/json: { schema: { $ref: '#/components/schemas/HubObservationDetail' } } } }
+  /hub/decisions:
+    get:
+      operationId: listHubDecisions
+      responses:
+        '200': { description: Decisions, content: { application/json: { schema: { $ref: '#/components/schemas/HubDecisionList' } } } }
+  /hub/events:
+    get:
+      operationId: listHubEvents
+      responses:
+        '200': { description: Events, content: { application/json: { schema: { $ref: '#/components/schemas/HubEventList' } } } }
+    post:
+      operationId: consolidateHubEvent
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [observationIds]
+              properties: { observationIds: { type: array, items: { type: string } } }
+      responses:
+        '201': { description: Consolidated event, content: { application/json: { schema: { $ref: '#/components/schemas/HubEvent' } } } }
+  /hub/signals/{signalCode}/assign:
+    patch:
+      operationId: assignHubSignal
+      parameters: [{ in: path, name: signalCode, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Assigned signal detail, content: { application/json: { schema: { $ref: '#/components/schemas/HubObservationDetail' } } } }
+  /hub/signals/{signalCode}/decision:
+    patch:
+      operationId: decideHubSignal
+      parameters: [{ in: path, name: signalCode, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status, note]
+              properties:
+                status: { type: string, enum: [VERIFIED, REJECTED] }
+                note: { type: string }
+      responses:
+        '200': { description: Reviewed signal detail, content: { application/json: { schema: { $ref: '#/components/schemas/HubObservationDetail' } } } }
+  /hub/demo/scenario:
+    get:
+      operationId: getHubScenario
+      responses:
+        '200': { description: Scenario, content: { application/json: { schema: { $ref: '#/components/schemas/HubScenario' } } } }
+  /hub/demo/scenario/run:
+    post:
+      operationId: runHubScenario
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/RunHubScenarioInput' } } }
+      responses:
+        '201': { description: Completed scenario, content: { application/json: { schema: { $ref: '#/components/schemas/HubScenario' } } } }
+  /hub/demo/scenarios/{scenarioCode}/report:
+    get:
+      operationId: getHubScenarioReport
+      parameters: [{ in: path, name: scenarioCode, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Scenario report, content: { application/json: { schema: { $ref: '#/components/schemas/HubScenarioReport' } } } }
+  /hub/alerts/{observationId}/reports:
+    get:
+      operationId: listHubAlertReports
+      parameters: [{ in: path, name: observationId, required: true, schema: { type: string } }]
+      responses:
+        '200': { description: Alert reports, content: { application/json: { schema: { $ref: '#/components/schemas/HubAlertReportList' } } } }
+    post:
+      operationId: generateHubAlertReport
+      parameters: [{ in: path, name: observationId, required: true, schema: { type: string } }]
+      responses:
+        '201': { description: Draft alert report, content: { application/json: { schema: { $ref: '#/components/schemas/HubAlertReport' } } } }
+  /hub/reports/{reportId}/status:
+    patch:
+      operationId: updateHubReportStatus
+      parameters: [{ in: path, name: reportId, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties: { status: { type: string, enum: [IN_REVIEW, VALIDATED, PUBLISHED] } }
+      responses:
+        '200': { description: Updated alert report, content: { application/json: { schema: { $ref: '#/components/schemas/HubAlertReport' } } } }
+  /hub/connectors:
+    get:
+      operationId: listHubConnectors
+      responses:
+        '200': { description: Connectors, content: { application/json: { schema: { $ref: '#/components/schemas/HubConnectorPage' } } } }
+  /hub/connectors/summary:
+    get:
+      operationId: getHubConnectorSummary
+      responses:
+        '200': { description: Connector summary, content: { application/json: { schema: { $ref: '#/components/schemas/HubConnectorSummary' } } } }
+  /hub/connectors/synchronize:
+    post:
+      operationId: synchronizeHubConnectors
+      responses:
+        '201': { description: Synchronization result, content: { application/json: { schema: { $ref: '#/components/schemas/HubConnectorSync' } } } }
+  /hub/sharing-policies:
+    get:
+      operationId: listHubSharingPolicies
+      responses:
+        '200': { description: Policies, content: { application/json: { schema: { $ref: '#/components/schemas/HubSharingPolicyList' } } } }
+  /hub/sharing-policies/{policyId}:
+    patch:
+      operationId: updateHubSharingPolicy
+      parameters: [{ in: path, name: policyId, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/UpdateHubSharingPolicyInput' } } }
+      responses:
+        '200': { description: Updated policy, content: { application/json: { schema: { $ref: '#/components/schemas/HubSharingPolicy' } } } }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  schemas:
+    HealthSector: { type: string, enum: [human, animal, environment] }
+    SourceSystem: { type: string, enum: [DHIS2, 'ARIS 3', CAPC-AC] }
+    ObservationStage: { type: string, enum: [observation, signal, verified-alert] }
+    Severity: { type: string, enum: [low, medium, high, critical] }
+    CeeacCountryCode: { type: string, enum: [AO, BI, CM, CF, TD, CG, CD, GQ, GA, RW, ST] }
+    ObservationMetric:
+      type: object
+      additionalProperties: false
+      required: [label, value]
+      properties:
+        label: { type: string }
+        value: { type: number }
+        unit: { type: string }
+    OneHealthObservation:
+      type: object
+      additionalProperties: false
+      required: [id, sourceSystem, sourceRecordId, sector, countryCode, countryName, adminArea, latitude, longitude, observedAt, receivedAt, category, title, summary, stage, severity, metrics, simulated]
+      properties:
+        id: { type: string }
+        sourceSystem: { $ref: '#/components/schemas/SourceSystem' }
+        sourceRecordId: { type: string }
+        sector: { $ref: '#/components/schemas/HealthSector' }
+        countryCode: { type: string }
+        countryName: { type: string }
+        adminArea: { type: string }
+        latitude: { type: number }
+        longitude: { type: number }
+        observedAt: { type: string, format: date-time }
+        receivedAt: { type: string, format: date-time }
+        category: { type: string }
+        title: { type: string }
+        summary: { type: string }
+        stage: { $ref: '#/components/schemas/ObservationStage' }
+        severity: { $ref: '#/components/schemas/Severity' }
+        metrics: { type: array, items: { $ref: '#/components/schemas/ObservationMetric' } }
+        simulated: { type: boolean, const: true }
+    HubSignal:
+      type: object
+      required: [signalCode, observationId, status, assignedTo, decisionNote]
+      properties:
+        signalCode: { type: string }
+        observationId: { type: string }
+        status: { type: string, enum: [SIGNAL_DETECTED, UNDER_VERIFICATION, VERIFIED, REJECTED, CLOSED] }
+        assignedTo: { type: [string, 'null'] }
+        decisionNote: { type: string }
+    HubAlert:
+      type: object
+      required: [alertCode, status, verifiedBy, verifiedAt, verificationNote]
+      properties:
+        alertCode: { type: string }
+        status: { type: string, enum: [VERIFIED, CLOSED] }
+        verifiedBy: { type: string }
+        verifiedAt: { type: string, format: date-time }
+        verificationNote: { type: string }
+    HubAudit:
+      type: object
+      required: [entityType, entityId, action, actorId, actorType, metadata, countryCode, createdAt]
+      properties:
+        entityType: { type: string }
+        entityId: { type: string }
+        action: { type: string }
+        actorId: { type: string }
+        actorType: { type: string, enum: [USER, SYSTEM] }
+        metadata: { type: object, additionalProperties: true }
+        countryCode: { type: string }
+        createdAt: { type: string, format: date-time }
+    HubDecision:
+      type: object
+      required: [signalCode, observationId, title, countryCode, countryName, adminArea, sector, priority, confidenceScore, status, assignedTo, detectedAt, dueAt, simulated]
+      properties:
+        signalCode: { type: string }
+        observationId: { type: string }
+        title: { type: string }
+        countryCode: { type: string }
+        countryName: { type: string }
+        adminArea: { type: string }
+        sector: { $ref: '#/components/schemas/HealthSector' }
+        priority: { $ref: '#/components/schemas/Severity' }
+        confidenceScore: { type: number }
+        status: { type: string, enum: [SIGNAL_DETECTED, UNDER_VERIFICATION] }
+        assignedTo: { type: [string, 'null'] }
+        detectedAt: { type: string, format: date-time }
+        dueAt: { type: string, format: date-time }
+        simulated: { type: boolean }
+    RunHubScenarioInput:
+      type: object
+      additionalProperties: false
+      required: [sourceCountryCode, comparisonCountryCode, dateFrom, dateTo]
+      properties:
+        sourceCountryCode: { $ref: '#/components/schemas/CeeacCountryCode' }
+        comparisonCountryCode: { $ref: '#/components/schemas/CeeacCountryCode' }
+        dateFrom: { type: string, format: date }
+        dateTo: { type: string, format: date }
+    HubScenarioConfiguration:
+      allOf:
+        - { $ref: '#/components/schemas/RunHubScenarioInput' }
+        - type: object
+          required: [sectors, sourceSystems, analysisType]
+          properties:
+            sectors: { type: array, items: { $ref: '#/components/schemas/HealthSector' } }
+            sourceSystems: { type: array, items: { $ref: '#/components/schemas/SourceSystem' } }
+            analysisType: { type: string, const: CROSS_SECTOR_CONVERGENCE }
+    ScenarioStep:
+      type: object
+      required: [code, label, status, completedAt]
+      properties:
+        code: { type: string }
+        label: { type: string }
+        status: { type: string, enum: [PENDING, COMPLETED, FAILED] }
+        completedAt: { type: [string, 'null'], format: date-time }
+    HubScenario:
+      type: object
+      required: [scenarioCode, title, description, status, configuration, steps, observationIds, signalCode, eventCode, initiatedBy, startedAt, completedAt, reportAvailable, reportId, simulated]
+      properties:
+        scenarioCode: { type: string }
+        title: { type: string }
+        description: { type: string }
+        status: { type: string, enum: [READY, RUNNING, COMPLETED, FAILED] }
+        configuration: { $ref: '#/components/schemas/HubScenarioConfiguration' }
+        steps: { type: array, items: { $ref: '#/components/schemas/ScenarioStep' } }
+        observationIds: { type: array, items: { type: string } }
+        signalCode: { type: [string, 'null'] }
+        eventCode: { type: [string, 'null'] }
+        initiatedBy: { type: [string, 'null'] }
+        startedAt: { type: [string, 'null'], format: date-time }
+        completedAt: { type: [string, 'null'], format: date-time }
+        reportAvailable: { type: boolean }
+        reportId: { type: [string, 'null'] }
+        simulated: { type: boolean, const: true }
+    HubScenarioReport:
+      type: object
+      required: [reportId, reportType, scenarioCode, title, executiveSummary, objective, configuration, countries, sectors, sourceSystems, observationCount, signalCount, eventCount, confidenceScore, findings, recommendations, limitations, chronology, observationIds, signalCode, eventCode, generatedAt, official, simulated]
+      properties:
+        reportId: { type: string }
+        reportType: { type: string, const: SIMULATION }
+        scenarioCode: { type: string }
+        title: { type: string }
+        executiveSummary: { type: string }
+        objective: { type: string }
+        configuration: { $ref: '#/components/schemas/HubScenarioConfiguration' }
+        countries:
+          type: array
+          items:
+            type: object
+            required: [countryCode, countryName]
+            properties: { countryCode: { type: string }, countryName: { type: string } }
+        sectors: { type: array, items: { $ref: '#/components/schemas/HealthSector' } }
+        sourceSystems: { type: array, items: { type: string } }
+        observationCount: { type: integer }
+        signalCount: { type: integer }
+        eventCount: { type: integer }
+        confidenceScore: { type: number }
+        findings: { type: array, items: { type: string } }
+        recommendations: { type: array, items: { type: string } }
+        limitations: { type: array, items: { type: string } }
+        chronology: { type: array, items: { $ref: '#/components/schemas/ScenarioStep' } }
+        observationIds: { type: array, items: { type: string } }
+        signalCode: { type: string }
+        eventCode: { type: string }
+        generatedAt: { type: string, format: date-time }
+        official: { type: boolean, const: false }
+        simulated: { type: boolean, const: true }
+    HubEventObservation:
+      type: object
+      required: [id, title, sector, sourceSystem, countryCode, countryName, adminArea, observedAt, severity, simulated]
+      properties:
+        id: { type: string }
+        title: { type: string }
+        sector: { $ref: '#/components/schemas/HealthSector' }
+        sourceSystem: { $ref: '#/components/schemas/SourceSystem' }
+        countryCode: { type: string }
+        countryName: { type: string }
+        adminArea: { type: string }
+        observedAt: { type: string, format: date-time }
+        severity: { $ref: '#/components/schemas/Severity' }
+        simulated: { type: boolean }
+    HubEvent:
+      type: object
+      required: [eventCode, title, status, observationIds, countryCodes, sectors, longitude, latitude, maxDistanceKm, timeWindowHours, correlationScore, correlationReasons, ruleVersion, scenarioId, firstObservedAt, lastObservedAt, consolidatedBy, consolidatedAt, simulated]
+      properties:
+        eventCode: { type: string }
+        title: { type: string }
+        status: { type: string, enum: [CONSOLIDATED, UNDER_REVIEW, CLOSED] }
+        observationIds: { type: array, items: { type: string } }
+        countryCodes: { type: array, items: { type: string } }
+        sectors: { type: array, items: { $ref: '#/components/schemas/HealthSector' } }
+        longitude: { type: number }
+        latitude: { type: number }
+        maxDistanceKm: { type: number }
+        timeWindowHours: { type: number }
+        correlationScore: { type: number }
+        correlationReasons: { type: array, items: { type: string } }
+        ruleVersion: { type: string }
+        scenarioId: { type: string }
+        firstObservedAt: { type: string, format: date-time }
+        lastObservedAt: { type: string, format: date-time }
+        consolidatedBy: { type: string }
+        consolidatedAt: { type: string, format: date-time }
+        simulated: { type: boolean }
+        observations: { type: array, items: { $ref: '#/components/schemas/HubEventObservation' } }
+    HubObservationDetail:
+      type: object
+      required: [observation, related, signal, alert, audit, event, simulated]
+      properties:
+        observation: { $ref: '#/components/schemas/OneHealthObservation' }
+        related: { type: array, items: { $ref: '#/components/schemas/OneHealthObservation' } }
+        signal: { anyOf: [{ $ref: '#/components/schemas/HubSignal' }, { type: 'null' }] }
+        alert: { anyOf: [{ $ref: '#/components/schemas/HubAlert' }, { type: 'null' }] }
+        audit: { type: array, items: { $ref: '#/components/schemas/HubAudit' } }
+        event: { anyOf: [{ $ref: '#/components/schemas/HubEvent' }, { type: 'null' }] }
+        simulated: { type: boolean, const: true }
+    HubAlertReport:
+      type: object
+      required: [reportId, alertCode, observationId, countryCode, version, status, title, executiveSummary, findings, recommendations, sources, sectors, generatedBy, generatedAt, validatedBy, validatedAt, publishedBy, publishedAt, simulated]
+      properties:
+        reportId: { type: string }
+        alertCode: { type: string }
+        observationId: { type: string }
+        countryCode: { type: string }
+        version: { type: integer }
+        status: { type: string, enum: [DRAFT, IN_REVIEW, VALIDATED, PUBLISHED] }
+        title: { type: string }
+        executiveSummary: { type: string }
+        findings: { type: array, items: { type: string } }
+        recommendations: { type: array, items: { type: string } }
+        sources: { type: array, items: { type: string } }
+        sectors: { type: array, items: { $ref: '#/components/schemas/HealthSector' } }
+        generatedBy: { type: string }
+        generatedAt: { type: string, format: date-time }
+        validatedBy: { type: [string, 'null'] }
+        validatedAt: { type: [string, 'null'], format: date-time }
+        publishedBy: { type: [string, 'null'] }
+        publishedAt: { type: [string, 'null'], format: date-time }
+        simulated: { type: boolean }
+    HubConnector:
+      type: object
+      required: [id, countryCode, countryName, institution, sector, sourceSystem, protocol, endpointAlias, status, availabilityPercent, lastSyncAt, lastSuccessAt, nextSyncAt, volume, lastDurationMs, error, enabled, simulated]
+      properties:
+        id: { type: string }
+        countryCode: { type: string }
+        countryName: { type: string }
+        institution: { type: string }
+        sector: { $ref: '#/components/schemas/HealthSector' }
+        sourceSystem: { $ref: '#/components/schemas/SourceSystem' }
+        protocol: { type: string, enum: [API_REST, SYNC, PUSH_SFTP, GEOJSON] }
+        endpointAlias: { type: string }
+        status: { type: string, enum: [operational, degraded, error, suspended] }
+        availabilityPercent: { type: number }
+        lastSyncAt: { type: [string, 'null'], format: date-time }
+        lastSuccessAt: { type: [string, 'null'], format: date-time }
+        nextSyncAt: { type: [string, 'null'], format: date-time }
+        volume:
+          type: object
+          required: [received, accepted, rejected, duplicates]
+          properties: { received: { type: integer }, accepted: { type: integer }, rejected: { type: integer }, duplicates: { type: integer } }
+        lastDurationMs: { type: number }
+        error:
+          anyOf:
+            - type: object
+              required: [code, message]
+              properties: { code: { type: string }, message: { type: string } }
+            - { type: 'null' }
+        enabled: { type: boolean }
+        simulated: { type: boolean, const: true }
+    HubConnectorSectorSummary:
+      type: object
+      required: [sector, total, availabilityPercent, operational, degraded, error, suspended]
+      properties:
+        sector: { $ref: '#/components/schemas/HealthSector' }
+        total: { type: integer }
+        availabilityPercent: { type: number }
+        operational: { type: integer }
+        degraded: { type: integer }
+        error: { type: integer }
+        suspended: { type: integer }
+    HubConnectorSummary:
+      type: object
+      required: [total, countries, sectors, statuses, simulated]
+      properties:
+        total: { type: integer }
+        countries: { type: integer }
+        sectors: { type: array, items: { $ref: '#/components/schemas/HubConnectorSectorSummary' } }
+        statuses:
+          type: object
+          required: [operational, degraded, error, suspended]
+          properties: { operational: { type: integer }, degraded: { type: integer }, error: { type: integer }, suspended: { type: integer } }
+        simulated: { type: boolean, const: true }
+    HubConnectorSync:
+      type: object
+      required: [synchronized, observationsCreated, duplicatesIgnored, completedAt, simulated, message]
+      properties:
+        synchronized: { type: integer }
+        observationsCreated: { type: integer, const: 0 }
+        duplicatesIgnored: { type: integer }
+        completedAt: { type: string, format: date-time }
+        simulated: { type: boolean, const: true }
+        message: { type: string }
+    HubSharingPolicy:
+      type: object
+      required: [policyId, countryOwner, sharingLevel, allowedRoles, allowedCountries, aggregationLevel, retentionPeriodDays, containsPersonalData, updatedAt, simulated]
+      properties:
+        policyId: { type: string }
+        countryOwner: { type: string }
+        sharingLevel: { type: string, enum: [OWNER_ONLY, OWNER_AND_CEEAC, AUTHORIZED_COUNTRIES, REGIONAL_AUTHORIZED, PUBLIC_AGGREGATED] }
+        allowedRoles: { type: array, items: { type: string, enum: [hub_viewer, hub_analyst, hub_verifier, hub_admin] } }
+        allowedCountries: { type: array, items: { type: string } }
+        aggregationLevel: { type: string, enum: [POINT, ADMIN_1, COUNTRY, REGIONAL] }
+        retentionPeriodDays: { type: integer }
+        containsPersonalData: { type: boolean }
+        updatedAt: { type: string, format: date-time }
+        simulated: { type: boolean }
+    UpdateHubSharingPolicyInput:
+      type: object
+      additionalProperties: false
+      required: [sharingLevel, allowedRoles, allowedCountries, aggregationLevel, retentionPeriodDays, containsPersonalData]
+      properties:
+        sharingLevel: { type: string, enum: [OWNER_ONLY, OWNER_AND_CEEAC, AUTHORIZED_COUNTRIES, REGIONAL_AUTHORIZED, PUBLIC_AGGREGATED] }
+        allowedRoles: { type: array, items: { type: string, enum: [hub_viewer, hub_analyst, hub_verifier, hub_admin] } }
+        allowedCountries: { type: array, items: { type: string } }
+        aggregationLevel: { type: string, enum: [POINT, ADMIN_1, COUNTRY, REGIONAL] }
+        retentionPeriodDays: { type: integer }
+        containsPersonalData: { type: boolean }
+    HubSummary:
+      type: object
+      required: [total, byStage, simulated]
+      properties:
+        total: { type: integer }
+        byStage:
+          type: object
+          required: [observation, signal, verified-alert]
+          properties: { observation: { type: integer }, signal: { type: integer }, verified-alert: { type: integer } }
+        simulated: { type: boolean }
+    HubObservationPage:
+      type: object
+      required: [items, total, page, limit, pages]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/OneHealthObservation' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        pages: { type: integer }
+    HubDecisionList:
+      type: object
+      required: [items, total]
+      properties: { items: { type: array, items: { $ref: '#/components/schemas/HubDecision' } }, total: { type: integer } }
+    HubEventList:
+      type: object
+      required: [items, total]
+      properties: { items: { type: array, items: { $ref: '#/components/schemas/HubEvent' } }, total: { type: integer } }
+    HubConnectorPage:
+      type: object
+      required: [items, total, page, limit, pages, simulated]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HubConnector' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        pages: { type: integer }
+        simulated: { type: boolean, const: true }
+    HubAlertReportList:
+      type: object
+      required: [items, total]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HubAlertReport' } }
+        total: { type: integer }
+    HubSharingPolicyList:
+      type: object
+      required: [items, total, simulated]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HubSharingPolicy' } }
+        total: { type: integer }
+        simulated: { type: boolean }
