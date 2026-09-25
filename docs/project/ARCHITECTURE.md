@@ -76,7 +76,9 @@ One_health2/
   toute dérive. Le fichier généré n'est jamais édité manuellement ;
 - `MapTileLayerService` centralise le fond Leaflet. `openstreetmap` demeure un mode démonstrateur,
   `custom` exige HTTPS, `{z}/{x}/{y}` et une attribution, `none` garde frontières et signaux sur un
-  fond neutre. Les pages ne contiennent plus d'URL de tuiles ;
+  fond neutre. Les pages ne contiennent plus d'URL de tuiles. Pendant la transition, un ancien
+  `environment.ts` généré sans bloc `mapTiles` reste compatible et sélectionne le fournisseur de
+  démonstration par défaut ;
 - le dialogue d'exécution du scénario est un composant présentatif autonome. La page Dashboard
   conserve appels API, validation métier et transitions ; le composant gère rendu, focus et scroll ;
 - `I18nService`, le pipe `t` et le sélecteur de langue fournissent FR/EN/PT/ES, stockent seulement

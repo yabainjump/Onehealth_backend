@@ -9,7 +9,7 @@
 - `npm run api:check` (Dashboard): passed; the generated Angular types match
   `contracts/dashboard-api.openapi.yaml`.
 - `npm run lint` (Dashboard): passed.
-- `npm test -- --watch=false --browsers=ChromeHeadless --no-progress` (Dashboard): 73 tests passed.
+- `npm test -- --watch=false --browsers=ChromeHeadless --no-progress` (Dashboard): 74 tests passed.
 - `npm run build` (Dashboard): production build passed.
 - `npm ci --dry-run` (Dashboard): passed.
 - `npm audit --omit=dev --audit-level=high` (Dashboard): zero known production vulnerabilities.
@@ -26,6 +26,8 @@ there is therefore no backend runtime regression surface requiring a new applica
   tile-provider URL.
 - The `none` provider is covered by a unit test and leaves local borders and signals operational
   without an external basemap.
+- An older ignored or server-generated `environment.ts` without `mapTiles` remains buildable and
+  falls back to the demonstration provider; this deployment-transition case is covered by a test.
 - Invalid custom tile settings fall back safely instead of injecting an arbitrary URL.
 - Language selection is limited to French, English, Portuguese and Spanish, persisted locally,
   reflected in the document language and covered by service/pipe tests. French remains the
@@ -47,5 +49,5 @@ there is therefore no backend runtime regression surface requiring a new applica
 - Independent Dashboard CI jobs must retrieve the exact backend contract version before running
   generation and drift validation.
 - Karma can log a missing Inter font asset in its isolated test server; the production build embeds
-  the font correctly and the warning does not affect the 73 passing tests.
+  the font correctly and the warning does not affect the 74 passing tests.
 - No production deployment, Git push or database migration was performed as part of this change.
