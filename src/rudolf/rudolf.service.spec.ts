@@ -7,9 +7,9 @@ import {
 import { DistributedLeaseService } from '../coordination/distributed-lease.service';
 import { RuntimeLifecycleService } from '../runtime/runtime-lifecycle.service';
 import {
-  GroqProviderService,
+  OpenRouterProviderService,
   RudolfProviderError,
-} from './groq-provider.service';
+} from './openrouter-provider.service';
 import { RudolfConversation } from './schemas/rudolf-conversation.schema';
 import { RudolfService } from './rudolf.service';
 
@@ -95,7 +95,7 @@ describe('RudolfService', () => {
       isConfigured: true,
       model: 'test-model',
       stream,
-    } as unknown as GroqProviderService;
+    } as unknown as OpenRouterProviderService;
     const lease = createLease();
     const service = new RudolfService(
       model,
@@ -157,7 +157,7 @@ describe('RudolfService', () => {
         yield 'Début';
         throw new RudolfProviderError('unavailable');
       }),
-    } as unknown as GroqProviderService;
+    } as unknown as OpenRouterProviderService;
     const lease = createLease();
     const service = new RudolfService(
       model,
@@ -187,7 +187,7 @@ describe('RudolfService', () => {
       isConfigured: true,
       model: 'test-model',
       stream,
-    } as unknown as GroqProviderService;
+    } as unknown as OpenRouterProviderService;
     const service = new RudolfService(
       model,
       provider,
@@ -217,7 +217,7 @@ describe('RudolfService', () => {
     const provider = {
       isConfigured: true,
       model: 'test-model',
-    } as unknown as GroqProviderService;
+    } as unknown as OpenRouterProviderService;
     const service = new RudolfService(
       model,
       provider,
@@ -249,7 +249,7 @@ describe('RudolfService', () => {
           );
         });
       }),
-    } as unknown as GroqProviderService;
+    } as unknown as OpenRouterProviderService;
     const service = new RudolfService(
       model,
       provider,
@@ -283,7 +283,7 @@ describe('RudolfService', () => {
     const provider = {
       isConfigured: true,
       model: 'test-model',
-    } as unknown as GroqProviderService;
+    } as unknown as OpenRouterProviderService;
     const service = new RudolfService(
       model,
       provider,

@@ -70,7 +70,8 @@ npm test -- --watch=false --browsers=ChromeHeadless
 - Communauté : `https://onehealthnetwork.yaba-in.com`.
 - Dashboard : `https://onehealthdashboard.yaba-in.com`.
 - Le backend exige une seule variable `CORS_ORIGIN` contenant toutes les origines séparées par des virgules.
-- `GROQ_API_KEY` reste uniquement dans le backend.
+- `OPENROUTER_API_KEY` reste uniquement dans le backend ; ne jamais le copier dans Ionic ou Angular.
+- Modèle Rudolf par défaut : `meta-llama/llama-3.3-70b-instruct` (payant), avec routage `data_collection: deny` et `zdr: true`. `HUB_AI_EXTERNAL_PROVIDER_ENABLED` reste `false` tant que la revue de souveraineté/résidence n'a pas autorisé l'envoi de données Hub au fournisseur externe.
 - Swagger peut être désactivé sans empêcher les clients d’appeler l’API.
 - Les fichiers `environment*.ts` du Dashboard sont ignorés : comparer les examples et la configuration générée au déploiement.
 

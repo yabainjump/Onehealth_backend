@@ -1,7 +1,7 @@
 # Architecture — One Health Network
 
 **Version :** 1.8  
-**Synchronisation code :** 24 septembre 2026 (fondations Dashboard : docs, carte, composants, OpenAPI, i18n)  
+**Synchronisation code :** 26 septembre 2026 (OpenRouter ; fondations Dashboard du 24 septembre)
 **Révisions inspectées :** backend `f5d2e87` + invariant de stockage persistant en cours, dashboard `131e961` + identité visuelle locale, frontend `f1a6906`  
 **Document détaillé historique du Hub :** `../DECISIONS_ARCHITECTURE_ET_PLAN_MVP_HUB_CEEAC.md`  
 **Versionnement :** document canonique suivi dans `onehealth_backend/docs/project/`
@@ -25,7 +25,7 @@ Utilisateurs communautaires                Acteurs institutionnels CEEAC
                                    ▼
                     ┌──────────────────────────────┐
                     │ PM2 cluster : 2 workers      │
-                    │ NestJS REST / JWT / Groq     │
+                    │ NestJS REST / JWT / OpenRouter│
                     └──────┬──────────┬────────────┘
                            │          │
              ┌─────────────▼──┐   ┌───▼────────────────┐
@@ -49,7 +49,7 @@ One_health2/
 
 | Dépôt | Responsabilité | Ne doit pas contenir |
 |---|---|---|
-| `onehealth_frontend` | présentation et interactions communautaires | secret, règle d’autorisation faisant foi, clé Groq |
+| `onehealth_frontend` | présentation et interactions communautaires | secret, règle d’autorisation faisant foi, clé OpenRouter |
 | `onehealth_dashboard` | présentation et interactions Hub | accès direct MongoDB, décision métier uniquement client |
 | `onehealth_backend` | règles, autorisations, persistance et intégrations | logique visuelle spécifique à un écran |
 
@@ -61,7 +61,7 @@ One_health2/
 | Dashboard | Angular 20 standalone, signals, Lucide, Leaflet |
 | Backend | Node.js 20, NestJS 11, Mongoose 9, REST, Swagger conditionnel |
 | Authentification | JWT, bcrypt, Google Identity Services côté client + vérification serveur |
-| IA | Groq SDK, modèle configurable, prompts Rudolf spécialisés |
+| IA | SDK OpenAI 6.x compatible Node 20 vers API OpenRouter, modèle configurable, prompts Rudolf spécialisés |
 | Email | Nodemailer/SMTP |
 | Images | Sharp, stockage local géré et anciennes URL Firebase compatibles |
 | Production cible du pilote | Jenkins CI/CD, Apache/cPanel TLS/reverse proxy, PM2 à deux workers |
@@ -104,7 +104,7 @@ src/
 ├── upload/           validation et stockage des médias
 ├── media/            miniatures, posters et images sociales
 ├── share/            pages sociales, métadonnées et sitemap
-├── rudolf/           conversations et fournisseur Groq
+├── rudolf/           conversations et fournisseur OpenRouter
 ├── hub/              ingestion, souveraineté, analyse et workflow CEEAC
 ├── mail/              courriels transactionnels
 ├── health/            sondes publique live/ready
@@ -394,7 +394,7 @@ connecteurs réels et ne pourra pas être remplacée par la projection visuelle 
 - aucun diagnostic ni remplacement d’autorité.
 - toute génération ou suppression acquiert un bail MongoDB temporaire par conversation ; une
   collision renvoie `409 conversation_busy` et `Retry-After` ;
-- une déconnexion ou la fin forcée du drainage interrompt Groq et ne persiste jamais une réponse
+- une déconnexion ou la fin forcée du drainage interrompt OpenRouter et ne persiste jamais une réponse
   partielle ; la libération est liée au jeton propriétaire et l'expiration permet la reprise.
 
 ### 9.2. Hub
@@ -404,7 +404,7 @@ Utilisateur autorisé
     ↓ JWT + HubAnalystGuard + limite de débit
 Backend récupère les observations autorisées
     ↓ réduction/minimisation du contexte
-Groq reçoit contexte + instruction système
+OpenRouter reçoit contexte + instruction système
     ↓
 Brouillon Markdown sécurisé
     ↓
@@ -412,6 +412,37 @@ Affichage + validation humaine + audit ai-draft
 ```
 
 Usages : synthèse d’un dossier d’alerte, projet de rapport, explication multisectorielle et assistant latéral. Le prompt traite les contenus sources comme des données non fiables et ignore leurs instructions. Une campagne de tests adversariaux reste obligatoire avant données réelles.
+
+### 9.3. Fournisseur OpenRouter — 26 septembre 2026
+
+Un seul adaptateur `OpenRouterProviderService` dessert le chat et les brouillons Hub. Il utilise
+`https://openrouter.ai/api/v1` avec `OPENROUTER_API_KEY` côté serveur uniquement. Le modèle par
+défaut est `meta-llama/llama-3.3-70b-instruct` (payant) ; `OPENROUTER_MODEL` permet un identifiant
+explicite différent. Les deux chemins, réponse complète et streaming, imposent
+`provider.data_collection=deny` et `provider.zdr=true`. Aucun repli vers un fournisseur plus
+permissif ou un autre modèle n'est effectué. Si aucun endpoint compatible ne répond, Rudolf
+échoue seul ; les autres API et la readiness restent disponibles.
+
+L'appel est borné par `OPENROUTER_TIMEOUT_MS` (60 s par défaut, sans retry automatique) ;
+`DISTRIBUTED_LEASE_TTL_MS` doit lui être supérieur d'au moins 5 s. La réponse et les erreurs
+brutes du fournisseur ne sont pas journalisées. Les HTTP 401, 402 et 429 sont classés sans
+exposer les corps fournisseur. Le streaming interrompt la génération si le client part et ne
+persiste aucune réponse incomplète.
+
+`HUB_AI_EXTERNAL_PROVIDER_ENABLED=false` par défaut interdit tout appel Hub vers OpenRouter ;
+le chat communautaire peut néanmoins fonctionner. Activer les quatre usages Hub seulement après
+revue de souveraineté, résidence, sous-traitants, rétention et contrats des données réelles.
+ZDR ne signifie pas que les données restent sur le serveur : elles transitent par OpenRouter et
+un fournisseur de modèle. Les sorties restent des brouillons soumis à un humain.
+
+Déploiement : créer une clé dédiée avec limite de dépenses sur OpenRouter, ajouter
+`OPENROUTER_API_KEY` au `.env` **du backend de production uniquement**, en conservant les autres
+variables et une seule définition par nom. Ne pas placer la clé dans les frontends, Git, Jenkins
+ou les journaux. Déployer ensuite le backend, vérifier `/api/health/ready`, puis tester un message
+Rudolf et une réponse progressive avec un compte de test. Une ancienne ligne `GROQ_API_KEY` est
+ignorée ; elle peut être conservée brièvement pour rollback puis supprimée sans afficher sa valeur.
+Rollback : redéployer la révision précédente, qui relira la clé Groq toujours présente sur le
+serveur ; ne pas toucher à `/home/yabain/apps/onehealth-data/uploads`.
 
 ## 10. API Hub publique applicative
 

@@ -2,7 +2,7 @@
 
 **Version :** 1.6  
 **Date de référence :** 22 août 2026  
-**Dernière mise à jour fonctionnelle :** 24 septembre 2026  
+**Dernière mise à jour fonctionnelle :** 26 septembre 2026
 **Statut :** cadrage du produit existant et de sa cible  
 **Versionnement :** document canonique suivi dans `onehealth_backend/docs/project/`
 
@@ -113,7 +113,7 @@ les formats web et principal sont choisis selon la taille d'affichage, sans char
 - règles de détection validées par des experts mandatés ;
 - tests de charge, pentest, revue juridique et homologation ;
 - stratégie de tuiles cartographiques compatible avec le trafic attendu ;
-- tests adversariaux de Rudolf et mesure des coûts/quotas Groq.
+- tests adversariaux de Rudolf, revue de résidence des données OpenRouter et mesure des coûts/quotas.
 
 ### 5.4. P2 après validation du pilote
 
@@ -171,7 +171,7 @@ doivent précéder un usage institutionnel à grand volume.
 - pagination des listes et index sur filtres principaux ;
 - réponses API dynamiques non mises en cache par un proxy ;
 - médias mis en cache de manière contrôlée ;
-- appels Groq limités, temporisés et non bloquants pour les autres modules ;
+- appels OpenRouter limités, temporisés et non bloquants pour les autres modules ;
 - cible pilote à définir après mesures : p95, taux d’erreur, volume/jour et utilisateurs concurrents.
 
 ### Qualité et maintenabilité

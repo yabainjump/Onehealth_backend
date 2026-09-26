@@ -136,22 +136,27 @@ export const environmentValidationSchema = Joi.object({
   SMTP_USER: Joi.string().optional(),
   SMTP_PASS: Joi.string().optional(),
   MAIL_FROM: Joi.string().optional(),
-  GROQ_API_KEY: Joi.string()
+  OPENROUTER_API_KEY: Joi.string()
     .trim()
     .allow('')
     .min(20)
-    .pattern(/^gsk_/)
+    .pattern(/^sk-or-v1-/)
     .optional(),
-  GROQ_MODEL: Joi.string()
+  OPENROUTER_MODEL: Joi.string()
     .trim()
     .min(3)
     .max(120)
-    .default('llama-3.3-70b-versatile'),
-  GROQ_TIMEOUT_MS: Joi.number()
+    .pattern(/^[A-Za-z0-9._~:-]+\/[A-Za-z0-9._~:-]+$/)
+    .default('meta-llama/llama-3.3-70b-instruct'),
+  OPENROUTER_TIMEOUT_MS: Joi.number()
     .integer()
     .min(5_000)
     .max(60_000)
-    .default(30_000),
+    .default(60_000),
+  HUB_AI_EXTERNAL_PROVIDER_ENABLED: Joi.boolean()
+    .truthy('true')
+    .falsy('false')
+    .default(false),
   RUDOLF_RATE_LIMIT_PER_10_MIN: Joi.number()
     .integer()
     .min(1)
@@ -181,12 +186,12 @@ export const environmentValidationSchema = Joi.object({
     });
   }
 
-  const providerTimeout = Number(environment.GROQ_TIMEOUT_MS ?? 30_000);
+  const providerTimeout = Number(environment.OPENROUTER_TIMEOUT_MS ?? 60_000);
   const leaseTtl = Number(environment.DISTRIBUTED_LEASE_TTL_MS ?? 75_000);
   if (leaseTtl < providerTimeout + 5_000) {
     return helpers.error('any.custom', {
       message:
-        'DISTRIBUTED_LEASE_TTL_MS must exceed GROQ_TIMEOUT_MS by at least 5000 ms',
+        'DISTRIBUTED_LEASE_TTL_MS must exceed OPENROUTER_TIMEOUT_MS by at least 5000 ms',
     });
   }
   return environment;

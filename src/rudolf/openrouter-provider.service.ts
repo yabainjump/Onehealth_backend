@@ -1,13 +1,17 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import Groq, {
+import OpenAI, {
   APIConnectionTimeoutError,
   APIError,
   APIUserAbortError,
   AuthenticationError,
   RateLimitError,
-} from 'groq-sdk';
-import type { ChatCompletionMessageParam } from 'groq-sdk/resources/chat/completions';
+} from 'openai';
+import type {
+  ChatCompletionCreateParamsNonStreaming,
+  ChatCompletionCreateParamsStreaming,
+  ChatCompletionMessageParam,
+} from 'openai/resources/chat/completions';
 import { RUDOLF_SYSTEM_PROMPT } from './rudolf.prompt';
 
 export type RudolfProviderMessage = {
@@ -20,6 +24,7 @@ export type RudolfProviderErrorKind =
   | 'aborted'
   | 'timeout'
   | 'rate_limit'
+  | 'insufficient_credit'
   | 'authentication'
   | 'unavailable';
 
@@ -30,20 +35,33 @@ export class RudolfProviderError extends Error {
   }
 }
 
+const PRIVACY_ROUTING = {
+  provider: { data_collection: 'deny', zdr: true },
+} as const;
+
 @Injectable()
-export class GroqProviderService {
-  private readonly logger = new Logger(GroqProviderService.name);
-  private readonly client: Groq | null;
+export class OpenRouterProviderService {
+  private readonly logger = new Logger(OpenRouterProviderService.name);
+  private readonly client: OpenAI | null;
+  private readonly timeoutMs: number;
   readonly model: string;
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('GROQ_API_KEY')?.trim();
-    const timeout = this.configService.get<number>('GROQ_TIMEOUT_MS') ?? 30_000;
+    const apiKey = this.configService.get<string>('OPENROUTER_API_KEY')?.trim();
+    this.timeoutMs =
+      this.configService.get<number>('OPENROUTER_TIMEOUT_MS') ?? 60_000;
     this.model =
-      this.configService.get<string>('GROQ_MODEL')?.trim() ||
-      'llama-3.3-70b-versatile';
+      this.configService.get<string>('OPENROUTER_MODEL')?.trim() ||
+      'meta-llama/llama-3.3-70b-instruct';
 
-    this.client = apiKey ? new Groq({ apiKey, timeout, maxRetries: 2 }) : null;
+    this.client = apiKey
+      ? new OpenAI({
+          apiKey,
+          baseURL: 'https://openrouter.ai/api/v1',
+          timeout: this.timeoutMs,
+          maxRetries: 0,
+        })
+      : null;
   }
 
   get isConfigured(): boolean {
@@ -57,18 +75,24 @@ export class GroqProviderService {
   ): Promise<string> {
     const client = this.requireClient();
     const messages = this.buildMessages(history, systemPrompt);
+    const deadline = AbortSignal.timeout(this.timeoutMs);
+    const requestSignal = signal
+      ? AbortSignal.any([signal, deadline])
+      : deadline;
 
     try {
-      const completion = await client.chat.completions.create(
-        {
-          model: this.model,
-          messages,
-          temperature: 0.2,
-          max_completion_tokens: 900,
-          top_p: 1,
-        },
-        signal ? { signal } : undefined,
-      );
+      const request: ChatCompletionCreateParamsNonStreaming &
+        typeof PRIVACY_ROUTING = {
+        model: this.model,
+        messages,
+        temperature: 0.2,
+        max_completion_tokens: 900,
+        top_p: 1,
+        ...PRIVACY_ROUTING,
+      };
+      const completion = await client.chat.completions.create(request, {
+        signal: requestSignal,
+      });
 
       const content = completion.choices[0]?.message?.content?.trim();
       if (!content) {
@@ -77,6 +101,8 @@ export class GroqProviderService {
 
       return content.slice(0, 12_000);
     } catch (error) {
+      if (deadline.aborted && !signal?.aborted)
+        throw new RudolfProviderError('timeout');
       this.rethrowProviderError(error);
     }
   }
@@ -87,31 +113,41 @@ export class GroqProviderService {
   ): AsyncGenerator<string, void, void> {
     const client = this.requireClient();
     const messages = this.buildMessages(history);
+    const deadline = AbortSignal.timeout(this.timeoutMs);
+    const requestSignal = signal
+      ? AbortSignal.any([signal, deadline])
+      : deadline;
 
     try {
-      const stream = await client.chat.completions.create(
-        {
-          model: this.model,
-          messages,
-          temperature: 0.2,
-          max_completion_tokens: 900,
-          top_p: 1,
-          stream: true,
-        },
-        signal ? { signal } : undefined,
-      );
+      const request: ChatCompletionCreateParamsStreaming &
+        typeof PRIVACY_ROUTING = {
+        model: this.model,
+        messages,
+        temperature: 0.2,
+        max_completion_tokens: 900,
+        top_p: 1,
+        stream: true,
+        ...PRIVACY_ROUTING,
+      };
+      const stream = await client.chat.completions.create(request, {
+        signal: requestSignal,
+      });
 
       for await (const chunk of stream) {
+        if (deadline.aborted) throw new RudolfProviderError('timeout');
         if (signal?.aborted) throw new RudolfProviderError('aborted');
+        if ('error' in chunk) throw new RudolfProviderError('unavailable');
         const content = chunk.choices[0]?.delta?.content;
         if (content) yield content;
       }
     } catch (error) {
+      if (deadline.aborted && !signal?.aborted)
+        throw new RudolfProviderError('timeout');
       this.rethrowProviderError(error);
     }
   }
 
-  private requireClient(): Groq {
+  private requireClient(): OpenAI {
     if (!this.client) throw new RudolfProviderError('not_configured');
     return this.client;
   }
@@ -141,15 +177,21 @@ export class GroqProviderService {
       throw new RudolfProviderError('rate_limit');
     }
     if (error instanceof AuthenticationError) {
-      this.logger.error('Groq rejected the configured API credential.');
+      this.logger.error('OpenRouter rejected the configured API credential.');
       throw new RudolfProviderError('authentication');
     }
 
     const statusValue: unknown =
       error instanceof APIError ? error.status : undefined;
     const status = typeof statusValue === 'number' ? statusValue : undefined;
+    if (status === 402) {
+      throw new RudolfProviderError('insufficient_credit');
+    }
+    if (status === 429) {
+      throw new RudolfProviderError('rate_limit');
+    }
     this.logger.error(
-      `Groq request failed${status ? ` with status ${status}` : ''}.`,
+      `OpenRouter request failed${status ? ` with status ${status}` : ''}.`,
     );
     throw new RudolfProviderError('unavailable');
   }

@@ -1,7 +1,7 @@
 # Architecture Essentials — revue critique
 
 **But :** conserver uniquement les décisions qui protègent le produit et obliger chaque revue à poser trois questions : qu’est-ce qui va casser, quels cas limites manquent, qu’avons-nous surconçu ?
-**Dernière synchronisation :** 24 septembre 2026.
+**Dernière synchronisation :** 26 septembre 2026.
 
 ## 1. Les vingt-et-une décisions critiques
 
@@ -195,6 +195,12 @@ pays sélectionné conserve un remplissage ; les autres contours restent visible
 
 Envoyer trop d’observations augmente coût, latence et risque d’instructions malveillantes dans les données. Résumer côté serveur, limiter les champs, plafonner le nombre d’éléments et exposer les IDs utilisés.
 
+L'adaptateur OpenRouter refuse les fournisseurs qui collectent les données et exige un endpoint
+ZDR. Cela ne remplace pas une revue de résidence ni un accord de traitement : le Hub IA externe
+reste désactivé par défaut, tandis que Rudolf communautaire peut être activé avec une clé backend.
+Une clé dédiée avec plafond de dépenses réduit l'exposition financière. Sans crédit ou endpoint
+éligible, seul Rudolf échoue ; aucune autorisation ni readiness métier ne doit être relâchée.
+
 ## 3. Cas limites manquants ou à renforcer
 
 ### Données et temps
@@ -232,7 +238,7 @@ Envoyer trop d’observations augmente coût, latence et risque d’instructions
 ### IA
 
 - prompt injection dans `title`, `summary` ou payload source ;
-- réponse incomplète, timeout, quota Groq ou modèle retiré ;
+- réponse incomplète, timeout, quota/crédits OpenRouter ou modèle retiré ;
 - réponse contenant HTML/Markdown hostile ;
 - affirmation de causalité malgré les consignes ;
 - contexte vide ou exclusivement mono-sectoriel ;
@@ -284,7 +290,7 @@ Ne pas recopier automatiquement les alertes communautaires dans le Hub. D’abor
 2. Est-ce une fonction communautaire, Hub ou partagée ?
 3. Quelle donnée entre, où est-elle stockée et qui peut la voir ?
 4. Peut-elle créer un doublon, une fuite entre pays ou une transition invalide ?
-5. Que se passe-t-il si le réseau, MongoDB, Groq, SMTP ou la carte échoue ?
+5. Que se passe-t-il si le réseau, MongoDB, OpenRouter, SMTP ou la carte échoue ?
 6. Comment distingue-t-on vide, erreur, simulé et réel ?
 7. Le frontend essaie-t-il de faire respecter une règle qui doit être serveur ?
 8. Quelle trace d’audit faut-il garder sans journaliser de secret ?

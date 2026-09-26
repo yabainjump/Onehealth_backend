@@ -83,9 +83,32 @@ describe('environmentValidationSchema', () => {
     expect(
       environmentValidationSchema.validate({
         ...validEnvironment(),
-        GROQ_TIMEOUT_MS: 60_000,
+        OPENROUTER_TIMEOUT_MS: 60_000,
         DISTRIBUTED_LEASE_TTL_MS: 64_999,
       }).error,
     ).toBeDefined();
+  });
+
+  it('validates OpenRouter configuration and keeps Hub export disabled by default', () => {
+    const valid = environmentValidationSchema.validate({
+      ...validEnvironment(),
+      OPENROUTER_API_KEY: `sk-or-v1-${'a'.repeat(32)}`,
+    });
+    expect(valid.error).toBeUndefined();
+    expect(valid.value as Record<string, unknown>).toMatchObject({
+      HUB_AI_EXTERNAL_PROVIDER_ENABLED: false,
+    });
+    expect(
+      environmentValidationSchema.validate({
+        ...validEnvironment(),
+        OPENROUTER_API_KEY: 'gsk_invalid',
+      }).error,
+    ).toBeDefined();
+    expect(
+      environmentValidationSchema.validate({
+        ...validEnvironment(),
+        OPENROUTER_MODEL: 'openrouter/auto',
+      }).error,
+    ).toBeUndefined();
   });
 });

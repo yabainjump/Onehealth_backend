@@ -1,6 +1,6 @@
 import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
-import { GroqProviderService } from './groq-provider.service';
+import { OpenRouterProviderService } from './openrouter-provider.service';
 import { RudolfController } from './rudolf.controller';
 import { RudolfIndexMigrationService } from './rudolf-index-migration.service';
 import { RudolfRateLimitGuard } from './rudolf-rate-limit.guard';
@@ -23,11 +23,11 @@ import { CoordinationModule } from '../coordination/coordination.module';
   ],
   controllers: [RudolfController],
   providers: [
-    GroqProviderService,
+    OpenRouterProviderService,
     RudolfIndexMigrationService,
     RudolfRateLimitGuard,
     RudolfService,
   ],
-  exports: [GroqProviderService, RudolfRateLimitGuard, RudolfService],
+  exports: [OpenRouterProviderService, RudolfRateLimitGuard, RudolfService],
 })
 export class RudolfModule {}

@@ -34,7 +34,7 @@ export class RuntimeDependencyProbeService {
 
   getDegradedCapabilities(): OptionalCapability[] {
     const degraded: OptionalCapability[] = [];
-    if (!this.configService.get<string>('GROQ_API_KEY')?.trim()) {
+    if (!this.configService.get<string>('OPENROUTER_API_KEY')?.trim()) {
       degraded.push('rudolf');
     }
     if (!this.configService.get<string>('SMTP_HOST')?.trim()) {

@@ -6,9 +6,10 @@ import {
 } from '@nestjs/common';
 import type { PublicUser } from '../../users/interfaces/public-user.interface';
 import {
-  GroqProviderService,
+  OpenRouterProviderService,
   RudolfProviderError,
-} from '../../rudolf/groq-provider.service';
+} from '../../rudolf/openrouter-provider.service';
+import { ConfigService } from '@nestjs/config';
 import { HubAiAssistantDto, HubAiScopeDto } from '../dto/hub-ai.dto';
 import { resolveHubCountryScope } from '../hub-access-scope';
 import { HubRepository } from '../repositories/hub.repository';
@@ -27,7 +28,8 @@ N'affiche jamais la syntaxe Markdown comme un exemple et n'utilise pas de tablea
 export class HubAiService {
   constructor(
     private readonly repository: HubRepository,
-    private readonly groq: GroqProviderService,
+    private readonly aiProvider: OpenRouterProviderService,
+    private readonly configService: ConfigService,
   ) {}
 
   async alertSummary(id: string, user: PublicUser) {
@@ -124,8 +126,13 @@ export class HubAiService {
     entityId: string,
     sourceIds: readonly string[],
   ) {
+    if (!this.configService.get<boolean>('HUB_AI_EXTERNAL_PROVIDER_ENABLED')) {
+      throw new ServiceUnavailableException(
+        'Rudolf Hub attend la validation du fournisseur externe.',
+      );
+    }
     try {
-      const content = await this.groq.complete(
+      const content = await this.aiProvider.complete(
         [{ role: 'user', content: prompt }],
         HUB_AI_PROMPT,
       );
@@ -138,14 +145,14 @@ export class HubAiService {
         countryCode,
         isDemo: true,
         metadata: {
-          model: this.groq.model,
+          model: this.aiProvider.model,
           sourceIds: sourceIds.slice(0, 100),
         },
       });
       return {
         content,
         mode,
-        model: this.groq.model,
+        model: this.aiProvider.model,
         generatedAt: new Date().toISOString(),
         sourceIds,
         humanValidationRequired: true,

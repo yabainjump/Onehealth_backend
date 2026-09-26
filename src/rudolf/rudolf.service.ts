@@ -21,10 +21,10 @@ import {
 import { RuntimeLifecycleService } from '../runtime/runtime-lifecycle.service';
 import { SendRudolfMessageDto } from './dto/send-rudolf-message.dto';
 import {
-  GroqProviderService,
+  OpenRouterProviderService,
   RudolfProviderError,
   RudolfProviderMessage,
-} from './groq-provider.service';
+} from './openrouter-provider.service';
 import {
   RudolfConversation,
   RudolfMessage,
@@ -83,7 +83,7 @@ export class RudolfService {
   constructor(
     @InjectModel(RudolfConversation.name)
     private readonly conversationModel: Model<RudolfConversation>,
-    private readonly groqProvider: GroqProviderService,
+    private readonly aiProvider: OpenRouterProviderService,
     private readonly distributedLease: DistributedLeaseService,
     private readonly lifecycle: RuntimeLifecycleService,
   ) {}
@@ -122,8 +122,8 @@ export class RudolfService {
       .exec();
 
     return {
-      configured: this.groqProvider.isConfigured,
-      model: this.groqProvider.model,
+      configured: this.aiProvider.isConfigured,
+      model: this.aiProvider.model,
       conversations: conversations.map((conversation) =>
         this.toProjectedConversationSummary(conversation),
       ),
@@ -160,8 +160,8 @@ export class RudolfService {
     };
 
     return {
-      configured: this.groqProvider.isConfigured,
-      model: this.groqProvider.model,
+      configured: this.aiProvider.isConfigured,
+      model: this.aiProvider.model,
       conversation: this.toConversationSummary(row),
       messages: [],
     };
@@ -174,8 +174,8 @@ export class RudolfService {
     );
 
     return {
-      configured: this.groqProvider.isConfigured,
-      model: this.groqProvider.model,
+      configured: this.aiProvider.isConfigured,
+      model: this.aiProvider.model,
       conversation: this.toConversationSummary(conversation),
       messages: conversation.messages.map((message) =>
         this.toPublicMessage(message),
@@ -220,7 +220,7 @@ export class RudolfService {
       const signal = this.operationSignal(clientSignal);
 
       try {
-        for await (const delta of this.groqProvider.stream(context, signal)) {
+        for await (const delta of this.aiProvider.stream(context, signal)) {
           const remaining = MAX_ANSWER_CHARACTERS - answer.length;
           if (remaining <= 0) break;
           const safeDelta = delta.slice(0, remaining);
@@ -270,7 +270,7 @@ export class RudolfService {
 
       let answer: string;
       try {
-        answer = await this.groqProvider.complete(context, undefined, signal);
+        answer = await this.aiProvider.complete(context, undefined, signal);
       } catch (error) {
         this.rethrowProviderError(error);
       }
@@ -286,8 +286,8 @@ export class RudolfService {
   async getConversation(userId: string) {
     const conversation = await this.findLatestConversation(userId);
     return {
-      configured: this.groqProvider.isConfigured,
-      model: this.groqProvider.model,
+      configured: this.aiProvider.isConfigured,
+      model: this.aiProvider.model,
       messages: (conversation?.messages ?? []).map((message) =>
         this.toPublicMessage(message),
       ),
@@ -542,6 +542,11 @@ export class RudolfService {
       throw new HttpException(
         'The AI provider is busy. Please try again shortly.',
         HttpStatus.TOO_MANY_REQUESTS,
+      );
+    }
+    if (error.kind === 'insufficient_credit') {
+      throw new ServiceUnavailableException(
+        'The AI provider credit limit has been reached.',
       );
     }
     if (error.kind === 'not_configured' || error.kind === 'authentication') {
