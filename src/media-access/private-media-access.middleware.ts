@@ -32,6 +32,19 @@ export function createPrivateMediaAccessMiddleware(
       return;
     }
 
+    // express.static normalizes dot segments *after* this middleware. Never
+    // decide that a path is public before rejecting alternate spellings that
+    // could normalize into /uploads/message or /uploads/certification.
+    if (
+      pathname.startsWith('/uploads') &&
+      !/^\/uploads\/(profile|post|message|certification)\/[a-z0-9._-]+$/.test(
+        pathname,
+      )
+    ) {
+      reject(res, 400, 'Bad Request', 'Le chemin de la requête est invalide.');
+      return;
+    }
+
     if (!MediaSignatureService.isProtectedPath(pathname)) {
       next();
       return;

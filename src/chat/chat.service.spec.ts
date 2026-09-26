@@ -5,6 +5,7 @@ import { ChatRoom } from './schemas/chat-room.schema';
 import { ChatMessage } from './schemas/chat-message.schema';
 import { UsersService } from '../users/users.service';
 import { MediaSignatureService } from '../media-access/media-signature.service';
+import { UploadService } from '../upload/upload.service';
 
 describe('ChatService bounded room participants', () => {
   const me = new Types.ObjectId();
@@ -35,11 +36,13 @@ describe('ChatService bounded room participants', () => {
     ),
   };
   const signer = { sign: jest.fn() };
+  const uploads = { verifyPrivateUpload: jest.fn() };
   const service = new ChatService(
     rooms as unknown as Model<ChatRoom>,
     messages as unknown as Model<ChatMessage>,
     users as unknown as UsersService,
     signer as unknown as MediaSignatureService,
+    uploads as unknown as UploadService,
   );
 
   beforeEach(() => {
@@ -108,5 +111,48 @@ describe('ChatService bounded room participants', () => {
     expect(messages.updateMany).not.toHaveBeenCalled();
     expect(messages.create).not.toHaveBeenCalled();
     expect(signer.sign).not.toHaveBeenCalled();
+  });
+
+  it('rejects an attachment from another uploader before creating a message', async () => {
+    query.exec.mockResolvedValue(room);
+    uploads.verifyPrivateUpload.mockReturnValue(null);
+    await expect(
+      service.sendMessage(room._id.toString(), me.toString(), {
+        fileUrl: 'https://api.test/uploads/message/stolen.pdf?exp=1&sig=stolen',
+      }),
+    ).rejects.toBeInstanceOf(ForbiddenException);
+    expect(messages.create).not.toHaveBeenCalled();
+  });
+
+  it('stores only the canonical URL after a valid sender-bound upload claim', async () => {
+    query.exec.mockResolvedValue({ ...room, save: jest.fn() });
+    uploads.verifyPrivateUpload.mockReturnValue(
+      'https://api.test/uploads/message/own.pdf',
+    );
+    const message = {
+      _id: new Types.ObjectId(),
+      roomId: room._id,
+      senderId: me,
+      fileUrl: 'https://api.test/uploads/message/own.pdf',
+      fileName: 'own.pdf',
+      readBy: [me],
+      createdAt: new Date(),
+    };
+    messages.create.mockResolvedValue(message);
+    signer.sign.mockImplementation((url: string) => url);
+    await service.sendMessage(room._id.toString(), me.toString(), {
+      fileUrl: 'https://api.test/uploads/message/own.pdf?claim=valid',
+      fileName: 'own.pdf',
+    });
+    expect(messages.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        fileUrl: 'https://api.test/uploads/message/own.pdf',
+      }),
+    );
+    expect(uploads.verifyPrivateUpload).toHaveBeenCalledWith(
+      'https://api.test/uploads/message/own.pdf?claim=valid',
+      me.toString(),
+      'message',
+    );
   });
 });

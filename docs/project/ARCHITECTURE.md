@@ -132,8 +132,20 @@ La convention cible est : `controller → service → repository/model`. Les con
   publics, car les robots d'aperçu social et les visionneuses de documents externes en dépendent.
   Une réponse privée porte `Cache-Control: private, no-store, max-age=0`, tandis que le cache statique
   de 30 jours reste limité aux médias publics. Un chemin mal encodé est refusé en HTTP 400 ;
+- `/uploads/certification/` suit la même barrière de lecture, mais l'accès est émis
+  seulement dans la réponse au demandeur ou à un administrateur. `POST /api/upload/certification`
+  stocke le document dans cet espace séparé. L'envoi d'un message ou d'une demande de
+  certification exige une preuve HMAC de téléversement liée au compte : la signature
+  de lecture seule n'autorise pas une nouvelle publication. La preuve est ôtée avant
+  persistance. L'ancien client de certification utilisant `/upload/post` ne peut plus
+  soumettre tant qu'il n'a pas reçu le nouveau frontend ; déployer les deux de façon
+  rapprochée ;
 - `/api/media/*` refuse les chemins privés : ce service lit le disque directement et renverrait
   sinon une copie redimensionnée d'un contenu protégé.
+- Les anciens justificatifs `post` sont migrés séparément, avec inventaire, sauvegarde,
+  détection des références publiques partagées et retrait de la source seulement si
+  elle n'est pas utilisée ailleurs. Le déploiement normal ne déclenche jamais cette
+  migration et ne touche jamais le dossier persistant hors dépôt.
 - `/api/health/live` indique que le processus répond ; `/api/health/ready` exige les deux connexions
   MongoDB et le stockage média ; `/api/health` reste compatible ;
 - un worker non prêt refuse les nouvelles routes applicatives avec HTTP 503, draine les requêtes en
@@ -263,6 +275,9 @@ Portée      : hubCountryCodes[]
 
 Routes principales : accueil public, login/register/reset, fil `/tabs/dashbord`, messages `/tabs/home`, alertes `/tabs/alerts`, notifications, profils, publication, certification et administration.
 
+Les formulaires email/mot de passe, y compris l'ancienne route publique `/register2`,
+n'écrivent jamais leurs valeurs, réponses ou erreurs dans la console du navigateur.
+
 Rudolf se trouve dans Messages → Rudolf IA. Les conversations privées sont persistées côté backend et les réponses sont diffusées en NDJSON progressif.
 
 Le service worker Angular peut conserver une ancienne version : toute modification de CSP, de médias ou de ressources externes doit être testée avec mise à jour PWA et rechargement normal, pas seulement avec `Ctrl+Shift+R`. Les galeries demandent d'abord une miniature backend, retombent une seule fois sur le fichier original et affichent ensuite un état « Image indisponible » sans boucle ni image native cassée.
@@ -301,6 +316,13 @@ Routes protégées : `/dashboard`, `/etat-membre`, `/carte`, `/alertes`, `/alert
 `/etat-membre` n'élargit jamais la portée : la page agrège uniquement les observations déjà filtrées par l'API pour l'utilisateur connecté. `/profil` persiste les champs personnels via `PATCH /api/users/me`; les rôles Hub et codes pays y restent en lecture seule et sont administrés séparément. `/aide` est une base contextuelle locale sans donnée sensible ni dépendance externe.
 
 Le Dashboard charge l’API en priorité. Le fallback local simulé est utile en démonstration mais doit être désactivé dans une production institutionnelle, sinon il peut masquer une panne ou une erreur de données.
+
+La déconnexion est locale d'abord : identité, jeton et données Hub sont purgés
+synchroniquement, puis le shell protégé entier est démonté et la navigation vers
+`/connexion` démarre sans attendre la requête de révocation (meilleur effort, délai
+borné). Les instantanés locaux des rapports et les réponses Rudolf disparaissent donc
+immédiatement de l'écran, même si le réseau est lent. La réponse tardive d'une ancienne
+révocation ne doit jamais effacer une nouvelle session.
 
 Le démarrage du Dashboard conserve l’ordre sécurisé `restauration de session → périmètre Hub →
 observations`. Un écran de chargement statique est présent avant l’amorçage Angular, puis un loader

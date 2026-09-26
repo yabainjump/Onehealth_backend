@@ -14,6 +14,7 @@
     "prestart:prod": "npm run build",
     "start:prod": "node dist/main.js",
     "migrate:webp": "node -r ts-node/register/transpile-only scripts/convert-images-to-webp.ts",
+    "migrate:certification-media": "node -r ts-node/register/transpile-only scripts/migrate-certification-media.ts",
     "test:mail": "node -r ts-node/register/transpile-only scripts/test-mail.ts",
     "campaign:reset": "node -r ts-node/register/transpile-only scripts/send-password-reset-campaign.ts",
     "admin:create": "node -r ts-node/register/transpile-only scripts/create-super-admin.ts",

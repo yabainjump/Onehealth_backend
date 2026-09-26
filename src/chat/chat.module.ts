@@ -5,10 +5,12 @@ import { ChatController } from './chat.controller';
 import { ChatService } from './chat.service';
 import { ChatMessage, ChatMessageSchema } from './schemas/chat-message.schema';
 import { ChatRoom, ChatRoomSchema } from './schemas/chat-room.schema';
+import { UploadModule } from '../upload/upload.module';
 
 @Module({
   imports: [
     UsersModule,
+    UploadModule,
     MongooseModule.forFeature([
       { name: ChatRoom.name, schema: ChatRoomSchema },
       { name: ChatMessage.name, schema: ChatMessageSchema },

@@ -7,9 +7,11 @@ import {
 } from './schemas/certification-request.schema';
 import { CertificationsController } from './certifications.controller';
 import { CertificationsService } from './certifications.service';
+import { UploadModule } from '../upload/upload.module';
 
 @Module({
   imports: [
+    UploadModule,
     MongooseModule.forFeature([
       { name: CertificationRequest.name, schema: CertificationRequestSchema },
       { name: User.name, schema: UserSchema },

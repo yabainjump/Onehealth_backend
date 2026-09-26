@@ -153,6 +153,8 @@ les formats web et principal sont choisis selon la taille d'affichage, sans char
 - validation en liste blanche avec rejet des champs inconnus ;
 - CORS explicite en production et CSP adaptée aux ressources réellement utilisées ;
 - uploads validés par taille, type réel, extension et URL sûre ;
+- justificatifs de certification stockés hors des publications publiques ; pièces jointes
+  privées acceptées uniquement avec une preuve liée au compte téléverseur ;
 - données personnelles minimisées dans l’IA et les journaux ;
 - exports protégés contre les formules CSV ;
 - aucune donnée nominative dans le démonstrateur Hub.

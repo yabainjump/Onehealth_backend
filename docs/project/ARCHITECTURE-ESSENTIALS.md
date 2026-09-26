@@ -75,6 +75,15 @@ Les pièces jointes de conversation étaient servies en statique, donc lisibles 
 connaissant l'URL. Elles exigent désormais un lien signé à durée limitée, émis dans la réponse
 destinée à un membre. Trois limites subsistent et doivent être connues :
 
+Correction 006 : l'URL signée de lecture n'est plus une preuve de droit de publication.
+Un téléversement privé produit aussi une preuve HMAC liée au compte ; elle est vérifiée
+avant persistance puis retirée de la base et des réponses du chat. Les justificatifs
+de certification utilisent `/uploads/certification/`, également signé en lecture,
+et ne passent pas par le service public de miniatures. Seul le demandeur et un admin
+reçoivent le lien depuis les API protégées. Les anciens justificatifs sous
+`/uploads/post/` restent publics jusqu'à migration contrôlée ; un cache externe déjà
+alimenté ne peut pas être révoqué rétroactivement.
+
 - **les médias de profil et de publication restent publics** : les robots d'aperçu social et les
   visionneuses de documents externes en dépendent. Ce qui est publié reste donc récupérable par URL ;
 - **un client déjà ouvert au moment du déploiement** détient des liens non signés qui renverront 403
@@ -234,6 +243,13 @@ Une clé dédiée avec plafond de dépenses réduit l'exposition financière. Sa
 - changement de rôle pendant une session ;
 - reset demandé plusieurs fois ou token utilisé deux fois ;
 - mot de passe admin perdu : réinitialiser, ne jamais chercher à le révéler.
+
+Les formulaires Ionic de connexion et l'ancienne route `/register2` ne journalisent
+ni valeurs de formulaire, ni résultat ou erreur d'authentification : ces objets peuvent
+contenir mot de passe, identité ou détail fournisseur. Sur le Dashboard, la déconnexion
+purge l'état local puis démonte tout le shell protégé avant d'attendre la révocation
+serveur. Une réponse lente ou une navigation en échec ne doit donc laisser visible ni
+rapport mémorisé ni réponse Rudolf du compte précédent.
 
 ### IA
 

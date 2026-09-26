@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Controller,
   Post,
+  Req,
   UploadedFile,
   UseGuards,
   UseInterceptors,
@@ -23,6 +24,7 @@ import {
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { resolveUploadsRoot } from '../config/uploads-path';
 import { UploadService } from './upload.service';
+import type { RequestWithUser } from '../users/interfaces/request-with-user.interface';
 
 const FILE_UPLOAD_BODY: ApiBodyOptions = {
   schema: {
@@ -67,6 +69,13 @@ const postAttachmentMimeTypes = new Set([
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
   'application/vnd.ms-powerpoint',
   'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+]);
+
+const certificationAttachmentMimeTypes = new Set([
+  ...imageMimeTypes,
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
 ]);
 
 function ensureDir(dir: string) {
@@ -133,6 +142,26 @@ function postFileFilter(
     cb(
       new BadRequestException(
         'Unsupported file type. Allowed: images, videos, pdf, doc, docx, ppt, pptx.',
+      ),
+      false,
+    );
+    return;
+  }
+  cb(null, true);
+}
+
+function certificationFileFilter(
+  _req: Request,
+  file: Express.Multer.File,
+  cb: (error: Error | null, acceptFile: boolean) => void,
+) {
+  void _req;
+  if (
+    !certificationAttachmentMimeTypes.has((file.mimetype || '').toLowerCase())
+  ) {
+    cb(
+      new BadRequestException(
+        'Unsupported certification document. Allowed: images, pdf, doc, docx.',
       ),
       false,
     );
@@ -229,7 +258,10 @@ export class UploadController {
       limits: { fileSize: 50 * 1024 * 1024 },
     }),
   )
-  async uploadMessage(@UploadedFile() file?: Express.Multer.File) {
+  async uploadMessage(
+    @Req() req: RequestWithUser,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
     if (!file) {
       throw new BadRequestException('File is required');
     }
@@ -238,8 +270,42 @@ export class UploadController {
       file,
       'message',
       'message',
+      req.user.id,
     );
 
+    return {
+      url: uploaded.url,
+      filename: uploaded.filename,
+      originalName: uploaded.originalName,
+      mimetype: uploaded.mimetype,
+      size: uploaded.size,
+    };
+  }
+
+  @ApiOperation({
+    summary: 'Téléverser un justificatif privé de certification',
+  })
+  @ApiConsumes('multipart/form-data')
+  @ApiBody(FILE_UPLOAD_BODY)
+  @Post('certification')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: storageFor('certification'),
+      fileFilter: certificationFileFilter,
+      limits: { fileSize: 50 * 1024 * 1024 },
+    }),
+  )
+  async uploadCertification(
+    @Req() req: RequestWithUser,
+    @UploadedFile() file?: Express.Multer.File,
+  ) {
+    if (!file) throw new BadRequestException('File is required');
+    const uploaded = await this.uploadService.finalizeUploadedFile(
+      file,
+      'certification',
+      'certification',
+      req.user.id,
+    );
     return {
       url: uploaded.url,
       filename: uploaded.filename,

@@ -14,6 +14,7 @@ import { ChatMessage } from './schemas/chat-message.schema';
 import { ChatRoom, ChatRoomDocument } from './schemas/chat-room.schema';
 import { MediaSignatureService } from '../media-access/media-signature.service';
 import { UserDocument } from '../users/schemas/user.schema';
+import { UploadService } from '../upload/upload.service';
 
 @Injectable()
 export class ChatService {
@@ -25,6 +26,7 @@ export class ChatService {
     private readonly messageModel: Model<ChatMessage>,
     private readonly usersService: UsersService,
     private readonly mediaSignature: MediaSignatureService,
+    private readonly uploads: UploadService,
   ) {}
 
   async createRoom(currentUserId: string, dto: CreateRoomDto) {
@@ -113,8 +115,14 @@ export class ChatService {
     const room = await this.assertRoomMembership(roomId, currentUserId);
 
     const text = dto.text?.trim() ?? '';
-    const imageUrl = dto.imageUrl?.trim() ?? '';
-    const fileUrl = dto.fileUrl?.trim() ?? '';
+    const imageUrl = this.authorizeAttachment(
+      dto.imageUrl?.trim() ?? '',
+      currentUserId,
+    );
+    const fileUrl = this.authorizeAttachment(
+      dto.fileUrl?.trim() ?? '',
+      currentUserId,
+    );
     const fileName = dto.fileName?.trim() ?? '';
     const fileMimeType = dto.fileMimeType?.trim() ?? '';
     const fileSize = dto.fileSize ?? 0;
@@ -181,6 +189,15 @@ export class ChatService {
       .exec();
 
     return { success: true };
+  }
+
+  private authorizeAttachment(url: string, userId: string): string {
+    if (!url) return '';
+    const canonical = this.uploads.verifyPrivateUpload(url, userId, 'message');
+    if (!canonical) {
+      throw new ForbiddenException('Attachment was not uploaded by this user');
+    }
+    return canonical;
   }
 
   private async assertRoomMembership(roomId: string, currentUserId: string) {

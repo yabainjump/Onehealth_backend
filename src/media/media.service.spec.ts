@@ -25,6 +25,15 @@ describe('MediaService', () => {
       );
     });
 
+    it('refuse les dérivés publics de tout média privé', () => {
+      expect(() => resolve('/uploads/message/private.webp')).toThrow(
+        BadRequestException,
+      );
+      expect(() => resolve('/uploads/certification/diplome.webp')).toThrow(
+        BadRequestException,
+      );
+    });
+
     // La propriete de securite est le confinement : soit le chemin est refuse,
     // soit il reste sous la racine des uploads. Les deux issues sont sures ;
     // seule une resolution hors racine acceptee serait une faille.

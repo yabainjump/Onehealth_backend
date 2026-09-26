@@ -13,6 +13,7 @@ import { CoordinationModule } from '../coordination/coordination.module';
   imports: [CoordinationModule],
   controllers: [UploadController],
   providers: [UploadService],
+  exports: [UploadService],
 })
 export class UploadModule implements NestModule {
   configure(consumer: MiddlewareConsumer): void {
@@ -22,6 +23,7 @@ export class UploadModule implements NestModule {
         { path: 'upload/profile', method: RequestMethod.POST },
         { path: 'upload/post', method: RequestMethod.POST },
         { path: 'upload/message', method: RequestMethod.POST },
+        { path: 'upload/certification', method: RequestMethod.POST },
       );
   }
 }

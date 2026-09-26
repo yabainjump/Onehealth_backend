@@ -7,7 +7,7 @@ import sharp from 'sharp';
 import { resolveUploadsRoot } from '../config/uploads-path';
 import { MediaSignatureService } from '../media-access/media-signature.service';
 
-export type UploadKind = 'profile' | 'post' | 'message';
+export type UploadKind = 'profile' | 'post' | 'message' | 'certification';
 
 // Bornes de conversion WebP a l'upload.
 const WEBP_MAX_DIMENSION = 1920;
@@ -52,25 +52,25 @@ const FILE_RULES: FileRule[] = [
     extensions: ['.jpg', '.jpeg'],
     mimeTypes: ['image/jpeg', 'image/jpg'],
     signature: 'jpeg',
-    allowedFor: ['profile', 'post', 'message'],
+    allowedFor: ['profile', 'post', 'message', 'certification'],
   },
   {
     extensions: ['.png'],
     mimeTypes: ['image/png'],
     signature: 'png',
-    allowedFor: ['profile', 'post', 'message'],
+    allowedFor: ['profile', 'post', 'message', 'certification'],
   },
   {
     extensions: ['.webp'],
     mimeTypes: ['image/webp'],
     signature: 'webp',
-    allowedFor: ['profile', 'post', 'message'],
+    allowedFor: ['profile', 'post', 'message', 'certification'],
   },
   {
     extensions: ['.gif'],
     mimeTypes: ['image/gif'],
     signature: 'gif',
-    allowedFor: ['profile', 'post', 'message'],
+    allowedFor: ['profile', 'post', 'message', 'certification'],
   },
   {
     extensions: ['.mp4'],
@@ -100,13 +100,13 @@ const FILE_RULES: FileRule[] = [
     extensions: ['.pdf'],
     mimeTypes: ['application/pdf'],
     signature: 'pdf',
-    allowedFor: ['post', 'message'],
+    allowedFor: ['post', 'message', 'certification'],
   },
   {
     extensions: ['.doc'],
     mimeTypes: ['application/msword'],
     signature: 'ole',
-    allowedFor: ['post', 'message'],
+    allowedFor: ['post', 'message', 'certification'],
   },
   {
     extensions: ['.docx'],
@@ -114,7 +114,7 @@ const FILE_RULES: FileRule[] = [
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     ],
     signature: 'zip',
-    allowedFor: ['post', 'message'],
+    allowedFor: ['post', 'message', 'certification'],
   },
   {
     extensions: ['.ppt'],
@@ -163,11 +163,17 @@ export class UploadService {
 
   async finalizeUploadedFile(
     file: UploadedFileLike,
-    folder: 'profile' | 'post' | 'message',
+    folder: 'profile' | 'post' | 'message' | 'certification',
     kind: UploadKind,
+    userId?: string,
   ): Promise<FinalizedUpload> {
     if (!file?.path) {
       throw new BadRequestException('Invalid uploaded file');
+    }
+
+    if ((kind === 'message' || kind === 'certification') && !userId) {
+      await this.removeIfExists(file.path);
+      throw new BadRequestException('Authenticated uploader is required');
     }
 
     try {
@@ -232,7 +238,14 @@ export class UploadService {
         relativePath,
         // Signee si le dossier est prive, afin que l'expediteur voie sa piece
         // jointe immediatement, avant le rechargement de la conversation.
-        url: this.mediaSignature.sign(this.buildFileUrl(relativePath)),
+        url:
+          userId && (kind === 'message' || kind === 'certification')
+            ? this.mediaSignature.claimUpload(
+                this.mediaSignature.sign(this.buildFileUrl(relativePath)),
+                userId,
+                kind,
+              )
+            : this.mediaSignature.sign(this.buildFileUrl(relativePath)),
         originalName: file.originalname,
         mimetype: outputMime,
         size: outputSize,
@@ -247,6 +260,15 @@ export class UploadService {
     const baseUrl = this.resolvePublicBaseUrl();
     const normalizedPath = path.startsWith('/') ? path : `/${path}`;
     return `${baseUrl}${normalizedPath}`;
+  }
+
+  verifyPrivateUpload(
+    rawUrl: string,
+    userId: string,
+    kind: 'message' | 'certification',
+  ): string | null {
+    const path = this.mediaSignature.verifyUploadClaim(rawUrl, userId, kind);
+    return path ? this.buildFileUrl(path) : null;
   }
 
   private resolvePublicBaseUrl(): string {

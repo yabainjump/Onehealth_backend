@@ -22,6 +22,9 @@ describe('MediaSignatureService', () => {
       expect(
         MediaSignatureService.isProtectedPath('/uploads/message/a.webp'),
       ).toBe(true);
+      expect(
+        MediaSignatureService.isProtectedPath('/uploads/certification/a.pdf'),
+      ).toBe(true);
     });
 
     it('laisse publics les médias de profil et de publication', () => {
@@ -31,6 +34,47 @@ describe('MediaSignatureService', () => {
       expect(
         MediaSignatureService.isProtectedPath('/uploads/post/a.webp'),
       ).toBe(false);
+    });
+  });
+
+  describe('preuve de téléversement', () => {
+    const owner = '507f1f77bcf86cd799439011';
+    const other = '507f1f77bcf86cd799439012';
+
+    it('accepte seulement le compte téléverseur et retire la preuve de la valeur canonique', () => {
+      const path = '/uploads/message/file.pdf';
+      const claimed = service.claimUpload(
+        service.sign(`https://api.test${path}`),
+        owner,
+        'message',
+      );
+      expect(service.verifyUploadClaim(claimed, owner, 'message')).toBe(path);
+      expect(service.verifyUploadClaim(claimed, other, 'message')).toBeNull();
+      expect(
+        service.verifyUploadClaim(
+          service.sign(`https://api.test${path}`),
+          owner,
+          'message',
+        ),
+      ).toBeNull();
+      expect(
+        service.verifyUploadClaim(claimed, owner, 'certification'),
+      ).toBeNull();
+    });
+
+    it('ne permet pas de déplacer une preuve vers un autre fichier', () => {
+      const claimed = service.claimUpload(
+        'https://api.test/uploads/certification/a.pdf',
+        owner,
+        'certification',
+      );
+      expect(
+        service.verifyUploadClaim(
+          claimed.replace('/a.pdf', '/b.pdf'),
+          owner,
+          'certification',
+        ),
+      ).toBeNull();
     });
   });
 

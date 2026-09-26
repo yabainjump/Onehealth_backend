@@ -14,7 +14,10 @@ import { createHmac, timingSafeEqual } from 'crypto';
 @Injectable()
 export class MediaSignatureService {
   /** Prefixes dont la lecture exige une signature valide. */
-  static readonly PROTECTED_PREFIXES = ['/uploads/message/'];
+  static readonly PROTECTED_PREFIXES = [
+    '/uploads/message/',
+    '/uploads/certification/',
+  ];
 
   private static readonly DEFAULT_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
@@ -70,6 +73,60 @@ export class MediaSignatureService {
     const signature = this.compute(pathname, expiresAt);
     const separator = canonique.includes('?') ? '&' : '?';
     return `${canonique}${separator}exp=${expiresAt}&sig=${signature}`;
+  }
+
+  /** Claim returned only at upload time, bound to the authenticated uploader. */
+  claimUpload(
+    rawUrl: string,
+    userId: string,
+    folder: 'message' | 'certification',
+  ): string {
+    const pathname = this.extractPathname(rawUrl);
+    if (!this.isUploadPath(pathname, folder) || !userId) {
+      throw new Error('Invalid private upload path');
+    }
+    const claim = this.uploadClaim(pathname, userId);
+    return `${rawUrl}${rawUrl.includes('?') ? '&' : '?'}claim=${claim}`;
+  }
+
+  /** Never persist the claim: a conversation recipient must not be able to replay it. */
+  verifyUploadClaim(
+    rawUrl: string,
+    userId: string,
+    folder: 'message' | 'certification',
+  ): string | null {
+    try {
+      const parsed = new URL(rawUrl, 'http://local.invalid');
+      const pathname = parsed.pathname;
+      const claims = parsed.searchParams.getAll('claim');
+      if (
+        !this.isUploadPath(pathname, folder) ||
+        claims.length !== 1 ||
+        !/^[a-f0-9]{64}$/.test(claims[0]) ||
+        !userId
+      ) {
+        return null;
+      }
+      const expected = this.uploadClaim(pathname, userId);
+      return timingSafeEqual(Buffer.from(claims[0]), Buffer.from(expected))
+        ? pathname
+        : null;
+    } catch {
+      return null;
+    }
+  }
+
+  private isUploadPath(
+    pathname: string,
+    folder: 'message' | 'certification',
+  ): boolean {
+    return new RegExp(`^/uploads/${folder}/[A-Za-z0-9._-]+$`).test(pathname);
+  }
+
+  private uploadClaim(pathname: string, userId: string): string {
+    return createHmac('sha256', this.secret)
+      .update(`upload-claim-v1|${pathname}|${userId}`)
+      .digest('hex');
   }
 
   /** Verifie une signature presentee pour un chemin donne. */
