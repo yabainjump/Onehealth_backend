@@ -1,9 +1,9 @@
 # Architecture Essentials — revue critique
 
 **But :** conserver uniquement les décisions qui protègent le produit et obliger chaque revue à poser trois questions : qu’est-ce qui va casser, quels cas limites manquent, qu’avons-nous surconçu ?
-**Dernière synchronisation :** 26 septembre 2026.
+**Dernière synchronisation :** 27 septembre 2026.
 
-## 1. Les vingt-et-une décisions critiques
+## 1. Les vingt-deux décisions critiques
 
 1. Deux frontends spécialisés partagent un backend NestJS commun.
 2. Les domaines communauté et Hub utilisent deux bases MongoDB logiques séparées.
@@ -39,6 +39,9 @@
     `onehealth_backend/contracts/dashboard-api.openapi.yaml`; les modèles de vue restent locaux.
 21. L'internationalisation utilise français, anglais, portugais et espagnol, avec français comme
     repli. La migration est progressive mais tout nouveau libellé partagé passe par le catalogue.
+22. Le Dashboard reste standalone sous Angular 21. PrimeNG 21 fournit progressivement les composants
+    UI génériques avec un thème local ; Leaflet, l'autorisation serveur, les contrats et la logique
+    métier ne sont jamais remplacés pour uniformiser l'apparence.
 
 ## 2. Ce qui risque de casser en premier
 

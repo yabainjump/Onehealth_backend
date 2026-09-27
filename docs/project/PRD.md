@@ -1,8 +1,8 @@
 # Product Requirements Document — One Health Network
 
-**Version :** 1.6  
+**Version :** 1.7
 **Date de référence :** 22 août 2026  
-**Dernière mise à jour fonctionnelle :** 26 septembre 2026
+**Dernière mise à jour fonctionnelle :** 27 septembre 2026
 **Statut :** cadrage du produit existant et de sa cible  
 **Versionnement :** document canonique suivi dans `onehealth_backend/docs/project/`
 
@@ -65,6 +65,9 @@ les formats web et principal sont choisis selon la taille d'affichage, sans char
     versionné par le backend ; les fichiers générés ne sont jamais modifiés à la main.
 11. **Multilingue progressif :** français par défaut, avec fondation anglais, portugais et espagnol,
     préférence locale et repli déterministe sur le français.
+12. **Design system progressif :** le Dashboard utilise Angular 21 et PrimeNG 21 pour les composants
+    génériques, avec un preset One Health local inspiré de Sakai. Leaflet et les composants métier
+    restent spécialisés ; aucune migration visuelle ne modifie les permissions ou contrats API.
 
 ## 5. Portée fonctionnelle
 

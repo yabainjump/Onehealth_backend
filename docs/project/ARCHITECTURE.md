@@ -1,8 +1,8 @@
 # Architecture — One Health Network
 
-**Version :** 1.8  
-**Synchronisation code :** 26 septembre 2026 (OpenRouter ; fondations Dashboard du 24 septembre)
-**Révisions inspectées :** backend `f5d2e87` + invariant de stockage persistant en cours, dashboard `131e961` + identité visuelle locale, frontend `f1a6906`  
+**Version :** 1.9
+**Synchronisation code :** 27 septembre 2026 (Angular 21 / PrimeNG 21 ; OpenRouter)
+**État inspecté :** backend et frontend communautaire inchangés ; Dashboard migré localement vers Angular 21 / PrimeNG 21.
 **Document détaillé historique du Hub :** `../DECISIONS_ARCHITECTURE_ET_PLAN_MVP_HUB_CEEAC.md`  
 **Versionnement :** document canonique suivi dans `onehealth_backend/docs/project/`
 
@@ -58,7 +58,7 @@ One_health2/
 | Couche | Technologies actuelles |
 |---|---|
 | Communauté | Angular 20, Ionic 8, Capacitor 8, PWA, Leaflet |
-| Dashboard | Angular 20 standalone, signals, Lucide, Leaflet |
+| Dashboard | Angular 21 standalone, signals, PrimeNG 21, PrimeIcons/Lucide, Leaflet |
 | Backend | Node.js 20, NestJS 11, Mongoose 9, REST, Swagger conditionnel |
 | Authentification | JWT, bcrypt, Google Identity Services côté client + vérification serveur |
 | IA | SDK OpenAI 6.x compatible Node 20 vers API OpenRouter, modèle configurable, prompts Rudolf spécialisés |
@@ -310,6 +310,20 @@ préserve la CSP et évite qu'une police distante bloque le premier rendu. Les j
 les labels à 12–13 px, le texte courant à 14–16 px, les titres de section à 18–22 px, les titres de
 page à 24–30 px et les KPI à 28–40 px. La police monospace reste réservée aux identifiants de trace
 et autres données techniques.
+
+La modernisation UI suit quatre priorités : P0 met à niveau Angular 21.2 et le socle PrimeNG 21.1 ;
+P1 traite le shell et la vue stratégique ; P2 migrera les tables et formulaires métier page par
+page ; P3 retire seulement le CSS devenu inutile après validation. PrimeNG est configuré par
+`providePrimeNG` avec un preset Aura One Health local, sans CDN ni élargissement de CSP. Le shell
+emploie Drawer, Popover et champs PrimeNG ; les icônes génériques utilisent PrimeIcons, tandis que
+les icônes métier Lucide existantes restent en place jusqu'à une migration justifiée.
+
+Le tableau de décisions de la vue stratégique utilise `p-table`, mais reçoit une projection mutable
+de présentation afin de conserver les contrats API `readonly`. Les cartes, calculs, exports CSV,
+routes, services et autorisations sont inchangés. Le budget initial du build avertit à 600 kB brut
+et échoue toujours à 1 MB ; la base mesurée après ce lot est d'environ 561 kB brut / 137 kB
+transférés. Le remplacement de composants doit rester sélectif pour ne pas augmenter ce coût sans
+bénéfice fonctionnel.
 
 Routes protégées : `/dashboard`, `/etat-membre`, `/carte`, `/alertes`, `/alertes/:id`, `/analyses`, `/rapports`, `/connecteurs`, `/souverainete`, `/administration`, `/aide` et `/profil`.
 
@@ -580,6 +594,7 @@ Les tests doivent être ciblés pendant le développement puis élargis selon le
 | ADR-14 | Bail MongoDB propriétaire par conversation Rudolf et stockage média absolu partagé | implémenté, exercice externe restant |
 | ADR-15 | Rapport de scénario embarqué, simulé et non officiel ; rapport d’alerte officiel séparé | implémenté |
 | ADR-16 | Scénario borné à deux États CEEAC et 90 jours ; trois flux imposés et configuration auditée | implémenté |
+| ADR-17 | Angular 21 + PrimeNG 21 progressifs pour l'UI générique ; Leaflet et logique métier conservés | implémentation progressive |
 
 ### Rapport de fin de scénario — 23 septembre 2026
 
