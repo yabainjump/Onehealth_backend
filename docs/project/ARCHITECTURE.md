@@ -311,9 +311,14 @@ les labels à 12–13 px, le texte courant à 14–16 px, les titres de section 
 page à 24–30 px et les KPI à 28–40 px. La police monospace reste réservée aux identifiants de trace
 et autres données techniques.
 
+Le build Angular fingerprint les fichiers WOFF2 en production. La configuration Karma n'injecte
+pas Fontsource : les tests unitaires sans comparaison visuelle utilisent la police système et
+évitent une requête `/base/media` que le serveur de test ne publie pas.
+
 La modernisation UI suit quatre priorités : P0 met à niveau Angular 21.2 et le socle PrimeNG 21.1 ;
-P1 traite le shell et la vue stratégique ; P2 migrera les tables et formulaires métier page par
-page ; P3 retire seulement le CSS devenu inutile après validation. PrimeNG est configuré par
+P1 traite le shell et la vue stratégique ; P2 migre les tables et formulaires métier page par
+page ; P3 harmonise les vues secondaires puis retire seulement le CSS devenu inutile après
+validation. PrimeNG est configuré par
 `providePrimeNG` avec un preset Aura One Health local, sans CDN ni élargissement de CSP. Le shell
 emploie Drawer, Popover et champs PrimeNG ; les icônes génériques utilisent PrimeIcons, tandis que
 les icônes métier Lucide existantes restent en place jusqu'à une migration justifiée.
@@ -324,6 +329,23 @@ routes, services et autorisations sont inchangés. Le budget initial du build av
 et échoue toujours à 1 MB ; la base mesurée après ce lot est d'environ 561 kB brut / 137 kB
 transférés. Le remplacement de composants doit rester sélectif pour ne pas augmenter ce coût sans
 bénéfice fonctionnel.
+
+Le lot P2 modernise `/alertes`, `/alertes/:id`, `/connecteurs`, `/souverainete` et
+`/administration` avec les composants PrimeNG adaptés : tables, sélecteurs, tags, boutons,
+paginations, cases à cocher, saisie numérique, barres de progression et timeline. Les composants
+métier mobiles restent spécialisés pour préserver la lisibilité sur petit écran. La liste Alertes
+ne pagine pas une copie locale : chaque changement de page ou filtre continue d'alimenter
+`AlertRegistryStore`, qui annule la requête précédente et interroge la pagination Hub côté serveur.
+La pagination Administration appelle toujours l'API à chaque page ; les 33 connecteurs fictifs
+restent filtrés et paginés en mémoire après leur chargement borné. Aucun composant PrimeNG ne porte
+une décision d'autorisation ou de workflow.
+
+Le lot P3 est terminé sur `/etat-membre`, `/aide`, `/profil`, `/analyses`, `/rapports` et le
+rapport de scénario. Les boutons, champs texte et sélecteurs génériques utilisent le même thème
+PrimeNG que le shell. Les graphiques d'analyse, cartes de rapports, datalist pays du profil et
+composants cartographiques restent spécialisés lorsqu'un remplacement n'apporterait aucun gain.
+Le nettoyage associé supprime uniquement les anciens styles de contrôles et de badges dont le
+markup n'existe plus ; il ne modifie ni les services, ni les contrats REST, ni les règles de rôle.
 
 Routes protégées : `/dashboard`, `/etat-membre`, `/carte`, `/alertes`, `/alertes/:id`, `/analyses`, `/rapports`, `/connecteurs`, `/souverainete`, `/administration`, `/aide` et `/profil`.
 
@@ -447,7 +469,13 @@ Brouillon Markdown sécurisé
 Affichage + validation humaine + audit ai-draft
 ```
 
-Usages : synthèse d’un dossier d’alerte, projet de rapport, explication multisectorielle et assistant latéral. Le prompt traite les contenus sources comme des données non fiables et ignore leurs instructions. Une campagne de tests adversariaux reste obligatoire avant données réelles.
+Usages : synthèse d’un dossier d’alerte, projet de rapport, explication multisectorielle et assistant
+latéral. Le tiroir Dashboard conserve plusieurs échanges uniquement en mémoire de l'onglet et les
+purge lors d'une nouvelle session, d'un rechargement ou de la déconnexion. Chaque question reste un
+appel indépendant à `/api/hub/ai/assistant` : le backend ne reçoit pas l'ancien fil et l'effet
+d'écriture progressif est une présentation locale après la réponse complète, contrairement au flux
+NDJSON du chat communautaire. Le prompt traite les contenus sources comme des données non fiables et
+ignore leurs instructions. Une campagne de tests adversariaux reste obligatoire avant données réelles.
 
 ### 9.3. Fournisseur OpenRouter — 26 septembre 2026
 

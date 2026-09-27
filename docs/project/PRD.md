@@ -103,7 +103,9 @@ les formats web et principal sont choisis selon la taille d'affichage, sans char
   continuer et afficher le rapport ;
 - assignation, vérification ou rejet humains ;
 - rapports opérationnels versionnés ;
-- Rudolf en lecture seule pour synthèse d’alerte, projet de rapport, explication multisectorielle et questions sur le périmètre autorisé.
+- Rudolf en lecture seule pour synthèse d’alerte, projet de rapport, explication multisectorielle et questions sur le périmètre autorisé ; l'assistant latéral présente un fil de session volatil, des suggestions et une écriture progressive sans persister cet historique dans le navigateur.
+- interfaces opérationnelles Alertes, Connecteurs, Souveraineté et Administration harmonisées avec le design system PrimeNG, tout en conservant la pagination serveur, les contrôles de rôle et la validation humaine existants.
+- vues secondaires État membre, Aide, Profil, Analyses et Rapports harmonisées avec les mêmes contrôles génériques PrimeNG ; les cartes, visualisations, règles métier, exports et autorisations restent des composants spécialisés.
 
 ### 5.3. Cible pilote institutionnel — P1 non achevé
 

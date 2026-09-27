@@ -12,7 +12,8 @@
    rapport de simulation et rapport officiel.
 5. Une corrélation est explicable et versionnée ; elle ne prouve jamais une causalité.
 6. Une alerte et un rapport officiel exigent une validation humaine traçable.
-7. Rudolf reçoit un contexte construit côté serveur et reste sans accès aux transitions.
+7. Rudolf reçoit un contexte construit côté serveur et reste sans accès aux transitions. Son fil
+   visuel dans le Dashboard est volatil, non envoyé comme historique et purgé à la déconnexion.
 8. Les 165 observations et 33 connecteurs sont simulés et doivent toujours être identifiés comme tels.
 9. Le fallback local du Dashboard est un outil de démonstration, pas un mécanisme de production.
 10. Le backend démarre avec exactement deux workers PM2, chacun promu seulement après readiness.
@@ -41,7 +42,11 @@
     repli. La migration est progressive mais tout nouveau libellé partagé passe par le catalogue.
 22. Le Dashboard reste standalone sous Angular 21. PrimeNG 21 fournit progressivement les composants
     UI génériques avec un thème local ; Leaflet, l'autorisation serveur, les contrats et la logique
-    métier ne sont jamais remplacés pour uniformiser l'apparence.
+    métier ne sont jamais remplacés pour uniformiser l'apparence. Les tableaux et paginations PrimeNG
+    restent des vues au-dessus des filtres et de la pagination serveur existants. Le lot P2 couvre
+    Alertes, Connecteurs, Souveraineté et Administration sans déplacer les décisions dans Angular.
+    Le lot P3 étend uniquement cette cohérence visuelle aux vues secondaires et supprime le CSS
+    devenu sans cible ; les cartes, graphiques et contrôles métier spécialisés restent locaux.
 
 ## 2. Ce qui risque de casser en premier
 
