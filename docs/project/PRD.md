@@ -1,6 +1,6 @@
 # Product Requirements Document — One Health Network
 
-**Version :** 1.8
+**Version :** 1.9
 **Date de référence :** 22 août 2026  
 **Dernière mise à jour fonctionnelle :** 28 septembre 2026
 **Statut :** cadrage du produit existant et de sa cible  
@@ -58,6 +58,22 @@ les formats web et principal sont choisis selon la taille d'affichage, sans char
 5. **IA assistive :** Rudolf génère des brouillons, jamais des validations.
 6. **Données simulées explicitement marquées :** aucune ambiguïté avec des données officielles.
 7. **Sécurité par défaut :** validation DTO, droits minimaux, secrets côté serveur et audit.
+
+## 4.1 Bac d'intégration avant les API institutionnelles — lot 008
+
+Le Dashboard fournit aux administrateurs un bac de préparation strictement simulé : import
+CSV/JSON/GeoJSON, aperçu sans écriture, mapping vers le dictionnaire canonique One Health,
+registre des anomalies et scénarios déterministes de connecteurs. L'objectif est de tester le
+contrat, les droits, la provenance et les erreurs avant de connaître les API de DHIS2, ARIS 3 et
+CAPC-AC ; le produit ne prétend pas reproduire ces API.
+
+- 48 Kio, 500 lignes et 32 champs maximum ; noms dangereux et valeurs hors contrat refusés ;
+- pays limité à la CEEAC et cohérent avec la portée serveur de l'administrateur ;
+- politique de partage de démonstration existante obligatoire ;
+- aperçu conservé 24 h, confirmation explicite et ingestion idempotente ;
+- anomalie conservée sans payload brut ni donnée nominative ;
+- toute ligne acceptée reste une `observation`, jamais un signal ou une alerte ;
+- simulateur sans réseau, identifiants réels ni secrets, avec audit de chaque exécution.
 8. **Accessibilité réseau :** interfaces responsive et tolérantes aux connexions instables.
 9. **Lisibilité institutionnelle :** le Dashboard utilise Inter auto-hébergée et une échelle
    typographique cohérente, avec des libellés fonctionnels d'au moins 12 px.

@@ -154,6 +154,8 @@ un état d'interface et non un contrat HTTP.
 | HubIngestionRun | `backend/src/hub/schemas/hub-ingestion-run.schema.ts` | volumes, durée et erreur de synchronisation |
 | HubScenarioRun | `backend/src/hub/schemas/hub-scenario-run.schema.ts` | scénario, étapes auditables et dernier rapport de simulation non officiel |
 | HubAuditLog | `backend/src/hub/schemas/hub-audit-log.schema.ts` | acteur, action, entité, pays et date |
+| HubImportBatch | `backend/src/hub/schemas/hub-import-batch.schema.ts` | aperçu borné, mapping, hash, confirmation et expiration |
+| HubDataQualityIssue | `backend/src/hub/schemas/hub-data-quality-issue.schema.ts` | quarantaine minimale sans payload brut |
 
 ## 7. Structure prévue pour les vrais connecteurs — à créer seulement au démarrage du pilote
 
@@ -195,7 +197,10 @@ valeur absente ou inconnue est rejetée ou mise en quarantaine, jamais remplacé
 `low`. La projection vert/orange/rouge appartient ensuite à l'interface et ne modifie pas la donnée
 canonique.
 
-Ce code n’est pas créé maintenant car aucune API réelle, authentification institutionnelle ou nomenclature officielle n’a encore été fournie.
+Ces adaptateurs réels ne sont pas créés maintenant car aucune API, authentification institutionnelle
+ou nomenclature officielle n’a encore été fournie. Le lot 008 crée uniquement le parseur canonique,
+les lots d'import simulé, la quarantaine et un simulateur sans réseau dans `hub/ingestion`,
+`hub-import.service.ts` et `hub-import.repository.ts`; il ne préjuge d'aucun contrat fournisseur.
 
 ## 8. Modèles à ajouter seulement si le besoin est validé
 

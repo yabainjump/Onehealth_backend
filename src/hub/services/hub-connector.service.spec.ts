@@ -46,11 +46,13 @@ describe('HubConnectorService', () => {
   const listMock = jest.fn();
   const summaryMock = jest.fn();
   const synchronizeDemoMock = jest.fn();
+  const simulateMock = jest.fn();
   const createAuditMock = jest.fn();
   const connectorRepository = {
     list: listMock,
     summary: summaryMock,
     synchronizeDemo: synchronizeDemoMock,
+    simulate: simulateMock,
   } as unknown as jest.Mocked<HubConnectorRepository>;
   const hubRepository = {
     createAudit: createAuditMock,
@@ -103,6 +105,44 @@ describe('HubConnectorService', () => {
         entityType: 'connector',
         entityId: 'CON-DHIS2-CM',
         action: 'DEMO_CONNECTOR_SYNCHRONIZED',
+      }),
+    );
+  });
+
+  it('simulates a scoped connector without creating an observation or alert', async () => {
+    const item = connector();
+    simulateMock.mockResolvedValue({
+      connector: item,
+      runId: 'RUN-SIM-1',
+      runStatus: 'PARTIAL',
+      recordsReceived: 24,
+      recordsAccepted: 15,
+      recordsRejected: 9,
+      duplicateRecords: 0,
+      errorCode: 'SCHEMA_VALIDATION',
+    });
+    createAuditMock.mockResolvedValue({});
+
+    const result = await service.simulate(
+      { connectorId: item.connectorId, scenario: 'INVALID_RECORDS' },
+      user({ hubRoles: [HubRole.ADMIN] }),
+    );
+
+    expect(simulateMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        connectorId: item.connectorId,
+        allowedCountryCodes: null,
+      }),
+    );
+    expect(result).toMatchObject({
+      status: 'PARTIAL',
+      simulated: true,
+      counts: { received: 24, accepted: 15, rejected: 9, duplicates: 0 },
+    });
+    expect(createAuditMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        action: 'DEMO_CONNECTOR_SCENARIO_EXECUTED',
+        countryCode: 'CM',
       }),
     );
   });

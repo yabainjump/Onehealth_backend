@@ -17,7 +17,8 @@ export class HubAuditLog {
     | 'scenario'
     | 'report'
     | 'ai-draft'
-    | 'event';
+    | 'event'
+    | 'import-batch';
 
   @Prop({ required: true, trim: true, index: true })
   entityId: string;

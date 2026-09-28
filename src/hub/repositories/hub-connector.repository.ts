@@ -30,6 +30,14 @@ export interface HubConnectorListFilter {
   readonly limit: number;
 }
 
+export type HubConnectorSimulationScenario =
+  | 'SUCCESS'
+  | 'DUPLICATES'
+  | 'INVALID_RECORDS'
+  | 'PARTIAL_FAILURE'
+  | 'AUTH_FAILURE'
+  | 'TIMEOUT';
+
 @Injectable()
 export class HubConnectorRepository {
   constructor(
@@ -182,6 +190,181 @@ export class HubConnectorRepository {
     }
 
     return updated;
+  }
+
+  async simulate(input: {
+    connectorId: string;
+    scenario: HubConnectorSimulationScenario;
+    actorId: string;
+    allowedCountryCodes: readonly string[] | null;
+  }): Promise<{
+    connector: HubConnectorDocument;
+    runId: string;
+    runStatus: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+    recordsReceived: number;
+    recordsAccepted: number;
+    recordsRejected: number;
+    duplicateRecords: number;
+    errorCode: string;
+  } | null> {
+    const connector = await this.connectorModel
+      .findOne({
+        connectorId: input.connectorId,
+        isDemo: true,
+        enabled: true,
+        ...this.countryFilter(input.allowedCountryCodes),
+      })
+      .exec();
+    if (!connector) return null;
+
+    const outcomes: Record<
+      HubConnectorSimulationScenario,
+      {
+        runStatus: 'SUCCESS' | 'PARTIAL' | 'FAILED';
+        connectorStatus: 'operational' | 'degraded' | 'error';
+        received: number;
+        accepted: number;
+        rejected: number;
+        duplicates: number;
+        availability: number;
+        durationMs: number;
+        errorCode: string;
+        errorMessage: string;
+      }
+    > = {
+      SUCCESS: {
+        runStatus: 'SUCCESS',
+        connectorStatus: 'operational',
+        received: 24,
+        accepted: 24,
+        rejected: 0,
+        duplicates: 0,
+        availability: 100,
+        durationMs: 740,
+        errorCode: '',
+        errorMessage: '',
+      },
+      DUPLICATES: {
+        runStatus: 'SUCCESS',
+        connectorStatus: 'operational',
+        received: 24,
+        accepted: 4,
+        rejected: 0,
+        duplicates: 20,
+        availability: 100,
+        durationMs: 690,
+        errorCode: '',
+        errorMessage: '',
+      },
+      INVALID_RECORDS: {
+        runStatus: 'PARTIAL',
+        connectorStatus: 'degraded',
+        received: 24,
+        accepted: 15,
+        rejected: 9,
+        duplicates: 0,
+        availability: 82,
+        durationMs: 980,
+        errorCode: 'SCHEMA_VALIDATION',
+        errorMessage:
+          'Des enregistrements simulés ne respectent pas le contrat canonique.',
+      },
+      PARTIAL_FAILURE: {
+        runStatus: 'PARTIAL',
+        connectorStatus: 'degraded',
+        received: 24,
+        accepted: 12,
+        rejected: 12,
+        duplicates: 0,
+        availability: 68,
+        durationMs: 1450,
+        errorCode: 'PARTIAL_BATCH',
+        errorMessage: 'Le lot simulé a été partiellement traité.',
+      },
+      AUTH_FAILURE: {
+        runStatus: 'FAILED',
+        connectorStatus: 'error',
+        received: 0,
+        accepted: 0,
+        rejected: 0,
+        duplicates: 0,
+        availability: 0,
+        durationMs: 210,
+        errorCode: 'AUTH_FAILURE',
+        errorMessage:
+          "Échec d'authentification simulé ; aucun secret réel n'a été utilisé.",
+      },
+      TIMEOUT: {
+        runStatus: 'FAILED',
+        connectorStatus: 'error',
+        received: 0,
+        accepted: 0,
+        rejected: 0,
+        duplicates: 0,
+        availability: 0,
+        durationMs: 3000,
+        errorCode: 'TIMEOUT',
+        errorMessage:
+          'Délai de réponse simulé dépassé ; aucun appel réseau exécuté.',
+      },
+    };
+    const outcome = outcomes[input.scenario];
+    const completedAt = new Date();
+    const updated = await this.connectorModel
+      .findOneAndUpdate(
+        { connectorId: connector.connectorId, isDemo: true, enabled: true },
+        {
+          $set: {
+            status: outcome.connectorStatus,
+            availabilityPercent: outcome.availability,
+            lastSyncAt: completedAt,
+            lastSuccessAt:
+              outcome.runStatus === 'SUCCESS'
+                ? completedAt
+                : connector.lastSuccessAt,
+            nextSyncAt: new Date(completedAt.getTime() + 60 * 60_000),
+            recordsReceived: outcome.received,
+            recordsAccepted: outcome.accepted,
+            recordsRejected: outcome.rejected,
+            duplicateRecords: outcome.duplicates,
+            lastDurationMs: outcome.durationMs,
+            lastErrorCode: outcome.errorCode,
+            lastErrorMessage: outcome.errorMessage,
+          },
+        },
+        { new: true, runValidators: true },
+      )
+      .exec();
+    if (!updated) return null;
+
+    const runId = `RUN-SIM-${randomUUID()}`;
+    await this.ingestionRunModel.create({
+      runId,
+      connectorId: updated.connectorId,
+      countryCode: updated.countryCode,
+      status: outcome.runStatus,
+      startedAt: new Date(completedAt.getTime() - outcome.durationMs),
+      completedAt,
+      recordsReceived: outcome.received,
+      recordsAccepted: outcome.accepted,
+      recordsRejected: outcome.rejected,
+      duplicateRecords: outcome.duplicates,
+      durationMs: outcome.durationMs,
+      triggeredBy: 'USER',
+      actorId: input.actorId,
+      errorCode: outcome.errorCode,
+      isDemo: true,
+    });
+    return {
+      connector: updated,
+      runId,
+      runStatus: outcome.runStatus,
+      recordsReceived: outcome.received,
+      recordsAccepted: outcome.accepted,
+      recordsRejected: outcome.rejected,
+      duplicateRecords: outcome.duplicates,
+      errorCode: outcome.errorCode,
+    };
   }
 
   async seedDemo(data: {

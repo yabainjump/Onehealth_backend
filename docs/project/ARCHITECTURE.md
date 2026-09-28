@@ -228,6 +228,26 @@ Une observation n’est pas une alerte. Un événement est un regroupement analy
 
 Le démonstrateur contient 165 enregistrements bruts et 165 observations : 11 pays × 3 sources × 5 observations. Les 33 connecteurs sont fictifs. Les futurs connecteurs réels doivent produire le même modèle canonique et conserver le payload brut, le mapping, la date de réception et les rejets.
 
+### 6.1. Bac d'intégration simulé — lot 008
+
+Le module `hub/ingestion` accepte CSV, JSON et FeatureCollection GeoJSON Point. Le parseur pur
+applique un mapping explicite vers 14 champs canoniques, refuse les propriétés dangereuses, borne
+fichier/lignes/champs et vérifie pays, secteur, date, coordonnées, gravité et métriques. Le pipeline
+est `preview -> contrôle humain -> confirmation` : la prévisualisation ne touche ni raw records ni
+observations et expire après 24 heures.
+
+`HubImportBatch` conserve provenance, hash, version de mapping, compteurs et candidats privés ;
+`HubDataQualityIssue` conserve uniquement métadonnées minimales d'anomalie, jamais la ligne brute.
+La confirmation revendique atomiquement le lot puis effectue des upserts idempotents vers
+`HubRawRecord` et `HubObservation`. Aucun `HubSignal`, `HubAlert` ou rapport n'est créé. Les routes
+d'écriture sont `HubAdminGuard`; les lectures du dictionnaire et de qualité exigent au minimum
+`HubAnalystGuard` et restent filtrées par pays côté repository.
+
+Le simulateur de connecteur met à jour seulement un connecteur `isDemo` autorisé et crée un
+`HubIngestionRun` déterministe selon le scénario choisi. Il ne contacte aucun réseau et n'utilise
+aucune authentification fournisseur. Les adaptateurs DHIS2/ARIS 3/CAPC-AC réels restent différés
+jusqu'à réception de contrats officiels.
+
 ## 7. Authentification, rôles et souveraineté
 
 ### 7.1. Rôles
@@ -537,6 +557,12 @@ POST  /events
 GET   /connectors
 GET   /connectors/summary
 POST  /connectors/synchronize
+POST  /connectors/simulate
+GET   /imports/dictionary
+GET   /imports
+POST  /imports/preview
+POST  /imports/:batchId/confirm
+GET   /data-quality/issues
 GET   /sharing-policies
 PATCH /sharing-policies/:policyId
 PATCH /signals/:signalCode/assign
@@ -637,6 +663,7 @@ Les tests doivent être ciblés pendant le développement puis élargis selon le
 | ADR-15 | Rapport de scénario embarqué, simulé et non officiel ; rapport d’alerte officiel séparé | implémenté |
 | ADR-16 | Scénario borné à deux États CEEAC et 90 jours ; trois flux imposés et configuration auditée | implémenté |
 | ADR-17 | Angular 21 + PrimeNG 21 progressifs pour l'UI générique ; Leaflet et logique métier conservés | implémentation progressive |
+| ADR-18 | Bac d'intégration simulé avec aperçu, quarantaine et confirmation ; aucun faux adaptateur institutionnel | implémenté |
 
 ### Rapport de fin de scénario — 23 septembre 2026
 

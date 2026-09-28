@@ -138,6 +138,61 @@ paths:
       operationId: synchronizeHubConnectors
       responses:
         '201': { description: Synchronization result, content: { application/json: { schema: { $ref: '#/components/schemas/HubConnectorSync' } } } }
+  /hub/connectors/simulate:
+    post:
+      operationId: simulateHubConnector
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/SimulateHubConnectorInput' } } }
+      responses:
+        '201': { description: Simulated connector run, content: { application/json: { schema: { $ref: '#/components/schemas/HubConnectorSimulation' } } } }
+  /hub/imports/dictionary:
+    get:
+      operationId: getHubImportDictionary
+      responses:
+        '200': { description: Canonical import dictionary, content: { application/json: { schema: { $ref: '#/components/schemas/HubImportDictionary' } } } }
+  /hub/imports:
+    get:
+      operationId: listHubImports
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100 } }
+      responses:
+        '200': { description: Import batches, content: { application/json: { schema: { $ref: '#/components/schemas/HubImportBatchPage' } } } }
+  /hub/imports/preview:
+    post:
+      operationId: previewHubImport
+      requestBody:
+        required: true
+        content: { application/json: { schema: { $ref: '#/components/schemas/HubImportPreviewInput' } } }
+      responses:
+        '201': { description: Import preview without observation write, content: { application/json: { schema: { $ref: '#/components/schemas/HubImportPreview' } } } }
+  /hub/imports/{batchId}/confirm:
+    post:
+      operationId: confirmHubImport
+      parameters: [{ in: path, name: batchId, required: true, schema: { type: string } }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [confirmation]
+              properties: { confirmation: { type: string, const: INGEST_SIMULATED_DATA } }
+      responses:
+        '201': { description: Confirmed simulated import, content: { application/json: { schema: { $ref: '#/components/schemas/HubImportConfirmation' } } } }
+  /hub/data-quality/issues:
+    get:
+      operationId: listHubDataQualityIssues
+      parameters:
+        - { in: query, name: page, schema: { type: integer, minimum: 1 } }
+        - { in: query, name: limit, schema: { type: integer, minimum: 1, maximum: 100 } }
+        - { in: query, name: countryCode, schema: { $ref: '#/components/schemas/CeeacCountryCode' } }
+        - { in: query, name: sourceSystem, schema: { $ref: '#/components/schemas/SourceSystem' } }
+        - { in: query, name: status, schema: { type: string, enum: [OPEN, RESOLVED, DISMISSED] } }
+      responses:
+        '200': { description: Data quality issue registry, content: { application/json: { schema: { $ref: '#/components/schemas/HubDataQualityIssuePage' } } } }
   /hub/sharing-policies:
     get:
       operationId: listHubSharingPolicies
@@ -453,6 +508,162 @@ components:
         completedAt: { type: string, format: date-time }
         simulated: { type: boolean, const: true }
         message: { type: string }
+    SimulateHubConnectorInput:
+      type: object
+      additionalProperties: false
+      required: [connectorId, scenario]
+      properties:
+        connectorId: { type: string }
+        scenario: { type: string, enum: [SUCCESS, DUPLICATES, INVALID_RECORDS, PARTIAL_FAILURE, AUTH_FAILURE, TIMEOUT] }
+    HubConnectorSimulation:
+      type: object
+      required: [runId, scenario, status, connector, counts, errorCode, simulated, message]
+      properties:
+        runId: { type: string }
+        scenario: { type: string, enum: [SUCCESS, DUPLICATES, INVALID_RECORDS, PARTIAL_FAILURE, AUTH_FAILURE, TIMEOUT] }
+        status: { type: string, enum: [SUCCESS, PARTIAL, FAILED] }
+        connector: { $ref: '#/components/schemas/HubConnector' }
+        counts:
+          type: object
+          required: [received, accepted, rejected, duplicates]
+          properties: { received: { type: integer }, accepted: { type: integer }, rejected: { type: integer }, duplicates: { type: integer } }
+        errorCode: { type: [string, 'null'] }
+        simulated: { type: boolean, const: true }
+        message: { type: string }
+    HubImportFieldDefinition:
+      type: object
+      required: [field, label, type, required, constraints, example]
+      properties:
+        field: { type: string, enum: [sourceRecordId, observedAt, countryCode, sector, category, title, summary, adminArea, longitude, latitude, severity, metricLabel, metricValue, metricUnit] }
+        label: { type: string }
+        type: { type: string, enum: [string, date-time, number, enum] }
+        required: { type: boolean }
+        constraints: { type: string }
+        example: {}
+    HubImportDictionary:
+      type: object
+      required: [version, fields, formats, maxFileBytes, maxRecords, simulatedOnly]
+      properties:
+        version: { type: string }
+        fields: { type: array, items: { $ref: '#/components/schemas/HubImportFieldDefinition' } }
+        formats: { type: array, items: { type: string, enum: [CSV, JSON, GEOJSON] } }
+        maxFileBytes: { type: integer }
+        maxRecords: { type: integer }
+        simulatedOnly: { type: boolean, const: true }
+    HubImportFieldMapping:
+      type: object
+      additionalProperties: false
+      required: [sourceField, targetField]
+      properties:
+        sourceField: { type: string }
+        targetField: { type: string }
+    HubImportPreviewInput:
+      type: object
+      additionalProperties: false
+      required: [fileName, format, sourceSystem, sourceInstance, countryCode, sharingPolicyId, simulated, content, mapping]
+      properties:
+        fileName: { type: string }
+        format: { type: string, enum: [CSV, JSON, GEOJSON] }
+        sourceSystem: { $ref: '#/components/schemas/SourceSystem' }
+        sourceInstance: { type: string }
+        countryCode: { $ref: '#/components/schemas/CeeacCountryCode' }
+        sharingPolicyId: { type: string }
+        simulated: { type: boolean, const: true }
+        content: { type: string }
+        mapping: { type: array, items: { $ref: '#/components/schemas/HubImportFieldMapping' } }
+    HubImportCounts:
+      type: object
+      required: [total, accepted, rejected, duplicates]
+      properties:
+        total: { type: integer }
+        accepted: { type: integer }
+        rejected: { type: integer }
+        duplicates: { type: integer }
+    HubImportBatch:
+      type: object
+      required: [batchId, fileName, format, sourceSystem, sourceInstance, countryCode, mappingVersion, counts, status, expiresAt, confirmedAt, failureCode, createdAt, simulated]
+      properties:
+        batchId: { type: string }
+        fileName: { type: string }
+        format: { type: string, enum: [CSV, JSON, GEOJSON] }
+        sourceSystem: { $ref: '#/components/schemas/SourceSystem' }
+        sourceInstance: { type: string }
+        countryCode: { $ref: '#/components/schemas/CeeacCountryCode' }
+        mappingVersion: { type: string }
+        counts: { $ref: '#/components/schemas/HubImportCounts' }
+        status: { type: string, enum: [PREVIEW, INGESTING, COMPLETED, FAILED] }
+        expiresAt: { type: string, format: date-time }
+        confirmedAt: { type: [string, 'null'], format: date-time }
+        failureCode: { type: string }
+        createdAt: { type: [string, 'null'], format: date-time }
+        simulated: { type: boolean, const: true }
+    HubImportIssue:
+      type: object
+      required: [rowNumber, sourceRecordId, code, field, message, severity]
+      properties:
+        rowNumber: { type: integer }
+        sourceRecordId: { type: string }
+        code: { type: string }
+        field: { type: string }
+        message: { type: string }
+        severity: { type: string, enum: [ERROR, WARNING] }
+    HubImportPreview:
+      allOf:
+        - { $ref: '#/components/schemas/HubImportBatch' }
+        - type: object
+          required: [issues, sample]
+          properties:
+            issues: { type: array, items: { $ref: '#/components/schemas/HubImportIssue' } }
+            sample: { type: array, items: { type: object, additionalProperties: true } }
+    HubImportConfirmation:
+      type: object
+      required: [batchId, status, observationsCreated, duplicatesIgnored, rawRecordsCreated, runId, simulated, message]
+      properties:
+        batchId: { type: string }
+        status: { type: string, const: COMPLETED }
+        observationsCreated: { type: integer }
+        duplicatesIgnored: { type: integer }
+        rawRecordsCreated: { type: integer }
+        runId: { type: string }
+        simulated: { type: boolean, const: true }
+        message: { type: string }
+    HubImportBatchPage:
+      type: object
+      required: [items, total, page, limit, pages, simulated]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HubImportBatch' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        pages: { type: integer }
+        simulated: { type: boolean, const: true }
+    HubDataQualityIssue:
+      type: object
+      required: [issueId, batchId, rowNumber, sourceRecordId, countryCode, sourceSystem, code, field, message, severity, status, createdAt, simulated]
+      properties:
+        issueId: { type: string }
+        batchId: { type: string }
+        rowNumber: { type: integer }
+        sourceRecordId: { type: string }
+        countryCode: { $ref: '#/components/schemas/CeeacCountryCode' }
+        sourceSystem: { $ref: '#/components/schemas/SourceSystem' }
+        code: { type: string }
+        field: { type: string }
+        message: { type: string }
+        severity: { type: string, enum: [ERROR, WARNING] }
+        status: { type: string, enum: [OPEN, RESOLVED, DISMISSED] }
+        createdAt: { type: string, format: date-time }
+        simulated: { type: boolean, const: true }
+    HubDataQualityIssuePage:
+      type: object
+      required: [items, total, page, limit, pages, simulated]
+      properties:
+        items: { type: array, items: { $ref: '#/components/schemas/HubDataQualityIssue' } }
+        total: { type: integer }
+        page: { type: integer }
+        limit: { type: integer }
+        pages: { type: integer }
+        simulated: { type: boolean, const: true }
     HubSharingPolicy:
       type: object
       required: [policyId, countryOwner, sharingLevel, allowedRoles, allowedCountries, aggregationLevel, retentionPeriodDays, containsPersonalData, updatedAt, simulated]

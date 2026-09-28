@@ -1,10 +1,11 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, NotFoundException } from '@nestjs/common';
 import type { PublicUser } from '../../users/interfaces/public-user.interface';
 import { ListHubConnectorsDto } from '../dto/list-hub-connectors.dto';
 import { resolveHubCountryScope } from '../hub-access-scope';
 import { HubConnectorRepository } from '../repositories/hub-connector.repository';
 import { HubRepository } from '../repositories/hub.repository';
 import { HubConnectorDocument } from '../schemas/hub-connector.schema';
+import { SimulateHubConnectorDto } from '../dto/hub-import.dto';
 
 @Injectable()
 export class HubConnectorService {
@@ -79,6 +80,55 @@ export class HubConnectorService {
       simulated: true,
       message:
         'Synchronisation de démonstration terminée sans dupliquer les observations existantes.',
+    };
+  }
+
+  async simulate(dto: SimulateHubConnectorDto, user: PublicUser) {
+    const result = await this.connectorRepository.simulate({
+      connectorId: dto.connectorId,
+      scenario: dto.scenario,
+      actorId: user.id,
+      allowedCountryCodes: resolveHubCountryScope(user),
+    });
+    if (!result) {
+      throw new NotFoundException(
+        'Connecteur de démonstration introuvable dans le périmètre autorisé.',
+      );
+    }
+    await this.hubRepository.createAudit({
+      entityType: 'connector',
+      entityId: result.connector.connectorId,
+      action: 'DEMO_CONNECTOR_SCENARIO_EXECUTED',
+      actorId: user.id,
+      actorType: 'USER',
+      countryCode: result.connector.countryCode,
+      isDemo: true,
+      metadata: {
+        scenario: dto.scenario,
+        runId: result.runId,
+        status: result.runStatus,
+        recordsReceived: result.recordsReceived,
+        recordsAccepted: result.recordsAccepted,
+        recordsRejected: result.recordsRejected,
+        duplicateRecords: result.duplicateRecords,
+        errorCode: result.errorCode,
+      },
+    });
+    return {
+      runId: result.runId,
+      scenario: dto.scenario,
+      status: result.runStatus,
+      connector: this.present(result.connector),
+      counts: {
+        received: result.recordsReceived,
+        accepted: result.recordsAccepted,
+        rejected: result.recordsRejected,
+        duplicates: result.duplicateRecords,
+      },
+      errorCode: result.errorCode || null,
+      simulated: true,
+      message:
+        "Simulation terminée sans appel à une plateforme institutionnelle et sans créer d'alerte.",
     };
   }
 

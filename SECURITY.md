@@ -13,6 +13,10 @@ Les visiteurs, membres, administrateurs et acteurs institutionnels ont des droit
 - Une observation ou un signal ne devient pas une alerte vérifiée sans décision humaine auditée. Rudolf ne vérifie ni ne publie.
 - Marquer durablement les données simulées et empêcher leur présentation comme données institutionnelles officielles.
 - Préserver les contrôles malgré deux workers PM2 : limites, verrous et états sensibles ne dépendent pas de la seule mémoire d’un processus.
+- Les imports de démonstration sont réservés aux administrateurs, bornés à 48 Kio/500 lignes/32
+  champs, prévisualisés avant écriture et confirmés par un jeton d'intention constant. Le mapping est
+  en liste blanche, les lots sont revendiqués atomiquement et la quarantaine ne stocke pas la ligne
+  brute. Le simulateur de connecteur ne fait aucun appel réseau et n'accepte aucun secret.
 
 ## Signalements pertinents
 Signaler une atteinte réaliste aux accès entre utilisateurs/pays, aux rôles, aux secrets, aux médias privés, à l’intégrité des décisions ou à la disponibilité. Justifier contrôle de l’entrée, atteignabilité, protection existante et impact ; calibrer la gravité selon exposition et données touchées.

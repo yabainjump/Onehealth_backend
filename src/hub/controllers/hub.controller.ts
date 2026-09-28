@@ -38,6 +38,14 @@ import { HubAiService } from '../services/hub-ai.service';
 import { HubAiAssistantDto, HubAiScopeDto } from '../dto/hub-ai.dto';
 import { RudolfRateLimitGuard } from '../../rudolf/rudolf-rate-limit.guard';
 import { RunHubScenarioDto } from '../dto/run-hub-scenario.dto';
+import {
+  ConfirmHubImportDto,
+  CreateHubImportPreviewDto,
+  ListHubImportBatchesDto,
+  ListHubQualityIssuesDto,
+  SimulateHubConnectorDto,
+} from '../dto/hub-import.dto';
+import { HubImportService } from '../services/hub-import.service';
 
 @ApiTags('Hub régional CEEAC')
 @ApiBearerAuth('access-token')
@@ -52,7 +60,74 @@ export class HubController {
     private readonly reportService: HubReportService,
     private readonly eventService: HubEventService,
     private readonly aiService: HubAiService,
+    private readonly importService: HubImportService,
   ) {}
+
+  @ApiOperation({ summary: 'Dictionnaire canonique des imports du Hub' })
+  @UseGuards(HubAnalystGuard)
+  @Get('imports/dictionary')
+  importDictionary() {
+    return this.importService.dictionary();
+  }
+
+  @ApiOperation({
+    summary: "Prévisualiser un import simulé sans l'enregistrer",
+  })
+  @UseGuards(HubAdminGuard)
+  @Post('imports/preview')
+  previewImport(
+    @Req() request: RequestWithUser,
+    @Body() dto: CreateHubImportPreviewDto,
+  ) {
+    return this.importService.preview(dto, request.user);
+  }
+
+  @ApiOperation({
+    summary: "Confirmer l'ingestion d'un lot simulé prévisualisé",
+  })
+  @UseGuards(HubAdminGuard)
+  @Post('imports/:batchId/confirm')
+  confirmImport(
+    @Req() request: RequestWithUser,
+    @Param('batchId') batchId: string,
+    @Body() dto: ConfirmHubImportDto,
+  ) {
+    return this.importService.confirm(batchId, dto, request.user);
+  }
+
+  @ApiOperation({
+    summary: 'Historique des imports dans le périmètre autorisé',
+  })
+  @UseGuards(HubAnalystGuard)
+  @Get('imports')
+  imports(
+    @Req() request: RequestWithUser,
+    @Query() query: ListHubImportBatchesDto,
+  ) {
+    return this.importService.listBatches(query, request.user);
+  }
+
+  @ApiOperation({ summary: 'Registre des anomalies de qualité des données' })
+  @UseGuards(HubAnalystGuard)
+  @Get('data-quality/issues')
+  qualityIssues(
+    @Req() request: RequestWithUser,
+    @Query() query: ListHubQualityIssuesDto,
+  ) {
+    return this.importService.listQualityIssues(query, request.user);
+  }
+
+  @ApiOperation({
+    summary: 'Simuler un résultat de connecteur sans appel réseau',
+  })
+  @UseGuards(HubAdminGuard)
+  @Post('connectors/simulate')
+  simulateConnector(
+    @Req() request: RequestWithUser,
+    @Body() dto: SimulateHubConnectorDto,
+  ) {
+    return this.connectorService.simulate(dto, request.user);
+  }
 
   @ApiOperation({
     summary: "Générer une synthèse Rudolf d'un dossier autorisé",

@@ -3,7 +3,7 @@
 **But :** conserver uniquement les décisions qui protègent le produit et obliger chaque revue à poser trois questions : qu’est-ce qui va casser, quels cas limites manquent, qu’avons-nous surconçu ?
 **Dernière synchronisation :** 28 septembre 2026.
 
-## 1. Les vingt-trois décisions critiques
+## 1. Les vingt-quatre décisions critiques
 
 1. Deux frontends spécialisés partagent un backend NestJS commun.
 2. Les domaines communauté et Hub utilisent deux bases MongoDB logiques séparées.
@@ -52,6 +52,11 @@
     WCAG détectent les régressions, mais ne prouvent ni l'autorisation backend, ni la charge à 1 000
     utilisateurs, ni une conformité RGAA complète. Ces preuves restent séparées et humaines lorsque
     nécessaire.
+24. Avant les API institutionnelles, le lot 008 utilise un bac d'intégration simulé et non un faux
+    connecteur fournisseur : taille et volume bornés, mapping en liste blanche, aperçu sans écriture,
+    confirmation explicite, idempotence et quarantaine minimale sans payload brut. Une ingestion
+    réussie produit uniquement des observations non vérifiées. Le simulateur n'effectue aucun appel
+    réseau et ne manipule aucun secret.
 
 ## 2. Ce qui risque de casser en premier
 

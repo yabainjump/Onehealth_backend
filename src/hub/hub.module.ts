@@ -49,6 +49,16 @@ import { HubEventService } from './services/hub-event.service';
 import { RudolfModule } from '../rudolf/rudolf.module';
 import { HubAiService } from './services/hub-ai.service';
 import { CoordinationModule } from '../coordination/coordination.module';
+import { HubImportRepository } from './repositories/hub-import.repository';
+import {
+  HubImportBatch,
+  HubImportBatchSchema,
+} from './schemas/hub-import-batch.schema';
+import {
+  HubDataQualityIssue,
+  HubDataQualityIssueSchema,
+} from './schemas/hub-data-quality-issue.schema';
+import { HubImportService } from './services/hub-import.service';
 
 @Module({
   imports: [
@@ -70,6 +80,11 @@ import { CoordinationModule } from '../coordination/coordination.module';
         { name: HubScenarioRun.name, schema: HubScenarioRunSchema },
         { name: HubAlertReport.name, schema: HubAlertReportSchema },
         { name: HubEvent.name, schema: HubEventSchema },
+        { name: HubImportBatch.name, schema: HubImportBatchSchema },
+        {
+          name: HubDataQualityIssue.name,
+          schema: HubDataQualityIssueSchema,
+        },
       ],
       HUB_CONNECTION,
     ),
@@ -78,6 +93,7 @@ import { CoordinationModule } from '../coordination/coordination.module';
   providers: [
     HubRepository,
     HubConnectorRepository,
+    HubImportRepository,
     HubService,
     HubConnectorService,
     HubDemoSeedService,
@@ -85,6 +101,7 @@ import { CoordinationModule } from '../coordination/coordination.module';
     HubReportService,
     HubEventService,
     HubAiService,
+    HubImportService,
     HubAdminGuard,
     HubAccessGuard,
     HubVerifierGuard,

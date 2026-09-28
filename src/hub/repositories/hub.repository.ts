@@ -62,7 +62,8 @@ export interface HubAuditInput {
     | 'scenario'
     | 'report'
     | 'ai-draft'
-    | 'event';
+    | 'event'
+    | 'import-batch';
   readonly entityId: string;
   readonly action: string;
   readonly actorId: string;

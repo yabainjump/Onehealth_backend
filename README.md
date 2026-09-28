@@ -309,6 +309,13 @@ src/
 
 ## Notes production
 
+### Bac d'intégration de démonstration
+
+Les routes `/api/hub/imports/*`, `/api/hub/data-quality/issues` et
+`/api/hub/connectors/simulate` préparent les contrats CSV/JSON/GeoJSON avant les API réelles. Elles
+restent protégées par les rôles Hub, la portée pays et la mention `simulated: true`. Elles ne doivent
+pas être présentées comme des connecteurs DHIS2, ARIS 3 ou CAPC-AC officiels.
+
 - Générer un `JWT_SECRET` robuste (32+ chars recommandé).
 - Générer un `RATE_LIMIT_KEY_SECRET` différent avec `openssl rand -hex 32`.
 - Mettre `NODE_ENV=production` en prod.
