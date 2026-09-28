@@ -1,7 +1,7 @@
 # Architecture — One Health Network
 
-**Version :** 1.9
-**Synchronisation code :** 27 septembre 2026 (Angular 21 / PrimeNG 21 ; OpenRouter)
+**Version :** 2.0
+**Synchronisation code :** 28 septembre 2026 (Angular 21 / PrimeNG 21 ; OpenRouter ; P4)
 **État inspecté :** backend et frontend communautaire inchangés ; Dashboard migré localement vers Angular 21 / PrimeNG 21.
 **Document détaillé historique du Hub :** `../DECISIONS_ARCHITECTURE_ET_PLAN_MVP_HUB_CEEAC.md`  
 **Versionnement :** document canonique suivi dans `onehealth_backend/docs/project/`
@@ -346,6 +346,20 @@ PrimeNG que le shell. Les graphiques d'analyse, cartes de rapports, datalist pay
 composants cartographiques restent spécialisés lorsqu'un remplacement n'apporterait aucun gain.
 Le nettoyage associé supprime uniquement les anciens styles de contrôles et de badges dont le
 markup n'existe plus ; il ne modifie ni les services, ni les contrats REST, ni les règles de rôle.
+
+Le lot P4 introduit Playwright et Axe uniquement dans les dépendances de développement du Dashboard.
+Le serveur Angular de test s'exécute avec un seul worker navigateur pour rester déterministe sur les
+postes locaux. Toutes les routes `/api/**` sont interceptées par une fixture : elle réemploie les
+observations fictives du dépôt, ne connaît aucun secret réel et répond explicitement en erreur à un
+endpoint non simulé. Les tuiles externes sont également neutralisées pendant les tests. Captures,
+vidéos, traces et rapports restent hors Git.
+
+La couverture P4 porte sur les frontières critiques du navigateur : garde d'authentification,
+route Administration interdite au lecteur, jeton transmis aux API autorisées mais absent du stockage
+persistant, fil Rudolf volatil, routes métier, scénario/rapport, responsive mobile, premier rendu et
+WCAG automatisable. Elle ne remplace ni les tests backend d'autorisation, ni les tests de charge, ni
+une revue humaine d'accessibilité. Un environnement de préproduction isolé demeure nécessaire pour
+valider les intégrations réelles.
 
 Routes protégées : `/dashboard`, `/etat-membre`, `/carte`, `/alertes`, `/alertes/:id`, `/analyses`, `/rapports`, `/connecteurs`, `/souverainete`, `/administration`, `/aide` et `/profil`.
 

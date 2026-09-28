@@ -1,8 +1,8 @@
 # Product Requirements Document — One Health Network
 
-**Version :** 1.7
+**Version :** 1.8
 **Date de référence :** 22 août 2026  
-**Dernière mise à jour fonctionnelle :** 27 septembre 2026
+**Dernière mise à jour fonctionnelle :** 28 septembre 2026
 **Statut :** cadrage du produit existant et de sa cible  
 **Versionnement :** document canonique suivi dans `onehealth_backend/docs/project/`
 
@@ -312,3 +312,21 @@ futurs connecteurs réels, chaque mapper institutionnel devra convertir les code
 gravité canonique au moyen d'une règle validée, versionnée et traçable. Une valeur absente ou
 inconnue doit être rejetée ou placée en quarantaine pour revue, jamais classée silencieusement
 « faible ». Le démonstrateur conserve ses niveaux simulés explicitement marqués.
+
+## 14. Stabilisation P4 du Dashboard (28 septembre 2026)
+
+La phase P4 ajoute une suite Playwright exécutée dans Chromium et isolée de la production. Elle
+simule les contrats REST avec les données fictives versionnées, puis vérifie la connexion, les routes
+principales, les autorisations, le scénario et son rapport, Rudolf, la navigation mobile et le
+premier rendu. Les tests confirment également que le jeton reste dans la session du navigateur et
+que le fil Rudolf n'est pas persisté dans `localStorage`.
+
+Les règles WCAG A/AA automatisables sont contrôlées sur la landing, la connexion et le Dashboard.
+Les contrastes secondaires identifiés ont été renforcés. Ce contrôle automatique ne constitue ni un
+audit RGAA complet, ni un test au lecteur d'écran : la checklist de livraison conserve des essais
+manuels clavier, zoom, contraste élevé, réduction des animations et technologies d'assistance.
+
+Le seuil local de cinq secondes sur `DOMContentLoaded` protège seulement contre une régression
+grossière de la landing. Il ne prouve ni la capacité à 1 000 utilisateurs, ni la performance réseau
+de production ; ces deux affirmations exigent toujours une préproduction isolée et des mesures de
+charge dédiées.

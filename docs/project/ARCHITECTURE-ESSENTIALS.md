@@ -1,9 +1,9 @@
 # Architecture Essentials — revue critique
 
 **But :** conserver uniquement les décisions qui protègent le produit et obliger chaque revue à poser trois questions : qu’est-ce qui va casser, quels cas limites manquent, qu’avons-nous surconçu ?
-**Dernière synchronisation :** 27 septembre 2026.
+**Dernière synchronisation :** 28 septembre 2026.
 
-## 1. Les vingt-deux décisions critiques
+## 1. Les vingt-trois décisions critiques
 
 1. Deux frontends spécialisés partagent un backend NestJS commun.
 2. Les domaines communauté et Hub utilisent deux bases MongoDB logiques séparées.
@@ -47,6 +47,11 @@
     Alertes, Connecteurs, Souveraineté et Administration sans déplacer les décisions dans Angular.
     Le lot P3 étend uniquement cette cohérence visuelle aux vues secondaires et supprime le CSS
     devenu sans cible ; les cartes, graphiques et contrôles métier spécialisés restent locaux.
+23. La phase P4 protège les parcours navigateur avec Playwright et Axe, sur API fictive interceptée
+    localement et sans secret. Les contrôles de rôle côté interface, de session, de responsive et de
+    WCAG détectent les régressions, mais ne prouvent ni l'autorisation backend, ni la charge à 1 000
+    utilisateurs, ni une conformité RGAA complète. Ces preuves restent séparées et humaines lorsque
+    nécessaire.
 
 ## 2. Ce qui risque de casser en premier
 
