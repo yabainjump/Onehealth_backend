@@ -1,9 +1,9 @@
 # Architecture Essentials — revue critique
 
 **But :** conserver uniquement les décisions qui protègent le produit et obliger chaque revue à poser trois questions : qu’est-ce qui va casser, quels cas limites manquent, qu’avons-nous surconçu ?
-**Dernière synchronisation :** 28 septembre 2026.
+**Dernière synchronisation :** 30 septembre 2026.
 
-## 1. Les vingt-quatre décisions critiques
+## 1. Les vingt-cinq décisions critiques
 
 1. Deux frontends spécialisés partagent un backend NestJS commun.
 2. Les domaines communauté et Hub utilisent deux bases MongoDB logiques séparées.
@@ -57,6 +57,12 @@
     confirmation explicite, idempotence et quarantaine minimale sans payload brut. Une ingestion
     réussie produit uniquement des observations non vérifiées. Le simulateur n'effectue aucun appel
     réseau et ne manipule aucun secret.
+25. Les données de simulation décrivent le modèle canonique après normalisation, pas les payloads
+    natifs de DHIS2, ARIS 3 ou CAPC-AC. Aucun connecteur réel ne doit prétendre être compatible avant
+    d'avoir reçu le contrat et la version d'API, des exemples désensibilisés, les référentiels et le
+    mapping institutionnels, les règles de souveraineté et un environnement de test. Chaque famille
+    de contrat garde son adaptateur versionné ; une dérive inconnue est mise en quarantaine plutôt
+    que transformée silencieusement.
 
 ## 2. Ce qui risque de casser en premier
 

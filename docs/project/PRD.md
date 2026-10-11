@@ -1,8 +1,8 @@
 # Product Requirements Document — One Health Network
 
-**Version :** 1.9
+**Version :** 1.10
 **Date de référence :** 22 août 2026  
-**Dernière mise à jour fonctionnelle :** 28 septembre 2026
+**Dernière mise à jour fonctionnelle :** 30 septembre 2026
 **Statut :** cadrage du produit existant et de sa cible  
 **Versionnement :** document canonique suivi dans `onehealth_backend/docs/project/`
 
@@ -94,6 +94,7 @@ CAPC-AC ; le produit ne prétend pas reproduire ces API.
 - fil de publications, médias, hashtags, likes et commentaires ;
 - partage public de publications et profils avec métadonnées sociales ;
 - messagerie privée, pièces jointes et notifications ;
+- envoi au clavier dans les conversations : `Entrée` envoie et `Maj + Entrée` insère une nouvelle ligne ;
 - alertes communautaires géolocalisées, commentaires, filtres et carte ;
 - administration et modération ;
 - Rudolf spécialisé One Health avec historique privé et réponse progressive ;
@@ -120,6 +121,7 @@ CAPC-AC ; le produit ne prétend pas reproduire ces API.
 - assignation, vérification ou rejet humains ;
 - rapports opérationnels versionnés ;
 - Rudolf en lecture seule pour synthèse d’alerte, projet de rapport, explication multisectorielle et questions sur le périmètre autorisé ; l'assistant latéral présente un fil de session volatil, des suggestions et une écriture progressive sans persister cet historique dans le navigateur.
+- dans l'assistant latéral Rudolf, `Entrée` envoie le prompt et `Maj + Entrée` conserve un retour à la ligne ;
 - interfaces opérationnelles Alertes, Connecteurs, Souveraineté et Administration harmonisées avec le design system PrimeNG, tout en conservant la pagination serveur, les contrôles de rôle et la validation humaine existants.
 - vues secondaires État membre, Aide, Profil, Analyses et Rapports harmonisées avec les mêmes contrôles génériques PrimeNG ; les cartes, visualisations, règles métier, exports et autorisations restent des composants spécialisés.
 
@@ -135,6 +137,50 @@ CAPC-AC ; le produit ne prétend pas reproduire ces API.
 - tests de charge, pentest, revue juridique et homologation ;
 - stratégie de tuiles cartographiques compatible avec le trafic attendu ;
 - tests adversariaux de Rudolf, revue de résidence des données OpenRouter et mesure des coûts/quotas.
+
+#### 5.3.1. Préparation obligatoire des connecteurs institutionnels
+
+Les 165 observations actuelles et les fichiers du bac d'intégration représentent le **modèle
+canonique One Health attendu après normalisation**. Ils ne reproduisent pas les payloads natifs de
+DHIS2, ARIS 3 ou CAPC-AC et ne constituent donc pas une preuve de compatibilité avec ces plateformes.
+Chaque connecteur réel sera développé seulement après réception et validation des éléments suivants :
+
+- version exacte de la plateforme et documentation API correspondant à l'instance cible ;
+- convention de partage, responsable du traitement, pays autorisés, finalités, rétention et niveau
+  d'agrégation permis ;
+- environnement de test ou sandbox, méthode d'authentification, gestionnaire des secrets et procédure
+  de rotation/révocation ;
+- endpoints autorisés, exemples de réponses désensibilisés et description des erreurs ;
+- volumes, fréquence, pagination, limites de débit, délais, disponibilité attendue et mécanisme de
+  reprise après interruption ;
+- dictionnaire de données, nomenclatures, unités, identifiants, valeurs manquantes et règles de
+  correction ou suppression à la source ;
+- référentiel des organisations et zones administratives, codes pays, hiérarchie et géométries
+  officiellement utilisables ;
+- règles institutionnelles validées pour convertir les données sources en secteur, catégorie,
+  métrique, période, localisation et gravité canoniques ;
+- données de test couvrant doublons, corrections, suppressions, valeurs inconnues, retards, erreurs
+  partielles et changement de schéma.
+
+Pour DHIS2, l'équipe devra d'abord déterminer le ou les contrats réellement exposés par l'instance :
+
+- données agrégées `dataValueSets` : identifiants de data elements, périodes, unités
+  d'organisation, combinaisons de catégories et valeurs souvent sérialisées en chaînes ;
+- événements Tracker : programme, étape, unité d'organisation, date d'événement, géométrie et liste
+  de `dataValues` ;
+- Analytics : métadonnées, en-têtes et lignes tabulaires agrégées.
+
+Le type de flux, les datasets/programmes autorisés et leurs UID devront être fournis par chaque
+institution. Le pays, la zone administrative, la gravité, le titre et le résumé ne doivent pas être
+inventés à partir d'un payload : ils proviennent d'un référentiel ou d'une règle de mapping validée,
+versionnée et auditable. Aucun identifiant de patient, nom ou donnée nominative ne doit entrer dans
+le Hub ; une éventuelle source Tracker doit être limitée aux événements et champs explicitement
+autorisés.
+
+ARIS 3 et CAPC-AC suivront le même processus sans présumer leur format : API, export, CSV ou GeoJSON
+devront être confirmés contractuellement. Pour chaque source, les critères de fin comprennent des
+fixtures fidèles mais désensibilisées, des tests de contrat, de dérive de schéma, d'idempotence, de
+reprise et de souveraineté, ainsi qu'une campagne en préproduction avant toute donnée réelle.
 
 ### 5.4. P2 après validation du pilote
 
@@ -254,7 +300,8 @@ Une fonctionnalité est terminée seulement si :
 
 - pays et institutions du premier pilote ;
 - propriétaire juridique du traitement et localisation d’hébergement ;
-- nomenclatures officielles et contrats de données ;
+- versions des plateformes, familles d'API, endpoints, exemples désensibilisés et sandbox disponibles ;
+- datasets, programmes, UID, nomenclatures officielles et contrats de données par institution ;
 - fréquence de synchronisation par source ;
 - procédure de validation des règles de détection ;
 - politique de conservation et de suppression ;

@@ -1,7 +1,7 @@
 # Architecture — One Health Network
 
 **Version :** 2.0
-**Synchronisation code :** 28 septembre 2026 (Angular 21 / PrimeNG 21 ; OpenRouter ; P4)
+**Synchronisation code :** 30 septembre 2026 (lot 008 et préparation des contrats institutionnels)
 **État inspecté :** backend et frontend communautaire inchangés ; Dashboard migré localement vers Angular 21 / PrimeNG 21.
 **Document détaillé historique du Hub :** `../DECISIONS_ARCHITECTURE_ET_PLAN_MVP_HUB_CEEAC.md`  
 **Versionnement :** document canonique suivi dans `onehealth_backend/docs/project/`
@@ -247,6 +247,44 @@ Le simulateur de connecteur met à jour seulement un connecteur `isDemo` autoris
 `HubIngestionRun` déterministe selon le scénario choisi. Il ne contacte aucun réseau et n'utilise
 aucune authentification fournisseur. Les adaptateurs DHIS2/ARIS 3/CAPC-AC réels restent différés
 jusqu'à réception de contrats officiels.
+
+### 6.2. Architecture cible des adaptateurs institutionnels
+
+Le format canonique du Hub est la **sortie** des adaptateurs, jamais une hypothèse sur le format
+natif d'une plateforme. Le flux cible est le suivant :
+
+```text
+Réponse native autorisée
+  -> conservation brute exacte et protégée selon la politique applicable
+  -> validation du contrat fournisseur et détection de dérive
+  -> résolution des métadonnées et référentiels institutionnels
+  -> mapping institution/version configuré et versionné
+  -> validation canonique + contrôle de souveraineté et géographie
+  -> acceptation idempotente ou quarantaine motivée
+  -> Observation One Health non vérifiée
+```
+
+Un adaptateur réel est propre à une famille de contrat et à sa version. Il ne doit pas être un
+parseur universel devinant la structure d'une réponse. Les secrets fournisseur restent côté backend,
+hors base métier, journaux et frontend. Le connecteur conserve l'identifiant source, l'instance, le
+pays, la version de contrat et de mapping, la date d'extraction, le curseur de synchronisation et le
+checksum nécessaires à l'audit et à la déduplication.
+
+Pour DHIS2, trois formes natives doivent être traitées comme des contrats distincts lorsqu'elles sont
+effectivement autorisées : `dataValueSets` agrégés, événements Tracker et réponses Analytics
+`headers/rows/metaData`. Les UID de data elements, programmes, étapes, category option combos et
+unités d'organisation sont résolus depuis les métadonnées approuvées ; les dates de période et la
+hiérarchie géographique suivent une règle institutionnelle explicite. Le code pays et la gravité ne
+sont jamais déduits silencieusement. Tracker est limité aux événements et champs minimaux autorisés ;
+les personnes suivies, noms et identifiants patients sont hors périmètre du Hub.
+
+Avant de coder un adaptateur DHIS2, ARIS 3 ou CAPC-AC, il faut disposer de la version de plateforme,
+la documentation correspondante, une sandbox, l'authentification, les endpoints et périmètres
+autorisés, des payloads désensibilisés, les référentiels, les règles de mapping, les limites de débit,
+la pagination, les mécanismes de correction/suppression et les attentes de disponibilité. La recette
+comprend fixtures fidèles, tests de contrat et de dérive de schéma, reprise après erreur partielle,
+idempotence, rotation/révocation des secrets, contrôle du périmètre pays et métriques d'ingestion.
+Le passage en production exige en plus les accords de partage et une validation en préproduction.
 
 ## 7. Authentification, rôles et souveraineté
 
@@ -664,6 +702,7 @@ Les tests doivent être ciblés pendant le développement puis élargis selon le
 | ADR-16 | Scénario borné à deux États CEEAC et 90 jours ; trois flux imposés et configuration auditée | implémenté |
 | ADR-17 | Angular 21 + PrimeNG 21 progressifs pour l'UI générique ; Leaflet et logique métier conservés | implémentation progressive |
 | ADR-18 | Bac d'intégration simulé avec aperçu, quarantaine et confirmation ; aucun faux adaptateur institutionnel | implémenté |
+| ADR-19 | Le modèle canonique est la sortie des adaptateurs ; chaque contrat fournisseur/version possède un mapping validé avant intégration réelle | planifié, contrats institutionnels requis |
 
 ### Rapport de fin de scénario — 23 septembre 2026
 
@@ -754,6 +793,7 @@ Ce lot ne certifie ni 1 000 utilisateurs concurrents ni l'absence de vulnérabil
 Preuves et réserves dans la fiche de validation de la spécification.
 
 - vrais contrats de connecteurs et gestion des secrets par institution ;
+- adaptateurs séparés pour les contrats réellement fournis (dont DHIS2 `dataValueSets`, Tracker ou Analytics), avec fixtures désensibilisées et tests de dérive ;
 - frontières GeoJSON, validation pays/coordonnées, clustering serveur optionnel et requêtes `bbox` pour les volumes institutionnels ;
 - exercices d'intégration réels des limiteurs partagés, du bail Rudolf et du média commun ;
 - stockage objet/CDN si plusieurs serveurs ou gros volumes média ;
