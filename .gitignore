@@ -21,7 +21,7 @@ temp/
 # Secrets and local env
 .env
 .env.*
-!.env.example
+.env.example
 secrets/
 # Local load credentials and measurement artifacts (never deployed or committed)
 scripts/load/*.identities.json
